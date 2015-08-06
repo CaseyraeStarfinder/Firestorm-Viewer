@@ -1,0 +1,626 @@
+// HTTP Bridge script v.2.18
+// Firestorm
+// Tozh Taurog, Arrehn Oberlander, Tonya Souther
+
+//
+// Global Variables and CONSTANTS
+//
+
+    // Bridge platform
+    string  bridgeAuth = "BRIDGEKEY";  // Filled in dynamically
+    string  bridgeVersion = "2.18";    // This should match fslslbridge.cpp
+    string  latestURL;
+    integer viewerIsFirestorm;
+    integer tryHandshakeOnce = TRUE;
+    integer useHTTPS = FALSE;
+    key owner;
+
+    // Teleport
+    float   TP_TARGET_DISTANCE = 1.0;// Distance to target when move to target should stop
+    integer MAX_TIME_TO_TP = 10;     // (seconds) should be set to 10 for normal use
+    float   TP_TIMER_TICK = 0.05;
+    vector  mttVector;               // Target for llMoveToTarget() teleport
+    integer startTPTimer;
+
+    // Movelock
+    integer useMoveLock = FALSE;
+    integer relockMoveLockAfterMovement = FALSE;
+    integer relockIsUserMoving = FALSE;
+
+    // Flight assist
+    integer isFlyingNow = -1;
+    float flightAssistPushForce = 0.0;
+    float flightAirCheckNormal = 1.0;
+    float flightAirCheckSlow = 5.0;
+
+    // OpenCollar/LockMeister AO interface
+    integer aoEnabledOC = FALSE;
+    integer aoEnabledLM = FALSE;
+    integer aoChannelOC;
+    integer aoChannelLM = -8888;
+    integer aoListenerOC = -1;
+    integer aoListenerLM = -1;
+    key     aoCollarKey = NULL_KEY;
+
+//
+// Bridge platform helper functions
+//
+
+    requestBridgeURL()
+    {
+        llReleaseURL(latestURL);
+        latestURL = "";
+        if (useHTTPS)
+        {
+            llRequestSecureURL();
+        }
+        else
+        {
+            llRequestURL();
+        }
+    }
+
+    detachBridge()
+    {
+        llReleaseURL(latestURL);
+        llRequestPermissions(owner, PERMISSION_ATTACH);
+    }
+
+//
+// OpenCollar/LockMeister AO interface functions
+//
+
+    aoListenOC(key collarid, integer enabled)
+    {
+        llListenRemove(aoListenerOC);
+        if (enabled)
+        {
+            aoListenerOC = llListen(aoChannelOC, "", collarid, "");
+            aoCollarKey = collarid;
+        }
+        else
+        {
+            aoCollarKey = NULL_KEY;
+        }
+    }
+
+    aoState(string newstate)
+    {
+        llOwnerSay("<clientAO state="+newstate+">");
+    }
+
+    integrationCheckOC()
+    {
+        if (aoEnabledOC)
+        {
+            aoListenOC(NULL_KEY, TRUE);
+            llWhisper(aoChannelOC, "OpenCollar?");
+        }
+        else
+        {
+            aoListenOC(NULL_KEY, FALSE);
+        }
+    }
+
+    integrationCheckLM()
+    {
+        if (aoEnabledLM)
+        {
+            aoListenerLM = llListen(aoChannelLM, "", NULL_KEY, "");
+        }
+        else
+        {
+            llListenRemove(aoListenerLM);
+        }
+    }
+
+//
+// Teleport Helper functions
+//
+
+    setTimerEvent2(float time)
+    {
+        if (time <= 0)
+        {
+            llSensorRemove();
+        }
+        else
+        {
+            llSensorRepeat("set-Timer-Event-2", NULL_KEY, AGENT_BY_LEGACY_NAME, 0.001, 0.001, time);
+        }
+    }
+
+    tpMoveStep()
+    {
+        vector loc = llGetPos();
+        vector targ = mttVector - loc;
+        float dist = llVecMag(targ);
+
+        // llOwnerSay("current: " + (string)loc + " target: " + (string)targ + " tp distance: " + (string)dist);
+
+        // If we are out of time or distance - stop
+        if ((dist < TP_TARGET_DISTANCE) || (llGetUnixTime() - MAX_TIME_TO_TP > startTPTimer) || (mttVector == loc))
+        {
+            setTimerEvent2(0);
+            movelock_init(useMoveLock); // llStopMoveToTarget() if FALSE, lock on place if TRUE
+        }
+        else
+        {
+            if (dist < 65)
+            {
+                // llOwnerSay("One jump to :" + (string)mttVector);
+                llMoveToTarget(mttVector, TP_TIMER_TICK);
+            }
+            else
+            {
+                // llOwnerSay("Multiple jump to :" + (string)(loc+llVecNorm(targ)*60));
+                llMoveToTarget(loc+llVecNorm(targ)*60, TP_TIMER_TICK);
+            }
+        }
+
+    }
+
+//
+// Flight Assist
+//
+
+    flight_hover(integer yes)
+    {
+        if (yes)
+        {
+            llSetForce((<0.0, 0.0, 9.8> * llGetMass()), 0);
+        }
+        else
+        {
+            llSetForce(ZERO_VECTOR, 0);
+        }
+    }
+
+//
+// Movelock
+//
+
+    movelock_init(integer lock)
+    {
+        if (lock)
+        {
+            llMoveToTarget(llGetPos() - <0, 0, 0.1>, 0.05);
+            llSetVehicleType(VEHICLE_TYPE_SLED);
+            llSetVehicleFloatParam(VEHICLE_LINEAR_FRICTION_TIMESCALE, 0.05);
+            llSetVehicleFloatParam(VEHICLE_ANGULAR_FRICTION_TIMESCALE, 0.05);
+        }
+        else
+        {
+            llStopMoveToTarget();
+            llSetVehicleType(VEHICLE_TYPE_NONE);
+        }
+    }
+
+//
+// MAIN
+//
+
+default
+{
+
+    on_rez(integer i)
+    {
+        // We don't want to be rezzed without being attached. Insure we don't create litter.
+        llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_TEMP_ON_REZ, TRUE]);
+    }
+
+    attach(key k)
+    // Initialize bridge functionality when worn as an attachment
+    {
+        if (k != NULL_KEY)
+        {
+
+            // Set owner and request control perms
+            owner = llGetOwner();
+            llRequestPermissions(owner, PERMISSION_TAKE_CONTROLS);
+
+            // Assume everything is disabled for now and synchronize later with the viewer via HTTP
+            useMoveLock = FALSE;
+            flightAssistPushForce = 0.0;
+            isFlyingNow = -1;
+            aoEnabledOC = FALSE;
+            aoEnabledLM = FALSE;
+
+            // Disable all secondary stateful services
+            setTimerEvent2(0);
+            llSetTimerEvent(0);
+            flight_hover(FALSE);
+            movelock_init(FALSE);
+
+            // Check VM version
+            if (llGetMemoryLimit() <= 16384)
+            {
+                llOwnerSay("<bridgeError error=wrongvm>");
+            }
+
+            // Set the channel for the AO OC interface
+            aoChannelOC = (integer)("0x" + llGetSubString(owner, 30, -1));
+            if (aoChannelOC > 0)
+            {
+                aoChannelOC = -aoChannelOC;
+            }
+
+            // Remove previous AO listeners if present
+            integrationCheckOC();
+            integrationCheckLM();
+
+            // Assume the worst and let the viewer convince us otherwise
+            tryHandshakeOnce = TRUE;
+            viewerIsFirestorm = FALSE;
+            requestBridgeURL();
+
+        }
+    }
+
+    run_time_permissions(integer i)
+    {
+        if (i & PERMISSION_TAKE_CONTROLS)
+        {
+            // This also cause the script to work in no-script sims
+            llTakeControls(CONTROL_FWD | CONTROL_BACK | CONTROL_LEFT | CONTROL_RIGHT | CONTROL_UP | CONTROL_DOWN, TRUE, TRUE);
+        }
+        else if (i & PERMISSION_ATTACH)
+        {
+            llDetachFromAvatar();
+        }
+    }
+
+    control(key id, integer level, integer edge)
+    {
+
+        if (useMoveLock && relockMoveLockAfterMovement)
+        {
+            if (level & (CONTROL_FWD | CONTROL_BACK | CONTROL_LEFT | CONTROL_RIGHT | CONTROL_UP | CONTROL_DOWN))
+            {
+                if (!relockIsUserMoving)
+                {
+                    relockIsUserMoving = TRUE;
+                    movelock_init(FALSE);
+                }
+            }
+            else if (relockIsUserMoving)
+            {
+                relockIsUserMoving = FALSE;
+                movelock_init(TRUE);
+            }
+        }
+
+        if (flightAssistPushForce > 0 && isFlyingNow)
+        {
+            if (level & (CONTROL_FWD | CONTROL_BACK | CONTROL_LEFT | CONTROL_RIGHT | CONTROL_UP | CONTROL_DOWN))
+            {
+                vector pushingForce = ZERO_VECTOR;
+                // Forward / back
+                if (level & CONTROL_FWD)
+                {
+                    pushingForce += <flightAssistPushForce, 0, 0>;
+                }
+                else if (level & CONTROL_BACK)
+                {
+                    pushingForce += <-flightAssistPushForce, 0, 0>;
+                }
+                // Left / right
+                if (level & CONTROL_LEFT)
+                {
+                    pushingForce += <0, flightAssistPushForce, 0>;
+                }
+                else if (level & CONTROL_RIGHT)
+                {
+                    pushingForce += <0, -flightAssistPushForce, 0>;
+                }
+                // Up / down
+                if (level & CONTROL_UP)
+                {
+                    pushingForce += <0, 0, flightAssistPushForce>;
+                }
+                else if (level & CONTROL_DOWN)
+                {
+                    pushingForce += <0, 0, -flightAssistPushForce>;
+                }
+                llApplyImpulse(pushingForce, 1);
+            }
+        }
+
+    }
+
+    changed(integer change)
+    {
+        if (change & CHANGED_REGION)
+        {
+            requestBridgeURL();
+        }
+        else if (change & (CHANGED_INVENTORY | CHANGED_ALLOWED_DROP))
+        {
+            // Try and resist "accidental" damage from other scripts
+            // Reset persistent prim attributes frequently set via scripts, try and stop other scripts
+            string myName = llGetScriptName();
+            integer n = llGetInventoryNumber(INVENTORY_SCRIPT);
+            if (n > 1)
+            {
+                llOwnerSay("<bridgeError error=injection>");
+                llSleep(1.0);
+                while(n)
+                {
+                    string s = llGetInventoryName(INVENTORY_SCRIPT, --n);
+                    if (s != myName)
+                        llSetScriptState(s, FALSE);
+                }
+            }
+            llParticleSystem([]);
+            llSetTextureAnim(FALSE, ALL_SIDES, 1, 1, 1.0, 1.0, 1.0);
+            llAllowInventoryDrop(FALSE);
+            llSetTorque(ZERO_VECTOR, 0);
+            flight_hover(FALSE);
+            isFlyingNow = -1;
+            movelock_init(useMoveLock);
+        }
+        else if (change & CHANGED_OWNER)
+        {
+            llResetScript();
+        }
+    }
+
+    timer()
+    {
+        if (llGetAgentInfo(owner) & AGENT_FLYING)
+        {
+            if (isFlyingNow != TRUE)
+            {
+                isFlyingNow = TRUE;
+                flight_hover(TRUE);
+                llSetTimerEvent(flightAirCheckNormal);
+            }
+        }
+        else if (isFlyingNow != FALSE)
+        {
+            isFlyingNow = FALSE;
+            flight_hover(FALSE);
+            llSetTimerEvent(flightAirCheckSlow);
+        }
+    }
+
+    no_sensor()
+    {
+        // Used for TP timer only
+        // no_sensor() is used as a second timer() along with setTimerEvent2(), because lightweight llSensorRepeat() query is using impossible to meet requirements
+        tpMoveStep();
+    }
+
+    http_request(key httpReqID, string Method, string Body)
+    {
+        // llOwnerSay("Received HTTP " + Method + " message. Command body: " + Body);
+        if (Method == URL_REQUEST_GRANTED)
+        {
+            latestURL = Body;
+            if (viewerIsFirestorm || tryHandshakeOnce)
+            {
+                // Firestorm viewer and handshake
+                llOwnerSay("<bridgeURL>" + latestURL + "</bridgeURL><bridgeAuth>" + bridgeAuth + "</bridgeAuth><bridgeVer>" + bridgeVersion + "</bridgeVer>");
+                tryHandshakeOnce = FALSE;
+            }
+            else
+            {
+                // We're in a wrong viewer, just sit quietly and call llDetachFromAvatar();
+                // This place is reached via CHANGED_REGION - when viewerIsFirestorm is still not Firestorm and handshake was already done (tryHandshakeOnce is FALSE)
+                detachBridge();
+            }
+        }
+        else if (Method == URL_REQUEST_DENIED)
+        {
+            // No URLs free! Keep trying?
+            llSleep(5);
+            requestBridgeURL();
+        }
+        else if (Method == "GET" || Method == "POST")
+        {
+
+            // Remove the <llsd><string> ... </string></llsd> wrapper
+            list commandList = llParseString2List(llGetSubString(Body, 14, llStringLength(Body) - 18), ["|"], []);
+            string cmd = llList2String(commandList, 0);
+
+            // Large If statement for command processing. Shame on you, LSL!
+            if (cmd == "getZOffsets")
+            {
+
+                // Radar-specific command to get high-rez altitude data.
+                // Input is list of UUIDs to query, output is list of UUID:Altitude pairs.
+
+                // Get parameters
+                list    tUUIDs = llCSV2List(llList2String(commandList, 1));
+                commandList = []; // Free memory
+                integer tLength = llGetListLength(tUUIDs);
+                key     tUUID; // Key for llGetobjectDetails()
+                vector  tPos;
+                integer i = 0;
+                list    responses;
+
+                for (i = 0; i < tLength; ++i)
+                {
+                    tUUID = (key)llList2String(tUUIDs, i);
+                    tPos = llList2Vector(llGetObjectDetails(tUUID, ([OBJECT_POS])), 0);
+                    if (tPos.z > 1023) // We only care about results at higher altitudes.
+                    {
+                        responses = responses + tUUID + tPos.z; // Optimized for Mono-LSL
+                    }
+                }
+                tUUIDs = []; // Free memory
+                string body = "<llsd><string>" + llList2CSV(responses) + "</string></llsd>";
+                responses = []; // Free memory
+                llHTTPResponse(httpReqID, 200, body);
+                return;
+
+            }
+
+            else if (cmd == "UseMoveLock")
+            {
+                useMoveLock = llList2Integer(commandList, 1);
+                movelock_init(useMoveLock);
+                llOwnerSay("<bridgeMovelock state=" + (string)useMoveLock + ">");
+            }
+
+            else if (cmd == "llMoveToTarget")
+            {
+
+                if (llList2String(commandList, 2) == "1")
+                {
+                    // llMoveToTarget teleports are disabled for Second Life grids
+                    llHTTPResponse(httpReqID, 200, "<llsd><string>ok</string></llsd>");
+                    return;
+                }
+
+                // Pause movelock for now, if present
+                if (useMoveLock)
+                {
+                    movelock_init(FALSE);
+                }
+
+                // Get parameters
+                string params = "<" + llList2String(commandList, 1) + ">";
+                mttVector = (vector)params;
+                vector relpos = mttVector - llGetPos();
+                float groundLevel = llGround(relpos);
+                if (mttVector.z < groundLevel) // Trying to go underground? I think not!
+                {
+                    mttVector.z = groundLevel + 1;
+                }
+                startTPTimer = llGetUnixTime();
+
+                // TP commands immediately configure a TP timer consumer
+                setTimerEvent2(TP_TIMER_TICK);
+
+            }
+
+            else if (cmd == "getScriptInfo")
+            {
+                list details = llGetObjectDetails(llList2Key(commandList, 1), ([OBJECT_NAME, OBJECT_RUNNING_SCRIPT_COUNT, OBJECT_TOTAL_SCRIPT_COUNT, OBJECT_SCRIPT_MEMORY, OBJECT_SCRIPT_TIME, OBJECT_CHARACTER_TIME]));
+                if (llGetListLength(details) == 6)
+                {
+                    llOwnerSay("<bridgeGetScriptInfo>" + llList2CSV([llStringToBase64(llStringTrim(llList2String(details, 0), STRING_TRIM)), llList2String(details, 1), llList2String(details, 2), llList2Integer(details, 3) / 1024, llList2Float(details, 4) * 1000.0, llList2Float(details, 5) * 1000.0]) + "</bridgeGetScriptInfo>");
+                }
+                else
+                {
+                    llOwnerSay("<bridgeError error=scriptinfonotfound>");
+                }
+            }
+
+            else if (cmd == "UseLSLFlightAssist")
+            {
+                float speed = llList2Float(commandList, 1);
+                if (speed != flightAssistPushForce)
+                {
+                    flightAssistPushForce = speed;
+                    if (flightAssistPushForce > 0)
+                    {
+                        if (flightAssistPushForce > 5.0)
+                        {
+                            // No lightspeed please!
+                            flightAssistPushForce = 5.0;
+                        }
+                        llSetTimerEvent(flightAirCheckNormal);
+                    }
+                    else
+                    {
+                        llSetTimerEvent(0);
+                        flight_hover(FALSE);
+                    }
+                }
+            }
+
+            else if (cmd == "RelockMoveLockAfterMovement")
+            {
+                relockMoveLockAfterMovement = llList2Integer(commandList, 1);
+            }
+
+            else if (cmd == "ExternalIntegration")
+            {
+                integer integrationOpenCollar = llList2Integer(commandList, 1);
+                integer integrationLockMeister = llList2Integer(commandList, 2);
+                if (integrationOpenCollar != aoEnabledOC)
+                {
+                    aoEnabledOC = integrationOpenCollar;
+                    integrationCheckOC();
+                }
+                if (integrationLockMeister != aoEnabledLM)
+                {
+                    aoEnabledLM = integrationLockMeister;
+                    integrationCheckLM();
+                }
+            }
+
+            else if (cmd == "URL Confirmed")
+            {
+                // We're in the right viewer, go on.
+                viewerIsFirestorm = TRUE;
+            }
+
+            else if (cmd == "DetachBridge")
+            {
+                // HTTP request from the viewer to immediately detach LSL-Client Bridge
+                // This can be passed as a response to llOwnerSay("<bridgeURL> ... </bridgeVer>") handshake right after granting URL by a region
+                // If bridge doesn't receive "URL Confirmed" message as a reply to handshake it'll automatically detach after next region change anyway
+                detachBridge();
+            }
+
+            // Acknowledgment of receipt for all commands, which are not sending back HTTP response for FSLSLBridgeRequestResponder
+            llHTTPResponse(httpReqID, 200, "<llsd><string>ok</string></llsd>");
+
+        }
+    }
+
+    listen(integer fromChan, string senderName, key senderID, string msg)
+    {
+        // llOwnerSay("listen() from "+senderName+" msg: "+msg);
+
+        if (fromChan == aoChannelOC)     // OpenCollar AO interface
+        {
+            integer zhaoPos;
+            if ((aoCollarKey == NULL_KEY) &&    // No collar paired yet
+                (msg == "OpenCollar=Yes"))      // A collar is saying hello
+            {
+                aoListenOC(senderID, TRUE);     // Pair with it
+            }
+            else if (msg == "OpenCollar=No")    // Collar signing off
+            {
+                aoListenOC(NULL_KEY, TRUE);     // Unpair with it
+            }
+            else if ((zhaoPos = llSubStringIndex(msg, "ZHAO_")) >= 0)
+            {
+                zhaoPos += 5;               // Skip past prefix
+                if ((llGetSubString(msg, zhaoPos, zhaoPos+4) == "AOOFF") ||
+                    (llGetSubString(msg, zhaoPos, zhaoPos+7) == "STANDOFF"))
+                {
+                    aoState("off");
+                }
+                else if ((llGetSubString(msg, zhaoPos, zhaoPos+3) == "AOON") ||
+                    (llGetSubString(msg, zhaoPos, zhaoPos+6) == "STANDON"))
+                {
+                    aoState("on");
+                }
+            }
+        } // End OpenCollar AO interface listen handler
+
+        else if (fromChan == aoChannelLM)        // LockMeister AO interface
+        {
+            key lmtarget = (key)llGetSubString(msg, 0, 35);
+            list templist = llParseStringKeepNulls(llGetSubString(msg, 36, -1), [ "|" ], []);
+            string command = llList2String(templist, 0);
+            if (lmtarget == owner)
+            {
+                if (command == "booton")
+                {
+                    aoState("on");
+                }
+                else if (command == "bootoff")
+                {
+                    aoState("off");
+                }
+            }
+        } // End LockMeister AO interface listen handler
+    } // End listen
+
+}

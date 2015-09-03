@@ -81,6 +81,7 @@ void LLWearableList::getAsset(const LLAssetID& assetID, const std::string& weara
 	LLViewerWearable* instance = get_if_there(mList, assetID, (LLViewerWearable*)NULL );
 	if( instance )
 	{
+		LL_DEBUGS("Avatar") << "wearable " << assetID << " found in LLWearableList" << LL_ENDL;
 		asset_arrived_callback( instance, userdata );
 	}
 	else
@@ -116,7 +117,7 @@ void LLWearableList::processGetAssetReply( const char* filename, const LLAssetID
 	}
 // [/SL:KB]
 	LLAvatarAppearance *avatarp = data->mAvatarp;
-
+	
 	if( !filename )
 	{
 		LL_WARNS("Wearable") << "Bad Wearable Asset: missing file." << LL_ENDL;

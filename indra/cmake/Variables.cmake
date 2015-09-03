@@ -9,6 +9,8 @@
 #   LINUX   - Linux
 #   WINDOWS - Windows
 
+set(NDTARGET_ARCH "x86" CACHE STRING "Build 64 or 32 bit viewer. Defaults to 32 bit.")
+
 if( ${NDTARGET_ARCH} STREQUAL "x64" )
   set( ND_BUILD64BIT_ARCH ON )
 elseif( ${NDTARGET_ARCH} STREQUAL "universal" )
@@ -32,6 +34,16 @@ set(VIEWER_PREFIX)
 set(INTEGRATION_TESTS_PREFIX)
 set(LL_TESTS OFF CACHE BOOL "Build and run unit and integration tests (disable for build timing runs to reduce variation")
 set(INCREMENTAL_LINK OFF CACHE BOOL "Use incremental linking on win32 builds (enable for faster links on some machines)")
+
+# <FS:ND> When building for Linux x64 we enable building the media plugins, in all other cases we use the prebuild 32 bit packages
+# set(ENABLE_MEDIA_PLUGINS OFF CACHE BOOL "Turn off building media plugins if they are imported by third-party library mechanism")
+
+if (ND_BUILD64BIT_ARCH AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux" )
+  set( ENABLE_MEDIA_PLUGINS ON CACHE FORCE "Build with media plugins" )
+else (ND_BUILD64BIT_ARCH AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux" )
+  set(ENABLE_MEDIA_PLUGINS OFF CACHE BOOL "Turn off building media plugins if they are imported by third-party library mechanism")
+endif (ND_BUILD64BIT_ARCH AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux" )
+# </FS:ND>
 
 if(LIBS_CLOSED_DIR)
   file(TO_CMAKE_PATH "${LIBS_CLOSED_DIR}" LIBS_CLOSED_DIR)
@@ -138,43 +150,20 @@ endif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(DARWIN 1)
   
-  execute_process(
-    COMMAND sh -c "xcodebuild -version | grep Xcode  | cut -d ' ' -f2 | cut -d'.' -f1-2"
-    OUTPUT_VARIABLE XCODE_VERSION )
+  # now we only support Xcode 6.0 using 10.9 (Mavericks), minimum OS 10.7 (Lion)
+  set(XCODE_VERSION 6.0)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.7)
+  set(CMAKE_OSX_SYSROOT macosx10.9)
 
-  # To support a different SDK update these Xcode settings:
-  if (XCODE_VERSION GREATER 4.9) # (Which would be 5.0+)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET 10.8)
-	set(CMAKE_OSX_SYSROOT macosx10.9)
-  else (XCODE_VERION GREATER 4.9)
-  if (XCODE_VERSION GREATER 4.5)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET 10.7)
-    set(CMAKE_OSX_SYSROOT macosx10.8)
-  else (XCODE_VERSION GREATER 4.5)
-  if (XCODE_VERSION GREATER 4.2)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET 10.6)
-    set(CMAKE_OSX_SYSROOT macosx10.7)
-  else (XCODE_VERSION GREATER 4.2)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET 10.6)
-    set(CMAKE_OSX_SYSROOT macosx10.7)
-  endif (XCODE_VERSION GREATER 4.2)
-  endif (XCODE_VERSION GREATER 4.5)
-  endif (XCODE_VERSION GREATER 4.9)
+  set(CMAKE_XCODE_ATTRIBUTE_GCC_VERSION "com.apple.compilers.llvm.clang.1_0")
+  set(CMAKE_XCODE_ATTRIBUTE_GCC_OPTIMIZATION_LEVEL 3)
+  set(CMAKE_XCODE_ATTRIBUTE_GCC_STRICT_ALIASING NO)
+  set(CMAKE_XCODE_ATTRIBUTE_GCC_FAST_MATH NO)
+  set(CMAKE_XCODE_ATTRIBUTE_CLANG_X86_VECTOR_INSTRUCTIONS ssse3)
+  set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libstdc++")
+  set(CMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT dwarf-with-dsym)
 
-  # LLVM-GCC has been removed in Xcode5
-  if (XCODE_VERSION GREATER 4.9)
-    set(CMAKE_XCODE_ATTRIBUTE_GCC_VERSION "com.apple.compilers.llvm.clang.1_0")
-  else (XCODE_VERSION GREATER 4.9)
-    set(CMAKE_XCODE_ATTRIBUTE_GCC_VERSION "com.apple.compilers.llvmgcc42")
-  endif (XCODE_VERSION GREATER 4.9)
-
-  if (LL_RELEASE_FOR_DOWNLOAD)
-    set(CMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT dwarf-with-dsym)
-  else (LL_RELEASE_FOR_DOWNLOAD)
-    set(CMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT dwarf)
-  endif (LL_RELEASE_FOR_DOWNLOAD)
-
-  # Build only for i386 by default, system default on MacOSX 10.6 is x86_64
+  # Build only for i386 by default, system default on MacOSX 10.6+ is x86_64
   if (NOT CMAKE_OSX_ARCHITECTURES)
     set(CMAKE_OSX_ARCHITECTURES "i386")
     if(ND_BUILD64BIT_ARCH)
@@ -185,19 +174,13 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     endif(OSX_UNIVERSAL_ARCH)
   endif (NOT CMAKE_OSX_ARCHITECTURES)
 
-  if (CMAKE_OSX_ARCHITECTURES MATCHES "ppc")
-    error("Can't build on PowerPC. You need an upgrade.")
-  endif (CMAKE_OSX_ARCHITECTURES MATCHES "ppc")
-
-  set(ARCH i386)
+  set(ARCH ${CMAKE_OSX_ARCHITECTURES})
   if(ND_BUILD64BIT_ARCH)
     set(ARCH x86_64)
   endif(ND_BUILD64BIT_ARCH)
   if(OSX_UNIVERSAL_ARCH)
     set(ARCH universal)
   endif(OSX_UNIVERSAL_ARCH)
-# [/FS:CR]
-
   set(LL_ARCH ${ARCH}_darwin)
   set(LL_ARCH_DIR universal-darwin)
   if(ND_BUILD64BIT_ARCH)
@@ -216,13 +199,11 @@ set(GRID agni CACHE STRING "Target Grid")
 set(FLICKR_API_KEY "daaabff93a967e0f37fa18863bb43b29")
 set(FLICKR_API_SECRET "846f0958020b553e") 
 
-if (XCODE_VERSION GREATER 4.2)
-  set(ENABLE_SIGNING OFF CACHE BOOL "Enable signing the viewer")
-  set(SIGNING_IDENTITY "" CACHE STRING "Specifies the signing identity to use, if necessary.")
-endif (XCODE_VERSION GREATER 4.2)
+set(ENABLE_SIGNING OFF CACHE BOOL "Enable signing the viewer")
+set(SIGNING_IDENTITY "" CACHE STRING "Specifies the signing identity to use, if necessary.")
 
 set(VERSION_BUILD "0" CACHE STRING "Revision number passed in from the outside")
-set(STANDALONE OFF CACHE BOOL "Do not use Linden-supplied prebuilt libraries.")
+set(USESYSTEMLIBS OFF CACHE BOOL "Use libraries from your system rather than Linden-supplied prebuilt libraries.")
 set(UNATTENDED OFF CACHE BOOL "Should be set to ON for building with VC Express editions.")
 
 set(USE_PRECOMPILED_HEADERS ON CACHE BOOL "Enable use of precompiled header directives where supported.")

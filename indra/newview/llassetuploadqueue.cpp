@@ -38,6 +38,7 @@
 
 class LLAssetUploadChainResponder : public LLUpdateTaskInventoryResponder
 {
+	LOG_CLASS(LLAssetUploadChainResponder);
 public:
 	
 	LLAssetUploadChainResponder(const LLSD& post_data,
@@ -53,52 +54,54 @@ public:
 		mDataSize(data_size),
 		mScriptName(script_name)
 	{
- 	}
+	}
 
 	virtual ~LLAssetUploadChainResponder() 
-   	{
-   		if(mSupplier)
-   		{
-   			LLAssetUploadQueue *queue = mSupplier->get();
-   			if (queue)
-   			{
-   				// Give ownership of supplier back to queue.
-   				queue->mSupplier = mSupplier;
-   				mSupplier = NULL;
-   			}
-   		}
-   		delete mSupplier;
-		delete mData;
-   	}
-	
-	virtual void errorWithContent(U32 statusNum, const std::string& reason, const LLSD& content)
-   	{
-		LL_WARNS() << "LLAssetUploadChainResponder Error [status:" 
-				<< statusNum << "]: " << content << LL_ENDL;
-		LLUpdateTaskInventoryResponder::errorWithContent(statusNum, reason, content);
-   		LLAssetUploadQueue *queue = mSupplier->get();
-   		if (queue)
+	{
+		if(mSupplier)
 		{
-   			queue->request(&mSupplier);
-   		}
-   	}
-
-	virtual void result(const LLSD& content)
-   	{
-		LLUpdateTaskInventoryResponder::result(content);
-   		LLAssetUploadQueue *queue = mSupplier->get();
-   		if (queue)
-   		{
-   			// Responder is reused across 2 phase upload,
-   			// so only start next upload after 2nd phase complete.
-   			std::string state = content["state"];
-   			if(state == "complete")
-   			{
-   				queue->request(&mSupplier);
-   			}
-   		}	
-   	}
+			LLAssetUploadQueue *queue = mSupplier->get();
+			if (queue)
+			{
+				// Give ownership of supplier back to queue.
+				queue->mSupplier = mSupplier;
+				mSupplier = NULL;
+			}
+		}
+		delete mSupplier;
+		delete mData;
+	}
 	
+protected:
+	virtual void httpFailure()
+	{
+		// Parent class will spam the failure.
+		//LL_WARNS() << dumpResponse() << LL_ENDL;
+		LLUpdateTaskInventoryResponder::httpFailure();
+		LLAssetUploadQueue *queue = mSupplier->get();
+		if (queue)
+		{
+			queue->request(&mSupplier);
+		}
+	}
+
+	virtual void httpSuccess()
+	{
+		LLUpdateTaskInventoryResponder::httpSuccess();
+		LLAssetUploadQueue *queue = mSupplier->get();
+		if (queue)
+		{
+			// Responder is reused across 2 phase upload,
+			// so only start next upload after 2nd phase complete.
+			const std::string& state = getContent()["state"].asStringRef();
+			if(state == "complete")
+			{
+				queue->request(&mSupplier);
+			}
+		}
+	}
+	
+public:
 	virtual void uploadUpload(const LLSD& content)
 	{
 		std::string uploader = content["uploader"];
@@ -175,6 +178,7 @@ void LLAssetUploadQueue::request(LLAssetUploadQueueSupplier** supplier)
 	body["item_id"] = data.mItemId;
 	body["is_script_running"] = data.mIsRunning;
 	body["target"] = data.mIsTargetMono? "mono" : "lsl2";
+	body["experience"] = data.mExperienceId;
 
 	std::string url = "";
 	LLViewerObject* object = gObjectList.findObject(data.mTaskId);
@@ -198,7 +202,8 @@ void LLAssetUploadQueue::queue(const std::string& filename,
 							   const LLUUID& queue_id,
 							   U8* script_data,
 							   U32 data_size,
-							   std::string script_name)
+							   std::string script_name,
+							   const LLUUID& experience_id)
 {
 	UploadData data;
 	data.mTaskId = task_id;
@@ -210,6 +215,7 @@ void LLAssetUploadQueue::queue(const std::string& filename,
 	data.mData = script_data;
 	data.mDataSize = data_size;
 	data.mScriptName = script_name;
+	data.mExperienceId = experience_id;
 			
 	mQueue.push_back(data);
 

@@ -64,10 +64,12 @@ public:
 	void dumpToFile(std::string file_name);
 	bool hasResults() const { return mSceneLoadRecording.getResults().getDuration() != S32Seconds(0);}
 
+	void reset();
+
 private:
 	void freezeScene();
 	void unfreezeScene();
-	void reset();
+
 	LLRenderTarget& getCaptureTarget();
 	void generateDitheringTexture(S32 width, S32 height);
 
@@ -109,7 +111,7 @@ class LLSceneMonitorView : public LLFloater
 {
 public:
 	LLSceneMonitorView(const LLRect& rect);
-
+	~LLSceneMonitorView();
 	virtual void draw();
 
 	virtual void onVisibilityChange(BOOL visible);
@@ -117,8 +119,11 @@ public:
 protected:
 	// <FS:Ansariel> FIRE-14144 / MAINT-4256 / BUG-6664: Crash when opening stats after closing via X
 	//virtual void onClose(bool app_quitting=false);
+	//virtual void onClickCloseBtn(bool app_quitting=false);
 	virtual void closeFloater(bool app_qutting = false);
 	// </FS:Ansariel>
+	void onTeleportFinished();
+	boost::signals2::connection sTeleportFinishConnection;
 };
 
 extern LLSceneMonitorView* gSceneMonitorView;

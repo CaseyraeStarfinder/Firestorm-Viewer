@@ -1,5 +1,93 @@
 <llsd>
     <map>
+    <key>login.digiworldz.com:8002</key>
+        <map>
+        <key>DirectoryFee</key>
+            <string>0</string>
+        <key>LastModified</key>
+            <date>2015-07-24T13:19:44.27Z</date>
+        <key>SendGridInfoToViewerOnLogin</key>
+            <string>true</string>
+        <key>about</key>
+            <string>http://digiworldz.com/</string>
+        <key>gatekeeper</key>
+            <string>login.digiworldz.com:8002</string>
+        <key>gridname</key>
+            <string>DigiWorldZ Grid</string>
+        <key>gridnick</key>
+            <string>DWG</string>
+        <key>help</key>
+            <string>http://digiworldz.com/</string>
+        <key>helperuri</key>
+            <string>http://money.digiworldz.com/</string>
+        <key>login_identifier_types</key>
+            <array>
+                <string>agent</string>
+                <string>account</string>
+            </array>
+        <key>loginpage</key>
+            <string>http://splash.digiworldz.com/</string>
+        <key>loginuri</key>
+            <array>
+                <string>http://login.digiworldz.com:8002/</string>
+            </array>
+        <key>name</key>
+            <string>login.digiworldz.com:8002</string>
+        <key>password</key>
+            <string>http://digiworldz.com/</string>
+        <key>platform</key>
+            <string>OpenSim</string>
+        <key>register</key>
+            <string>http://digiworldz.com/</string>
+        <key>search</key>
+            <string>http://search.digiworldz.com/query.php</string>
+        <key>slurl_base</key>
+            <string>hop://login.digiworldz.com:8002/</string>
+        </map>
+    <key>login.greatcanadiangrid.ca:8002</key>
+        <map>
+        <key>DirectoryFee</key>
+            <string>0</string>
+        <key>LastModified</key>
+            <date>2015-07-21T12:18:29.76Z</date>
+        <key>SendGridInfoToViewerOnLogin</key>
+            <string>true</string>
+        <key>about</key>
+            <string>http://greatcanadiangrid.ca/</string>
+        <key>gatekeeper</key>
+            <string>login.greatcanadiangrid.ca:8002</string>
+        <key>gridname</key>
+            <string>Great Canadian Grid!</string>
+        <key>gridnick</key>
+            <string>GCG</string>
+        <key>help</key>
+            <string>http://greatcanadiangrid.ca/</string>
+        <key>helperuri</key>
+            <string>http://money.greatcanadiangrid.ca/</string>
+        <key>login_identifier_types</key>
+            <array>
+                <string>agent</string>
+                <string>account</string>
+            </array>
+        <key>loginpage</key>
+            <string>http://www.greatcanadiangrid.ca/splash-page.html</string>
+        <key>loginuri</key>
+            <array>
+                <string>http://login.greatcanadiangrid.ca:8002/</string>
+            </array>
+        <key>name</key>
+            <string>login.greatcanadiangrid.ca:8002</string>
+        <key>password</key>
+            <string>http://greatcanadiangrid.ca/</string>
+        <key>platform</key>
+            <string>OpenSim</string>
+        <key>register</key>
+            <string>http://greatcanadiangrid.ca/</string>
+        <key>search</key>
+            <string>http://search.greatcanadiangrid.ca/query.php</string>
+        <key>slurl_base</key>
+            <string>hop://login.greatcanadiangrid.ca:8002/</string>
+        </map>
     <key>craft-world.org:8002</key>
         <map>
         <key>LastModified</key>
@@ -193,7 +281,7 @@
         <key>gridnick</key>
             <string>Inworldz</string>
         <key>help</key>
-            <string>http://inworldz.com/faq.php</string>
+            <string>http://inworldz.com/support.php</string>
         <key>helperuri</key>
             <string>http://inworldz.com/</string>
         <key>login_identifier_types</key>
@@ -210,13 +298,13 @@
         <key>name</key>
             <string>inworldz.com:8002</string>
         <key>password</key>
-            <string>http://inworldz.com/</string>
+            <string>http://inworldz.com/loginerror.php?error=2</string>
         <key>platform</key>
             <string>OpenSim</string>
         <key>register</key>
             <string>http://inworldz.com/register.php</string>
         <key>slurl_base</key>
-            <string>hop://inworldz.com:8002/</string>
+            <string>http://places.inworldz.com/</string>
         </map>
     <key>islandoasisgrid.biz:8002</key>
         <map>

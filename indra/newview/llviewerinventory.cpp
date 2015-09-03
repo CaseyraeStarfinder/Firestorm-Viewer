@@ -4,7 +4,7 @@
  *
  * $LicenseInfo:firstyear=2002&license=viewerlgpl$
  * Second Life Viewer Source Code
- * Copyright (C) 2010, Linden Research, Inc.
+ * Copyright (C) 2014, Linden Research, Inc.
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -31,6 +31,7 @@
 #include "llsdserialize.h"
 #include "message.h"
 
+#include "llaisapi.h"
 #include "llagent.h"
 #include "llagentcamera.h"
 #include "llagentwearables.h"
@@ -65,10 +66,21 @@
 #include "llavataractions.h"
 #include "lllogininstance.h"
 #include "llfavoritesbar.h"
+#include "llfloaterperms.h"
+#include "llclipboard.h"
+#include "llhttpretrypolicy.h"
+// [RLVa:KB] - Checked: 2014-11-02 (RLVa-1.4.11)
+#include "rlvcommon.h"
+// [/RLVa:KB]
 
-// Two do-nothing ops for use in callbacks.
+// do-nothing ops for use in callbacks.
 void no_op_inventory_func(const LLUUID&) {} 
+void no_op_llsd_func(const LLSD&) {}
 void no_op() {}
+
+static const char * const LOG_INV("Inventory");
+static const char * const LOG_LOCAL("InventoryLocalize");
+static const char * const LOG_NOTECARD("copy_inventory_from_notecard");
 
 ///----------------------------------------------------------------------------
 /// Helper class to store special inventory item names and their localized values.
@@ -184,7 +196,7 @@ public:
 	 */
 	bool localizeInventoryObjectName(std::string& object_name)
 	{
-		LL_DEBUGS("InventoryLocalize") << "Searching for localization: " << object_name << LL_ENDL;
+		LL_DEBUGS(LOG_LOCAL) << "Searching for localization: " << object_name << LL_ENDL;
 
 		std::map<std::string, std::string>::const_iterator dictionary_iter = mInventoryItemsDict.find(object_name);
 
@@ -192,7 +204,7 @@ public:
 		if(found)
 		{
 			object_name = dictionary_iter->second;
-			LL_DEBUGS("InventoryLocalize") << "Found, new name is: " << object_name << LL_ENDL;
+			LL_DEBUGS(LOG_LOCAL) << "Found, new name is: " << object_name << LL_ENDL;
 		}
 		return found;
 	}
@@ -247,7 +259,17 @@ public:
 			uuid_vec_t items_to_open;
 			items_to_open.push_back(inventory_id);
 			//inventory_handler is just a stub, because we don't know from who this offer
-			open_inventory_offer(items_to_open, "inventory_handler");
+			// <FS:Ansariel> Moved check out of check_offer_throttle
+			//open_inventory_offer(items_to_open, "inventory_handler");
+			if (gSavedSettings.getBOOL("ShowNewInventory"))
+			{
+				open_inventory_offer(items_to_open, "inventory_handler");
+			}
+			else if (!items_to_open.empty() && gSavedSettings.getBOOL("ShowInInventory"))
+			{
+				LLInventoryPanel::openInventoryPanelAndSetSelection(TRUE, items_to_open.back());
+			}
+			// </FS:Ansariel>
 			return true;
 		}
 		
@@ -255,7 +277,6 @@ public:
 	}
 };
 LLInventoryHandler gInventoryHandler;
-
 
 ///----------------------------------------------------------------------------
 /// Class LLViewerInventoryItem
@@ -303,8 +324,8 @@ LLViewerInventoryItem::LLViewerInventoryItem(const LLViewerInventoryItem* other)
 	copyViewerItem(other);
 	if (!mIsComplete)
 	{
-		LL_WARNS() << "LLViewerInventoryItem copy constructor for incomplete item"
-			<< mUUID << LL_ENDL;
+		LL_WARNS(LOG_INV) << "LLViewerInventoryItem copy constructor for incomplete item"
+						  << mUUID << LL_ENDL;
 	}
 }
 
@@ -345,40 +366,23 @@ void LLViewerInventoryItem::cloneViewerItem(LLPointer<LLViewerInventoryItem>& ne
 	}
 }
 
-void LLViewerInventoryItem::removeFromServer()
-{
-	LL_DEBUGS() << "Removing inventory item " << mUUID << " from server."
-			 << LL_ENDL;
-
-	LLInventoryModel::LLCategoryUpdate up(mParentUUID, -1);
-	gInventory.accountForUpdate(up);
-
-	LLMessageSystem* msg = gMessageSystem;
-	msg->newMessageFast(_PREHASH_RemoveInventoryItem);
-	msg->nextBlockFast(_PREHASH_AgentData);
-	msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-	msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID()); 
-	msg->nextBlockFast(_PREHASH_InventoryData);
-	msg->addUUIDFast(_PREHASH_ItemID, mUUID);
-	gAgent.sendReliableMessage();
-}
-
 void LLViewerInventoryItem::updateServer(BOOL is_new) const
 {
 	if(!mIsComplete)
 	{
 		// *FIX: deal with this better.
 		// If we're crashing here then the UI is incorrectly enabled.
-		LL_WARNS() << "LLViewerInventoryItem::updateServer() - for incomplete item"
-			   << LL_ENDL;
+		LL_WARNS(LOG_INV) << "LLViewerInventoryItem::updateServer() - for incomplete item"
+						 << LL_ENDL;
                 LLNotificationsUtil::add("IncompleteInventoryItem");
 		return;
 	}
 	if(gAgent.getID() != mPermissions.getOwner())
 	{
 		// *FIX: deal with this better.
-		LL_WARNS() << "LLViewerInventoryItem::updateServer() - for unowned item"
-				<< LL_ENDL;
+		LL_WARNS(LOG_INV) << "LLViewerInventoryItem::updateServer() - for unowned item "
+						  << ll_pretty_print_sd(this->asLLSD())
+						  << LL_ENDL;
 		return;
 	}
 	LLInventoryModel::LLCategoryUpdate up(mParentUUID, is_new ? 1 : 0);
@@ -406,18 +410,18 @@ void LLViewerInventoryItem::fetchFromServer(void) const
 		// we have to check region. It can be null after region was destroyed. See EXT-245
 		if (region)
 		{
-		  if(gAgent.getID() != mPermissions.getOwner())
-		    {
+		  if (gAgent.getID() != mPermissions.getOwner())
+		  {
 		      url = region->getCapability("FetchLib2");
-		    }
+		  }
 		  else
-		    {	
+		  {	
 		      url = region->getCapability("FetchInventory2");
-		    }
+		  }
 		}
 		else
 		{
-			LL_WARNS() << "Agent Region is absent" << LL_ENDL;
+			LL_WARNS(LOG_INV) << "Agent Region is absent" << LL_ENDL;
 		}
 
 		if (!url.empty())
@@ -427,7 +431,8 @@ void LLViewerInventoryItem::fetchFromServer(void) const
 			body["items"][0]["owner_id"]	= mPermissions.getOwner();
 			body["items"][0]["item_id"]		= mUUID;
 
-			LLHTTPClient::post(url, body, new LLInventoryModel::fetchInventoryResponder(body));
+			LLInventoryModel::FetchItemHttpHandler * handler(new LLInventoryModel::FetchItemHttpHandler(body));
+			gInventory.requestPost(true, url, body, handler, "Inventory Item");
 		}
 		else
 		{
@@ -445,7 +450,7 @@ void LLViewerInventoryItem::fetchFromServer(void) const
 }
 
 // virtual
-BOOL LLViewerInventoryItem::unpackMessage(LLSD item)
+BOOL LLViewerInventoryItem::unpackMessage(const LLSD& item)
 {
 	BOOL rv = LLInventoryItem::fromLLSD(item);
 
@@ -470,7 +475,7 @@ void LLViewerInventoryItem::setTransactionID(const LLTransactionID& transaction_
 {
 	mTransactionID = transaction_id;
 }
-// virtual
+
 void LLViewerInventoryItem::packMessage(LLMessageSystem* msg) const
 {
 	msg->addUUIDFast(_PREHASH_ItemID, mUUID);
@@ -489,6 +494,7 @@ void LLViewerInventoryItem::packMessage(LLMessageSystem* msg) const
 	U32 crc = getCRC32();
 	msg->addU32Fast(_PREHASH_CRC, crc);
 }
+
 // virtual
 BOOL LLViewerInventoryItem::importFile(LLFILE* fp)
 {
@@ -600,6 +606,15 @@ void LLViewerInventoryCategory::copyViewerCategory(const LLViewerInventoryCatego
 }
 
 
+void LLViewerInventoryCategory::packMessage(LLMessageSystem* msg) const
+{
+	msg->addUUIDFast(_PREHASH_FolderID, mUUID);
+	msg->addUUIDFast(_PREHASH_ParentID, mParentUUID);
+	S8 type = static_cast<S8>(mPreferredType);
+	msg->addS8Fast(_PREHASH_Type, type);
+	msg->addStringFast(_PREHASH_Name, mName);
+}
+
 void LLViewerInventoryCategory::updateParentOnServer(BOOL restamp) const
 {
 	LLMessageSystem* msg = gMessageSystem;
@@ -638,30 +653,6 @@ void LLViewerInventoryCategory::updateServer(BOOL is_new) const
 	gAgent.sendReliableMessage();
 }
 
-void LLViewerInventoryCategory::removeFromServer( void )
-{
-	LL_INFOS() << "Removing inventory category " << mUUID << " from server."
-			<< LL_ENDL;
-	// communicate that change with the server.
-	if(LLFolderType::lookupIsProtectedType(mPreferredType))
-	{
-		LLNotificationsUtil::add("CannotRemoveProtectedCategories");
-		return;
-	}
-
-	LLInventoryModel::LLCategoryUpdate up(mParentUUID, -1);
-	gInventory.accountForUpdate(up);
-
-	LLMessageSystem* msg = gMessageSystem;
-	msg->newMessageFast(_PREHASH_RemoveInventoryFolder);
-	msg->nextBlockFast(_PREHASH_AgentData);
-	msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-	msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
-	msg->nextBlockFast(_PREHASH_FolderData);
-	msg->addUUIDFast(_PREHASH_FolderID, mUUID);
-	gAgent.sendReliableMessage();
-}
-
 S32 LLViewerInventoryCategory::getVersion() const
 {
 	return mVersion;
@@ -677,7 +668,7 @@ bool LLViewerInventoryCategory::fetch()
 	if((VERSION_UNKNOWN == getVersion())
 	   && mDescendentsRequested.hasExpired())	//Expired check prevents multiple downloads.
 	{
-		LL_DEBUGS("InventoryFetch") << "Fetching category children: " << mName << ", UUID: " << mUUID << LL_ENDL;
+		LL_DEBUGS(LOG_INV) << "Fetching category children: " << mName << ", UUID: " << mUUID << LL_ENDL;
 		const F32 FETCH_TIMER_EXPIRY = 10.0f;
 		mDescendentsRequested.reset();
 		mDescendentsRequested.setTimerExpirySec(FETCH_TIMER_EXPIRY);
@@ -702,7 +693,7 @@ bool LLViewerInventoryCategory::fetch()
 		}
 		else
 		{
-			LL_WARNS() << "agent region is null" << LL_ENDL;
+			LL_WARNS(LOG_INV) << "agent region is null" << LL_ENDL;
 		}
 		if (!url.empty()) //Capability found.  Build up LLSD and use it.
 		{
@@ -711,7 +702,8 @@ bool LLViewerInventoryCategory::fetch()
 		else
 		{	//Deprecated, but if we don't have a capability, use the old system.
 			//AO: too spammy!
-			//LL_INFOS() << "FetchInventoryDescendents2 capability not found.  Using deprecated UDP message." << LL_ENDL;
+			//LL_INFOS(LOG_INV) << "FetchInventoryDescendents2 capability not found.  Using deprecated UDP message." << LL_ENDL;
+			
 			LLMessageSystem* msg = gMessageSystem;
 			msg->newMessage("FetchInventoryDescendents");
 			msg->nextBlock("AgentData");
@@ -729,6 +721,19 @@ bool LLViewerInventoryCategory::fetch()
 		return true;
 	}
 	return false;
+}
+
+S32 LLViewerInventoryCategory::getViewerDescendentCount() const
+{
+	LLInventoryModel::cat_array_t* cats;
+	LLInventoryModel::item_array_t* items;
+	gInventory.getDirectDescendentsOf(getUUID(), cats, items);
+	S32 descendents_actual = 0;
+	if(cats && items)
+	{
+		descendents_actual = cats->size() + items->size();
+	}
+	return descendents_actual;
 }
 
 bool LLViewerInventoryCategory::importFileLocal(LLFILE* fp)
@@ -793,8 +798,8 @@ bool LLViewerInventoryCategory::importFileLocal(LLFILE* fp)
 		}
 		else
 		{
-			LL_WARNS() << "unknown keyword '" << keyword
-					<< "' in inventory import category "  << mUUID << LL_ENDL;
+			LL_WARNS(LOG_INV) << "unknown keyword '" << keyword
+							  << "' in inventory import category "  << mUUID << LL_ENDL;
 		}
 	}
 	return true;
@@ -816,6 +821,36 @@ bool LLViewerInventoryCategory::exportFileLocal(LLFILE* fp) const
 	fprintf(fp, "\t\tversion\t%d\n", mVersion);
 	fprintf(fp,"\t}\n");
 	return true;
+}
+
+bool LLViewerInventoryCategory::acceptItem(LLInventoryItem* inv_item)
+{
+    if (!inv_item)
+    {
+        return false;
+    }
+
+    // Only stock folders have limitation on which item they will accept
+    bool accept = true;
+    if (getPreferredType() == LLFolderType::FT_MARKETPLACE_STOCK)
+    {
+        // If the item is copyable (i.e. non stock) do not accept the drop in a stock folder
+        if (inv_item->getPermissions().allowOperationBy(PERM_COPY, gAgent.getID(), gAgent.getGroupID()))
+        {
+            accept = false;
+        }
+        else
+        {
+            LLInventoryModel::cat_array_t* cat_array;
+            LLInventoryModel::item_array_t* item_array;
+            gInventory.getDirectDescendentsOf(getUUID(),cat_array,item_array);
+            // Destination stock folder must be empty OR types of incoming and existing items must be identical and have the same permissions
+            accept = (!item_array->size() ||
+                      ((item_array->at(0)->getInventoryType() == inv_item->getInventoryType()) &&
+                       (item_array->at(0)->getPermissions().getMaskNextOwner() == inv_item->getPermissions().getMaskNextOwner())));
+        }
+    }
+    return accept;
 }
 
 void LLViewerInventoryCategory::determineFolderType()
@@ -896,6 +931,21 @@ void LLViewerInventoryCategory::localizeName()
 	LLLocalizedInventoryItemsDictionary::getInstance()->localizeInventoryObjectName(mName);
 }
 
+// virtual
+BOOL LLViewerInventoryCategory::unpackMessage(const LLSD& category)
+{
+	BOOL rv = LLInventoryCategory::fromLLSD(category);
+	localizeName();
+	return rv;
+}
+
+// virtual
+void LLViewerInventoryCategory::unpackMessage(LLMessageSystem* msg, const char* block, S32 block_num)
+{
+	LLInventoryCategory::unpackMessage(msg, block, block_num);
+	localizeName();
+}
+
 ///----------------------------------------------------------------------------
 /// Local function definitions
 ///----------------------------------------------------------------------------
@@ -907,7 +957,7 @@ LLInventoryCallbackManager::LLInventoryCallbackManager() :
 {
 	if( sInstance != NULL )
 	{
-		LL_WARNS() << "LLInventoryCallbackManager::LLInventoryCallbackManager: unexpected multiple instances" << LL_ENDL;
+		LL_WARNS(LOG_INV) << "LLInventoryCallbackManager::LLInventoryCallbackManager: unexpected multiple instances" << LL_ENDL;
 		return;
 	}
 	sInstance = this;
@@ -917,7 +967,7 @@ LLInventoryCallbackManager::~LLInventoryCallbackManager()
 {
 	if( sInstance != this )
 	{
-		LL_WARNS() << "LLInventoryCallbackManager::~LLInventoryCallbackManager: unexpected multiple instances" << LL_ENDL;
+		LL_WARNS(LOG_INV) << "LLInventoryCallbackManager::~LLInventoryCallbackManager: unexpected multiple instances" << LL_ENDL;
 		return;
 	}
 	sInstance = NULL;
@@ -997,23 +1047,72 @@ void activate_gesture_cb(const LLUUID& inv_item)
 	LLGestureMgr::instance().activateGesture(inv_item);
 }
 
-void create_gesture_cb(const LLUUID& inv_item)
+void create_script_cb(const LLUUID& inv_item)
 {
-	if (inv_item.isNull())
-		return;
+	if (!inv_item.isNull())
+	{
+		LLViewerInventoryItem* item = gInventory.getItem(inv_item);
+		if (item)
+		{
+			LLPermissions perm = item->getPermissions();
+			perm.setMaskEveryone(LLFloaterPerms::getEveryonePerms("Scripts"));
+			perm.setMaskGroup(LLFloaterPerms::getGroupPerms("Scripts"));
 
-	LLGestureMgr::instance().activateGesture(inv_item);
-	
-	LLViewerInventoryItem* item = gInventory.getItem(inv_item);
-	if (!item) return;
-    gInventory.updateItem(item);
-    gInventory.notifyObservers();
+			item->setPermissions(perm);
 
-	LLPreviewGesture* preview = LLPreviewGesture::show(inv_item,  LLUUID::null);
-	// Force to be entirely onscreen.
-	gFloaterView->adjustToFitScreen(preview, FALSE);
+			item->updateServer(FALSE);
+			gInventory.updateItem(item);
+			gInventory.notifyObservers();
+		}
+	}
 }
 
+void create_gesture_cb(const LLUUID& inv_item)
+{
+	if (!inv_item.isNull())
+	{
+		LLGestureMgr::instance().activateGesture(inv_item);
+	
+		LLViewerInventoryItem* item = gInventory.getItem(inv_item);
+		if (item)
+		{
+			LLPermissions perm = item->getPermissions();
+			perm.setMaskEveryone(LLFloaterPerms::getEveryonePerms("Gestures"));
+			perm.setMaskGroup(LLFloaterPerms::getGroupPerms("Gestures"));
+
+			item->setPermissions(perm);
+
+			item->updateServer(FALSE);
+			gInventory.updateItem(item);
+			gInventory.notifyObservers();
+
+			LLPreviewGesture* preview = LLPreviewGesture::show(inv_item,  LLUUID::null);
+			// Force to be entirely onscreen.
+			gFloaterView->adjustToFitScreen(preview, FALSE);
+		}
+	}
+}
+
+
+void create_notecard_cb(const LLUUID& inv_item)
+{
+	if (!inv_item.isNull())
+		{
+		LLViewerInventoryItem* item = gInventory.getItem(inv_item);
+		if (item)
+		{
+			LLPermissions perm = item->getPermissions();
+			perm.setMaskEveryone(LLFloaterPerms::getEveryonePerms("Notecards"));
+			perm.setMaskGroup(LLFloaterPerms::getGroupPerms("Notecards"));
+
+			item->setPermissions(perm);
+
+			item->updateServer(FALSE);
+			gInventory.updateItem(item);
+			gInventory.notifyObservers();
+		}
+	}
+}
 
 LLInventoryCallbackManager gInventoryCallbacks;
 
@@ -1098,75 +1197,151 @@ void copy_inventory_item(
 	gAgent.sendReliableMessage();
 }
 
-void link_inventory_item(
-	const LLUUID& agent_id,
-	const LLUUID& item_id,
-	const LLUUID& parent_id,
-	const std::string& new_name,
-	const std::string& new_description,
-	const LLAssetType::EType asset_type,
-	LLPointer<LLInventoryCallback> cb)
+// Create link to single inventory object.
+void link_inventory_object(const LLUUID& category,
+			 LLConstPointer<LLInventoryObject> baseobj,
+			 LLPointer<LLInventoryCallback> cb)
 {
-	const LLInventoryObject *baseobj = gInventory.getObject(item_id);
 	if (!baseobj)
 	{
-		LL_WARNS() << "attempt to link to unknown item, linked-to-item's itemID " << item_id << LL_ENDL;
-		return;
-	}
-	if (baseobj && baseobj->getIsLinkType())
-	{
-		LL_WARNS() << "attempt to create a link to a link, linked-to-item's itemID " << item_id << LL_ENDL;
+		LL_WARNS(LOG_INV) << "Attempt to link to non-existent object" << LL_ENDL;
 		return;
 	}
 
-	if (baseobj && !LLAssetType::lookupCanLink(baseobj->getType()))
+	LLInventoryObject::const_object_list_t obj_array;
+	obj_array.push_back(baseobj);
+	link_inventory_array(category, obj_array, cb);
+}
+
+void link_inventory_object(const LLUUID& category,
+			 const LLUUID& id,
+			 LLPointer<LLInventoryCallback> cb)
+{
+	LLConstPointer<LLInventoryObject> baseobj = gInventory.getObject(id);
+	link_inventory_object(category, baseobj, cb);
+}
+
+// Create links to all listed inventory objects.
+void link_inventory_array(const LLUUID& category,
+			 LLInventoryObject::const_object_list_t& baseobj_array,
+			 LLPointer<LLInventoryCallback> cb)
+{
+#ifndef LL_RELEASE_FOR_DOWNLOAD
+	const LLViewerInventoryCategory *cat = gInventory.getCategory(category);
+	const std::string cat_name = cat ? cat->getName() : "CAT NOT FOUND";
+#endif
+	LLInventoryObject::const_object_list_t::const_iterator it = baseobj_array.begin();
+	LLInventoryObject::const_object_list_t::const_iterator end = baseobj_array.end();
+	LLSD links = LLSD::emptyArray();
+	for (; it != end; ++it)
 	{
-		// Fail if item can be found but is of a type that can't be linked.
-		// Arguably should fail if the item can't be found too, but that could
-		// be a larger behavioral change.
-		LL_WARNS() << "attempt to link an unlinkable item, type = " << baseobj->getActualType() << LL_ENDL;
-		return;
-	}
-	
-	LLUUID transaction_id;
-	LLInventoryType::EType inv_type = LLInventoryType::IT_NONE;
-	if (dynamic_cast<const LLInventoryCategory *>(baseobj))
-	{
-		inv_type = LLInventoryType::IT_CATEGORY;
-	}
-	else
-	{
-		const LLViewerInventoryItem *baseitem = dynamic_cast<const LLViewerInventoryItem *>(baseobj);
-		if (baseitem)
+		const LLInventoryObject* baseobj = *it;
+		if (!baseobj)
 		{
-			inv_type = baseitem->getInventoryType();
+			LL_WARNS(LOG_INV) << "attempt to link to unknown object" << LL_ENDL;
+			continue;
+		}
+
+		if (!LLAssetType::lookupCanLink(baseobj->getType()))
+		{
+			// Fail if item can be found but is of a type that can't be linked.
+			// Arguably should fail if the item can't be found too, but that could
+			// be a larger behavioral change.
+			LL_WARNS(LOG_INV) << "attempt to link an unlinkable object, type = " << baseobj->getActualType() << LL_ENDL;
+			continue;
+		}
+		
+		LLInventoryType::EType inv_type = LLInventoryType::IT_NONE;
+		LLAssetType::EType asset_type = LLAssetType::AT_NONE;
+		std::string new_desc;
+		LLUUID linkee_id;
+		if (dynamic_cast<const LLInventoryCategory *>(baseobj))
+		{
+			inv_type = LLInventoryType::IT_CATEGORY;
+			asset_type = LLAssetType::AT_LINK_FOLDER;
+			linkee_id = baseobj->getUUID();
+		}
+		else
+		{
+			const LLViewerInventoryItem *baseitem = dynamic_cast<const LLViewerInventoryItem *>(baseobj);
+			if (baseitem)
+			{
+				inv_type = baseitem->getInventoryType();
+				new_desc = baseitem->getActualDescription();
+				switch (baseitem->getActualType())
+				{
+					case LLAssetType::AT_LINK:
+					case LLAssetType::AT_LINK_FOLDER:
+						linkee_id = baseobj->getLinkedUUID();
+						asset_type = baseitem->getActualType();
+						break;
+					default:
+						linkee_id = baseobj->getUUID();
+						asset_type = LLAssetType::AT_LINK;
+						break;
+				}
+			}
+			else
+			{
+				LL_WARNS(LOG_INV) << "could not convert object into an item or category: " << baseobj->getUUID() << LL_ENDL;
+				continue;
+			}
+		}
+
+		LLSD link = LLSD::emptyMap();
+		link["linked_id"] = linkee_id;
+		link["type"] = (S8)asset_type;
+		link["inv_type"] = (S8)inv_type;
+		link["name"] = baseobj->getName();
+		link["desc"] = new_desc;
+		links.append(link);
+
+#ifndef LL_RELEASE_FOR_DOWNLOAD
+		LL_DEBUGS(LOG_INV) << "Linking Object [ name:" << baseobj->getName() 
+						   << " UUID:" << baseobj->getUUID() 
+						   << " ] into Category [ name:" << cat_name 
+						   << " UUID:" << category << " ] " << LL_ENDL;
+#endif
+	}
+
+	bool ais_ran = false;
+//	if (AISCommand::isAPIAvailable())
+// [SL:KB] - Patch: Appearance-AISFilter | Checked: 2015-03-01 (Catznip-3.7)
+	if (AISCommand::isAPIAvailable( (baseobj_array.size() > 1) ? AISCommand::CMD_OBJ_LINKBATCH : AISCommand::CMD_OBJ_LINK ))
+// [/SL:KB]
+	{
+		LLSD new_inventory = LLSD::emptyMap();
+		new_inventory["links"] = links;
+		LLPointer<AISCommand> cmd_ptr = new CreateInventoryCommand(category, new_inventory, cb);
+		ais_ran = cmd_ptr->run_command();
+	}
+
+	if (!ais_ran)
+	{
+		LLMessageSystem* msg = gMessageSystem;
+		for (LLSD::array_iterator iter = links.beginArray(); iter != links.endArray(); ++iter )
+		{
+			msg->newMessageFast(_PREHASH_LinkInventoryItem);
+			msg->nextBlock(_PREHASH_AgentData);
+			{
+				msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+				msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+			}
+			msg->nextBlock(_PREHASH_InventoryBlock);
+			{
+				LLSD link = (*iter);
+				msg->addU32Fast(_PREHASH_CallbackID, gInventoryCallbacks.registerCB(cb));
+				msg->addUUIDFast(_PREHASH_FolderID, category);
+				msg->addUUIDFast(_PREHASH_TransactionID, LLUUID::null);
+				msg->addUUIDFast(_PREHASH_OldItemID, link["linked_id"].asUUID());
+				msg->addS8Fast(_PREHASH_Type, link["type"].asInteger());
+				msg->addS8Fast(_PREHASH_InvType, link["inv_type"].asInteger());
+				msg->addStringFast(_PREHASH_Name, link["name"].asString());
+				msg->addStringFast(_PREHASH_Description, link["desc"].asString());
+			}
+			gAgent.sendReliableMessage();
 		}
 	}
-
-#if 1 // debugging stuff
-	LLViewerInventoryCategory* cat = gInventory.getCategory(parent_id);
-	LL_DEBUGS() << "cat: " << cat << LL_ENDL;
-	
-#endif
-	LLMessageSystem* msg = gMessageSystem;
-	msg->newMessageFast(_PREHASH_LinkInventoryItem);
-	msg->nextBlock(_PREHASH_AgentData);
-	{
-		msg->addUUIDFast(_PREHASH_AgentID, agent_id);
-		msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
-	}
-	msg->nextBlock(_PREHASH_InventoryBlock);
-	{
-		msg->addU32Fast(_PREHASH_CallbackID, gInventoryCallbacks.registerCB(cb));
-		msg->addUUIDFast(_PREHASH_FolderID, parent_id);
-		msg->addUUIDFast(_PREHASH_TransactionID, transaction_id);
-		msg->addUUIDFast(_PREHASH_OldItemID, item_id);
-		msg->addS8Fast(_PREHASH_Type, (S8)asset_type);
-		msg->addS8Fast(_PREHASH_InvType, (S8)inv_type);
-		msg->addStringFast(_PREHASH_Name, new_name);
-		msg->addStringFast(_PREHASH_Description, new_description);
-	}
-	gAgent.sendReliableMessage();
 }
 
 void move_inventory_item(
@@ -1190,6 +1365,438 @@ void move_inventory_item(
 	gAgent.sendReliableMessage();
 }
 
+// Should call this with an update_item that's been copied and
+// modified from an original source item, rather than modifying the
+// source item directly.
+void update_inventory_item(
+	LLViewerInventoryItem *update_item,
+	LLPointer<LLInventoryCallback> cb)
+{
+	const LLUUID& item_id = update_item->getUUID();
+	bool ais_ran = false;
+//	if (AISCommand::isAPIAvailable())
+// [SL:KB] - Patch: Appearance-AISFilter | Checked: 2015-03-01 (Catznip-3.7)
+	if (AISCommand::isAPIAvailable(AISCommand::CMD_ITEM_UPDATE))
+// [/SL:KB]
+	{
+		LLSD updates = update_item->asLLSD();
+		// Replace asset_id and/or shadow_id with transaction_id (hash_id)
+		if (updates.has("asset_id"))
+		{
+			updates.erase("asset_id");
+			updates["hash_id"] = update_item->getTransactionID();
+		}
+		if (updates.has("shadow_id"))
+		{
+			updates.erase("shadow_id");
+			updates["hash_id"] = update_item->getTransactionID();
+		}
+		LLPointer<AISCommand> cmd_ptr = new UpdateItemCommand(item_id, updates, cb);
+		ais_ran = cmd_ptr->run_command();
+	}
+	if (!ais_ran)
+	{
+		LLPointer<LLViewerInventoryItem> obj = gInventory.getItem(item_id);
+		LL_DEBUGS(LOG_INV) << "item_id: [" << item_id << "] name " << (update_item ? update_item->getName() : "(NOT FOUND)") << LL_ENDL;
+		if(obj)
+		{
+			LLMessageSystem* msg = gMessageSystem;
+			msg->newMessageFast(_PREHASH_UpdateInventoryItem);
+			msg->nextBlockFast(_PREHASH_AgentData);
+			msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+			msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+			msg->addUUIDFast(_PREHASH_TransactionID, update_item->getTransactionID());
+			msg->nextBlockFast(_PREHASH_InventoryData);
+			msg->addU32Fast(_PREHASH_CallbackID, 0);
+			update_item->packMessage(msg);
+			gAgent.sendReliableMessage();
+
+			LLInventoryModel::LLCategoryUpdate up(update_item->getParentUUID(), 0);
+			gInventory.accountForUpdate(up);
+			gInventory.updateItem(update_item);
+			if (cb)
+			{
+				cb->fire(item_id);
+			}
+		}
+	}
+}
+
+// Note this only supports updating an existing item. Goes through AISv3
+// code path where available. Not all uses of item->updateServer() can
+// easily be switched to this paradigm.
+void update_inventory_item(
+	const LLUUID& item_id,
+	const LLSD& updates,
+	LLPointer<LLInventoryCallback> cb)
+{
+// [SL:KB] - Patch: Appearance-AISFilter | Checked: 2015-03-01 (Catznip-3.7)
+	LLPointer<LLViewerInventoryItem> obj = gInventory.getItem(item_id);
+	LL_DEBUGS(LOG_INV) << "item_id: [" << item_id << "] name " << (obj ? obj->getName() : "(NOT FOUND)") << LL_ENDL;
+	LLPointer<LLViewerInventoryItem> new_item = NULL;
+
+	if (obj)
+	{
+		new_item = new LLViewerInventoryItem(obj);
+		new_item->fromLLSD(updates,false);
+
+		LLInventoryModel::LLCategoryUpdate up(new_item->getParentUUID(), 0);
+		gInventory.accountForUpdate(up);
+		gInventory.updateItem(new_item);
+	}
+// [/SL:KB]
+
+	bool ais_ran = false;
+//	if (AISCommand::isAPIAvailable())
+// [SL:KB] - Patch: Appearance-AISFilter | Checked: 2015-03-01 (Catznip-3.7)
+	if (AISCommand::isAPIAvailable(AISCommand::CMD_ITEM_UPDATE))
+// [/SL:KB]
+	{
+		LLPointer<AISCommand> cmd_ptr = new UpdateItemCommand(item_id, updates, cb);
+		ais_ran = cmd_ptr->run_command();
+	}
+	if (!ais_ran)
+	{
+//		LLPointer<LLViewerInventoryItem> obj = gInventory.getItem(item_id);
+//		LL_DEBUGS(LOG_INV) << "item_id: [" << item_id << "] name " << (obj ? obj->getName() : "(NOT FOUND)") << LL_ENDL;
+//		if(obj)
+//		{
+//			LLPointer<LLViewerInventoryItem> new_item(new LLViewerInventoryItem);
+//			new_item->copyViewerItem(obj);
+//			new_item->fromLLSD(updates,false);
+
+// [SL:KB] - Patch: Appearance-AISFilter | Checked: 2015-03-01 (Catznip-3.7)
+		if (new_item)
+		{
+// [/SL:KB]
+			LLMessageSystem* msg = gMessageSystem;
+			msg->newMessageFast(_PREHASH_UpdateInventoryItem);
+			msg->nextBlockFast(_PREHASH_AgentData);
+			msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+			msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+			msg->addUUIDFast(_PREHASH_TransactionID, new_item->getTransactionID());
+			msg->nextBlockFast(_PREHASH_InventoryData);
+			msg->addU32Fast(_PREHASH_CallbackID, 0);
+			new_item->packMessage(msg);
+			gAgent.sendReliableMessage();
+
+//			LLInventoryModel::LLCategoryUpdate up(new_item->getParentUUID(), 0);
+//			gInventory.accountForUpdate(up);
+//			gInventory.updateItem(new_item);
+			if (cb)
+			{
+				cb->fire(item_id);
+			}
+		}
+	}
+}
+
+void update_inventory_category(
+	const LLUUID& cat_id,
+	const LLSD& updates,
+	LLPointer<LLInventoryCallback> cb)
+{
+	LLPointer<LLViewerInventoryCategory> obj = gInventory.getCategory(cat_id);
+	LL_DEBUGS(LOG_INV) << "cat_id: [" << cat_id << "] name " << (obj ? obj->getName() : "(NOT FOUND)") << LL_ENDL;
+	if(obj)
+	{
+		if (LLFolderType::lookupIsProtectedType(obj->getPreferredType()))
+		{
+			LLNotificationsUtil::add("CannotModifyProtectedCategories");
+			return;
+		}
+
+		LLPointer<LLViewerInventoryCategory> new_cat = new LLViewerInventoryCategory(obj);
+		new_cat->fromLLSD(updates);
+		// FIXME - restore this once the back-end work has been done.
+//		if (AISCommand::isAPIAvailable())
+// [SL:KB] - Patch: Appearance-AISFilter | Checked: 2015-03-01 (Catznip-3.7)
+		if (AISCommand::isAPIAvailable(AISCommand::CMD_CAT_UPDATE))
+// [/SL:KB]
+		{
+			LLSD new_llsd = new_cat->asLLSD();
+			LLPointer<AISCommand> cmd_ptr = new UpdateCategoryCommand(cat_id, new_llsd, cb);
+			cmd_ptr->run_command();
+		}
+		else // no cap
+		{
+			LLMessageSystem* msg = gMessageSystem;
+			msg->newMessageFast(_PREHASH_UpdateInventoryFolder);
+			msg->nextBlockFast(_PREHASH_AgentData);
+			msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+			msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+			msg->nextBlockFast(_PREHASH_FolderData);
+			new_cat->packMessage(msg);
+			gAgent.sendReliableMessage();
+
+			LLInventoryModel::LLCategoryUpdate up(new_cat->getParentUUID(), 0);
+			gInventory.accountForUpdate(up);
+			gInventory.updateCategory(new_cat);
+			if (cb)
+			{
+				cb->fire(cat_id);
+			}
+		}
+	}
+}
+
+void remove_inventory_items(
+	LLInventoryObject::object_list_t& items_to_kill,
+	LLPointer<LLInventoryCallback> cb
+	)
+{
+	for (LLInventoryObject::object_list_t::iterator it = items_to_kill.begin();
+		 it != items_to_kill.end();
+		 ++it)
+	{
+		remove_inventory_item(*it, cb);
+	}
+}
+
+void remove_inventory_item(
+	const LLUUID& item_id,
+	LLPointer<LLInventoryCallback> cb,
+	bool immediate_delete)
+{
+	LLPointer<LLInventoryObject> obj = gInventory.getItem(item_id);
+	if (obj)
+	{
+		remove_inventory_item(obj, cb, immediate_delete);
+	}
+	else
+	{
+		LL_DEBUGS(LOG_INV) << "item_id: [" << item_id << "] name " << "(NOT FOUND)" << LL_ENDL;
+	}
+}
+
+void remove_inventory_item(
+	LLPointer<LLInventoryObject> obj,
+	LLPointer<LLInventoryCallback> cb,
+	bool immediate_delete)
+{
+	if(obj)
+	{
+		const LLUUID item_id(obj->getUUID());
+		LL_DEBUGS(LOG_INV) << "item_id: [" << item_id << "] name " << obj->getName() << LL_ENDL;
+//		if (AISCommand::isAPIAvailable())
+// [SL:KB] - Patch: Appearance-AISFilter | Checked: 2015-03-01 (Catznip-3.7)
+		if (AISCommand::isAPIAvailable(AISCommand::CMD_ITEM_REMOVE))
+// [/SL:KB]
+		{
+			LLPointer<AISCommand> cmd_ptr = new RemoveItemCommand(item_id, cb);
+			cmd_ptr->run_command();
+
+			if (immediate_delete)
+			{
+				gInventory.onObjectDeletedFromServer(item_id);
+			}
+		}
+		else // no cap
+		{
+			LLMessageSystem* msg = gMessageSystem;
+			msg->newMessageFast(_PREHASH_RemoveInventoryItem);
+			msg->nextBlockFast(_PREHASH_AgentData);
+			msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+			msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID()); 
+			msg->nextBlockFast(_PREHASH_InventoryData);
+			msg->addUUIDFast(_PREHASH_ItemID, item_id);
+			gAgent.sendReliableMessage();
+
+			// Update inventory and call callback immediately since
+			// message-based system has no callback mechanism (!)
+			gInventory.onObjectDeletedFromServer(item_id);
+			if (cb)
+			{
+				cb->fire(item_id);
+			}
+		}
+	}
+	else
+	{
+		// *TODO: Clean up callback?
+		LL_WARNS(LOG_INV) << "remove_inventory_item called for invalid or nonexistent item." << LL_ENDL;
+	}
+}
+
+class LLRemoveCategoryOnDestroy: public LLInventoryCallback
+{
+public:
+	LLRemoveCategoryOnDestroy(const LLUUID& cat_id, LLPointer<LLInventoryCallback> cb):
+		mID(cat_id),
+		mCB(cb)
+	{
+	}
+	/* virtual */ void fire(const LLUUID& item_id) {}
+	~LLRemoveCategoryOnDestroy()
+	{
+		LLInventoryModel::EHasChildren children = gInventory.categoryHasChildren(mID);
+		if(children != LLInventoryModel::CHILDREN_NO)
+		{
+			LL_WARNS(LOG_INV) << "remove descendents failed, cannot remove category " << LL_ENDL;
+		}
+		else
+		{
+			remove_inventory_category(mID, mCB);
+		}
+	}
+private:
+	LLUUID mID;
+	LLPointer<LLInventoryCallback> mCB;
+};
+
+void remove_inventory_category(
+	const LLUUID& cat_id,
+	LLPointer<LLInventoryCallback> cb)
+{
+	LL_DEBUGS(LOG_INV) << "cat_id: [" << cat_id << "] " << LL_ENDL;
+	LLPointer<LLViewerInventoryCategory> obj = gInventory.getCategory(cat_id);
+	if(obj)
+	{
+		if(LLFolderType::lookupIsProtectedType(obj->getPreferredType()))
+		{
+			LLNotificationsUtil::add("CannotRemoveProtectedCategories");
+			return;
+		}
+//		if (AISCommand::isAPIAvailable())
+// [SL:KB] - Patch: Appearance-AISFilter | Checked: 2015-03-01 (Catznip-3.7)
+		if (AISCommand::isAPIAvailable(AISCommand::CMD_CAT_REMOVE))
+// [/SL:KB]
+		{
+			LLPointer<AISCommand> cmd_ptr = new RemoveCategoryCommand(cat_id, cb);
+			cmd_ptr->run_command();
+		}
+		else // no cap
+		{
+			// RemoveInventoryFolder does not remove children, so must
+			// clear descendents first.
+			LLInventoryModel::EHasChildren children = gInventory.categoryHasChildren(cat_id);
+			if(children != LLInventoryModel::CHILDREN_NO)
+			{
+				LL_DEBUGS(LOG_INV) << "Will purge descendents first before deleting category " << cat_id << LL_ENDL;
+				LLPointer<LLInventoryCallback> wrap_cb = new LLRemoveCategoryOnDestroy(cat_id, cb); 
+				purge_descendents_of(cat_id, wrap_cb);
+				return;
+			}
+
+			LLMessageSystem* msg = gMessageSystem;
+			msg->newMessageFast(_PREHASH_RemoveInventoryFolder);
+			msg->nextBlockFast(_PREHASH_AgentData);
+			msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+			msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+			msg->nextBlockFast(_PREHASH_FolderData);
+			msg->addUUIDFast(_PREHASH_FolderID, cat_id);
+			gAgent.sendReliableMessage();
+
+			// Update inventory and call callback immediately since
+			// message-based system has no callback mechanism (!)
+			gInventory.onObjectDeletedFromServer(cat_id);
+			if (cb)
+			{
+				cb->fire(cat_id);
+			}
+		}
+	}
+	else
+	{
+		LL_WARNS(LOG_INV) << "remove_inventory_category called for invalid or nonexistent item " << cat_id << LL_ENDL;
+	}
+}
+
+void remove_inventory_object(
+	const LLUUID& object_id,
+	LLPointer<LLInventoryCallback> cb)
+{
+	if (gInventory.getCategory(object_id))
+	{
+		remove_inventory_category(object_id, cb);
+	}
+	else
+	{
+		remove_inventory_item(object_id, cb);
+	}
+}
+
+// This is a method which collects the descendents of the id
+// provided. If the category is not found, no action is
+// taken. This method goes through the long winded process of
+// cancelling any calling cards, removing server representation of
+// folders, items, etc in a fairly efficient manner.
+void purge_descendents_of(const LLUUID& id, LLPointer<LLInventoryCallback> cb)
+{
+	LLInventoryModel::EHasChildren children = gInventory.categoryHasChildren(id);
+	if(children == LLInventoryModel::CHILDREN_NO)
+	{
+		LL_DEBUGS(LOG_INV) << "No descendents to purge for " << id << LL_ENDL;
+		return;
+	}
+	LLPointer<LLViewerInventoryCategory> cat = gInventory.getCategory(id);
+	if (cat.notNull())
+	{
+		if (LLClipboard::instance().hasContents() && LLClipboard::instance().isCutMode())
+		{
+			// Something on the clipboard is in "cut mode" and needs to be preserved
+			LL_DEBUGS(LOG_INV) << "purge_descendents_of clipboard case " << cat->getName()
+							   << " iterate and purge non hidden items" << LL_ENDL;
+			LLInventoryModel::cat_array_t* categories;
+			LLInventoryModel::item_array_t* items;
+			// Get the list of direct descendants in tha categoy passed as argument
+			gInventory.getDirectDescendentsOf(id, categories, items);
+			std::vector<LLUUID> list_uuids;
+			// Make a unique list with all the UUIDs of the direct descendants (items and categories are not treated differently)
+			// Note: we need to do that shallow copy as purging things will invalidate the categories or items lists
+			for (LLInventoryModel::cat_array_t::const_iterator it = categories->begin(); it != categories->end(); ++it)
+			{
+				list_uuids.push_back((*it)->getUUID());
+			}
+			for (LLInventoryModel::item_array_t::const_iterator it = items->begin(); it != items->end(); ++it)
+			{
+				list_uuids.push_back((*it)->getUUID());
+			}
+			// Iterate through the list and only purge the UUIDs that are not on the clipboard
+			for (std::vector<LLUUID>::const_iterator it = list_uuids.begin(); it != list_uuids.end(); ++it)
+			{
+				if (!LLClipboard::instance().isOnClipboard(*it))
+				{
+					remove_inventory_object(*it, NULL);
+				}
+			}
+		}
+		else
+		{
+//			if (AISCommand::isAPIAvailable())
+// [SL:KB] - Patch: Appearance-AISFilter | Checked: 2015-03-01 (Catznip-3.7)
+			if (AISCommand::isAPIAvailable(AISCommand::CMD_CAT_PURGE))
+// [/SL:KB]
+			{
+				LLPointer<AISCommand> cmd_ptr = new PurgeDescendentsCommand(id, cb);
+				cmd_ptr->run_command();
+			}
+			else // no cap
+			{
+				// Fast purge
+				LL_DEBUGS(LOG_INV) << "purge_descendents_of fast case " << cat->getName() << LL_ENDL;
+
+				// send it upstream
+				LLMessageSystem* msg = gMessageSystem;
+				msg->newMessage("PurgeInventoryDescendents");
+				msg->nextBlock("AgentData");
+				msg->addUUID("AgentID", gAgent.getID());
+				msg->addUUID("SessionID", gAgent.getSessionID());
+				msg->nextBlock("InventoryData");
+				msg->addUUID("FolderID", id);
+				gAgent.sendReliableMessage();
+
+				// Update model immediately because there is no callback mechanism.
+				gInventory.onDescendentsPurgedFromServer(id);
+				if (cb)
+				{
+					cb->fire(id);
+				}
+			}
+		}
+	}
+}
+
 const LLUUID get_folder_by_itemtype(const LLInventoryItem *src)
 {
 	LLUUID retval = LLUUID::null;
@@ -1210,9 +1817,9 @@ void copy_inventory_from_notecard(const LLUUID& destination_id,
 {
 	if (NULL == src)
 	{
-		LL_WARNS("copy_inventory_from_notecard") << "Null pointer to item was passed for object_id "
-												 << object_id << " and notecard_inv_id "
-												 << notecard_inv_id << LL_ENDL;
+		LL_WARNS(LOG_NOTECARD) << "Null pointer to item was passed for object_id "
+							   << object_id << " and notecard_inv_id "
+							   << notecard_inv_id << LL_ENDL;
 		return;
 	}
 
@@ -1232,9 +1839,9 @@ void copy_inventory_from_notecard(const LLUUID& destination_id,
 
 	if (! viewer_region)
 	{
-        LL_WARNS("copy_inventory_from_notecard") << "Can't find region from object_id "
-                                                 << object_id << " or gAgent"
-                                                 << LL_ENDL;
+        LL_WARNS(LOG_NOTECARD) << "Can't find region from object_id "
+							   << object_id << " or gAgent"
+							   << LL_ENDL;
         return;
     }
 
@@ -1242,9 +1849,9 @@ void copy_inventory_from_notecard(const LLUUID& destination_id,
 	std::string url = viewer_region->getCapability("CopyInventoryFromNotecard");
 	if (url.empty())
 	{
-        LL_WARNS("copy_inventory_from_notecard") << "There is no 'CopyInventoryFromNotecard' capability"
-												 << " for region: " << viewer_region->getName()
-                                                 << LL_ENDL;
+        LL_WARNS(LOG_NOTECARD) << "There is no 'CopyInventoryFromNotecard' capability"
+							   << " for region: " << viewer_region->getName()
+							   << LL_ENDL;
 		return;
 	}
 
@@ -1271,23 +1878,173 @@ void create_new_item(const std::string& name,
 	LLViewerAssetType::generateDescriptionFor(asset_type, desc);
 	next_owner_perm = (next_owner_perm) ? next_owner_perm : PERM_MOVE | PERM_TRANSFER;
 
-	
-	if (inv_type == LLInventoryType::IT_GESTURE)
+	LLPointer<LLInventoryCallback> cb = NULL;
+
+	switch (inv_type)
 	{
-		LLPointer<LLInventoryCallback> cb = new LLBoostFuncInventoryCallback(create_gesture_cb);
-		create_inventory_item(gAgent.getID(), gAgent.getSessionID(),
-							  parent_id, LLTransactionID::tnull, name, desc, asset_type, inv_type,
-							  NOT_WEARABLE, next_owner_perm, cb);
+		case LLInventoryType::IT_LSL:
+		{
+			cb = new LLBoostFuncInventoryCallback(create_script_cb);
+			next_owner_perm = LLFloaterPerms::getNextOwnerPerms("Scripts");
+			break;
+		}
+
+		case LLInventoryType::IT_GESTURE:
+		{
+			cb = new LLBoostFuncInventoryCallback(create_gesture_cb);
+			next_owner_perm = LLFloaterPerms::getNextOwnerPerms("Gestures");
+			break;
+		}
+
+		case LLInventoryType::IT_NOTECARD:
+		{
+			cb = new LLBoostFuncInventoryCallback(create_notecard_cb);
+			next_owner_perm = LLFloaterPerms::getNextOwnerPerms("Notecards");
+			break;
+		}
+		default:
+			break;
 	}
-	else
-	{
-		LLPointer<LLInventoryCallback> cb = NULL;
-		create_inventory_item(gAgent.getID(), gAgent.getSessionID(),
-							  parent_id, LLTransactionID::tnull, name, desc, asset_type, inv_type,
-							  NOT_WEARABLE, next_owner_perm, cb);
-	}
-	
+
+	create_inventory_item(gAgent.getID(),
+						  gAgent.getSessionID(),
+						  parent_id,
+						  LLTransactionID::tnull,
+						  name,
+						  desc,
+						  asset_type,
+						  inv_type,
+						  NOT_WEARABLE,
+						  next_owner_perm,
+						  cb);
 }	
+
+// [RLVa:KB] - Checked: 2014-11-02 (RLVa-1.4.11)
+void sync_inventory_folder(const LLUUID& folder_id, const LLInventoryModel::item_array_t& items, LLInventoryModel::item_array_t& items_to_add, LLInventoryModel::item_array_t& items_to_remove)
+{
+	LLInventoryModel::item_array_t curItems, newItems = items;
+
+	// Grab the current contents
+	LLInventoryModel::cat_array_t cats;
+	gInventory.collectDescendents(folder_id, cats, curItems, LLInventoryModel::EXCLUDE_TRASH);
+
+	// Purge everything in curItems that isn't part of newItems
+	for (LLInventoryModel::item_array_t::const_iterator itCurItem = curItems.begin(); itCurItem != curItems.end(); ++itCurItem)
+	{
+		LLViewerInventoryItem* pItem = *itCurItem;
+		if (std::find_if(newItems.begin(), newItems.end(), RlvPredIsEqualOrLinkedItem(pItem)) == newItems.end())
+		{
+			// Item doesn't exist in newItems => purge (if it's a link)
+			if ( (pItem->getIsLinkType()) && 
+				 (LLAssetType::AT_LINK_FOLDER != pItem->getActualType()) && 
+			     (items_to_remove.end() == std::find(items_to_remove.begin(), items_to_remove.end(), pItem)) )
+			{
+				items_to_remove.push_back(pItem);
+			}
+		}
+		else
+		{
+			// Item exists in newItems => remove *all* occurances in newItems (removes duplicate COF links to this item as well)
+			newItems.erase(std::remove_if(newItems.begin(), newItems.end(), RlvPredIsEqualOrLinkedItem(pItem)), newItems.end());
+		}
+	}
+
+	// Whatever remains in newItems will need to have a link created
+	for (LLInventoryModel::item_array_t::const_iterator itNewItem = newItems.begin(); itNewItem != newItems.end(); ++itNewItem)
+	{
+		LLViewerInventoryItem* pItem = *itNewItem;
+		if (items_to_add.end() == std::find(items_to_add.begin(), items_to_add.end(), pItem))
+			items_to_add.push_back(pItem);
+	}
+}
+
+void link_inventory_items(const LLUUID& folder_id, const LLInventoryModel::item_array_t& items, LLPointer<LLInventoryCallback> cb)
+{
+	for (LLInventoryModel::item_array_t::const_iterator itItem = items.begin(); itItem != items.end(); ++itItem)
+	{
+		const LLViewerInventoryItem* pItem = *itItem;
+		link_inventory_object(folder_id, pItem, cb);
+	}
+}
+
+void remove_inventory_items(const LLInventoryModel::item_array_t& items, LLPointer<LLInventoryCallback> cb)
+{
+	for (LLInventoryModel::item_array_t::const_iterator itItem = items.begin(); itItem != items.end(); ++itItem)
+	{
+		const LLViewerInventoryItem* pItem = *itItem;
+		if (pItem->getIsLinkType())
+			remove_inventory_item(pItem->getUUID(), cb);
+	}
+}
+// [/RLVa:KB]
+
+void slam_inventory_folder(const LLUUID& folder_id,
+						   const LLSD& contents,
+						   LLPointer<LLInventoryCallback> cb)
+{
+//	if (AISCommand::isAPIAvailable())
+// [SL:KB] - Patch: Appearance-AISFilter | Checked: 2015-03-01 (Catznip-3.7)
+	if (AISCommand::isAPIAvailable(AISCommand::CMD_CAT_SLAM))
+// [/SL:KB]
+	{
+		LL_DEBUGS(LOG_INV) << "using AISv3 to slam folder, id " << folder_id
+						   << " new contents: " << ll_pretty_print_sd(contents) << LL_ENDL;
+		LLPointer<AISCommand> cmd_ptr = new SlamFolderCommand(folder_id, contents, cb);
+		cmd_ptr->run_command();
+	}
+	else // no cap
+	{
+// [RLVa:KB] - Checked: 2014-11-02 (RLVa-1.4.11)
+		LL_DEBUGS(LOG_INV) << "using item-by-item calls to slam folder, id " << folder_id
+						   << " new contents: " << ll_pretty_print_sd(contents) << LL_ENDL;
+
+		LLInventoryModel::item_array_t items;
+		for (LLSD::array_const_iterator itItem = contents.beginArray(); itItem != contents.endArray(); ++itItem)
+		{
+			LLViewerInventoryItem* pItem = new LLViewerInventoryItem;
+			pItem->fromLLSD(*itItem);
+			items.push_back(pItem);
+		}
+
+		LLInventoryModel::item_array_t items_to_add, items_to_remove;
+		sync_inventory_folder(folder_id, items, items_to_add, items_to_remove);
+
+		link_inventory_items(folder_id, items_to_add, cb);
+		remove_inventory_items(items_to_remove, cb);
+// [/RLVa:KB]
+//		LL_DEBUGS(LOG_INV) << "using item-by-item calls to slam folder, id " << folder_id
+//						   << " new contents: " << ll_pretty_print_sd(contents) << LL_ENDL;
+//		for (LLSD::array_const_iterator it = contents.beginArray();
+//			 it != contents.endArray();
+//			 ++it)
+//		{
+//			const LLSD& item_contents = *it;
+//			LLViewerInventoryItem *item = new LLViewerInventoryItem;
+//			item->fromLLSD(item_contents);
+//			link_inventory_object(folder_id, item, cb);
+//		}
+//		remove_folder_contents(folder_id,false,cb);
+	}
+}
+
+void remove_folder_contents(const LLUUID& category, bool keep_outfit_links,
+							LLPointer<LLInventoryCallback> cb)
+{
+	LLInventoryModel::cat_array_t cats;
+	LLInventoryModel::item_array_t items;
+	gInventory.collectDescendents(category, cats, items,
+								  LLInventoryModel::EXCLUDE_TRASH);
+	for (S32 i = 0; i < items.size(); ++i)
+	{
+		LLViewerInventoryItem *item = items.at(i);
+		if (keep_outfit_links && (item->getActualType() == LLAssetType::AT_LINK_FOLDER))
+			continue;
+		if (item->getIsLinkType())
+		{
+			remove_inventory_item(item->getUUID(), cb);
+		}
+	}
+}
 
 const std::string NEW_LSL_NAME = "New Script"; // *TODO:Translate? (probably not)
 const std::string NEW_NOTECARD_NAME = "New Note"; // *TODO:Translate? (probably not)
@@ -1327,7 +2084,7 @@ void menu_create_inventory_item(LLInventoryPanel* panel, LLFolderBridge *bridge,
 					  parent_id,
 					  LLAssetType::AT_LSL_TEXT,
 					  LLInventoryType::IT_LSL,
-					  PERM_MOVE | PERM_TRANSFER);
+					  PERM_MOVE | PERM_TRANSFER);	// overridden in create_new_item
 	}
 	else if ("notecard" == type_name)
 	{
@@ -1336,7 +2093,7 @@ void menu_create_inventory_item(LLInventoryPanel* panel, LLFolderBridge *bridge,
 					  parent_id,
 					  LLAssetType::AT_NOTECARD,
 					  LLInventoryType::IT_NOTECARD,
-					  PERM_ALL);
+					  PERM_ALL);	// overridden in create_new_item
 	}
 	else if ("gesture" == type_name)
 	{
@@ -1345,7 +2102,7 @@ void menu_create_inventory_item(LLInventoryPanel* panel, LLFolderBridge *bridge,
 					  parent_id,
 					  LLAssetType::AT_GESTURE,
 					  LLInventoryType::IT_GESTURE,
-					  PERM_ALL);
+					  PERM_ALL);	// overridden in create_new_item
 	}
 	else
 	{
@@ -1358,7 +2115,7 @@ void menu_create_inventory_item(LLInventoryPanel* panel, LLFolderBridge *bridge,
 		}
 		else
 		{
-			LL_WARNS() << "Can't create unrecognized type " << type_name << LL_ENDL;
+			LL_WARNS(LOG_INV) << "Can't create unrecognized type " << type_name << LL_ENDL;
 		}
 	}
 	panel->getRootFolder()->setNeedsAutoRename(TRUE);	
@@ -1524,7 +2281,7 @@ LLWearableType::EType LLViewerInventoryItem::getWearableType() const
 	{
 		return LLWearableType::WT_INVALID;
 	}
-	return LLWearableType::EType(getFlags() & LLInventoryItemFlags::II_FLAGS_WEARABLES_MASK);
+	return LLWearableType::inventoryFlagsToWearableType(getFlags());
 }
 
 
@@ -1593,7 +2350,7 @@ LLViewerInventoryItem *LLViewerInventoryItem::getLinkedItem() const
 		LLViewerInventoryItem *linked_item = gInventory.getItem(mAssetUUID);
 		if (linked_item && linked_item->getIsLinkType())
 		{
-			LL_WARNS() << "Warning: Accessing link to link" << LL_ENDL;
+			LL_WARNS(LOG_INV) << "Warning: Accessing link to link" << LL_ENDL;
 			return NULL;
 		}
 		return linked_item;

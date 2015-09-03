@@ -89,6 +89,7 @@ public:
 	void setCargoCount(U32 count) { mCargoCount = count; }
 	void resetCargoCount() { mCargoCount = 0; }
 	U32 getCargoCount() const { return (mCargoCount > 0) ? mCargoCount : mCargoIDs.size(); }
+    S32 getCargoIndex() const { return mCurItemIndex; }
 
 	static S32 getOperationId() { return sOperationId; }
 
@@ -149,6 +150,7 @@ protected:
 	BOOL			mDrop;
 	S32				mCurItemIndex;
 	std::string		mToolTipMsg;
+	std::string		mCustomMsg;
 
 	enddrag_signal_t	mEndDragSignal;
 

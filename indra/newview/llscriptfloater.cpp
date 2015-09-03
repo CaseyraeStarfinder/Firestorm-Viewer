@@ -48,6 +48,7 @@
 // <FS:Zi> Dialog Stacking browser
 #include "dialogstack.h"
 #include "llbutton.h"
+#include "llnavigationbar.h"
 // </FS:Zi>
 
 //////////////////////////////////////////////////////////////////////////
@@ -228,8 +229,8 @@ void LLScriptFloater::createForm(const LLUUID& notification_id)
 	// toast_rect.setLeftTopAndSize(toast_rect.mLeft, toast_rect.mTop, panel_rect.getWidth(), panel_rect.getHeight() + getHeaderHeight());
 	mDesiredHeight = panel_rect.getHeight() + getHeaderHeight();
 	if (gSavedSettings.getBOOL("FSAnimatedScriptDialogs") &&
-		(gSavedSettings.getS32("ScriptDialogsPosition") == (eDialogPosition)POS_TOP_LEFT ||
-		gSavedSettings.getS32("ScriptDialogsPosition") == (eDialogPosition)POS_TOP_RIGHT))
+		((eDialogPosition)gSavedSettings.getS32("ScriptDialogsPosition") == POS_TOP_LEFT ||
+		(eDialogPosition)gSavedSettings.getS32("ScriptDialogsPosition") == POS_TOP_RIGHT))
 	{
 		mCurrentHeight = 0;
 		mStartTime = LLFrameTimer::getElapsedSeconds();
@@ -243,9 +244,9 @@ void LLScriptFloater::createForm(const LLUUID& notification_id)
 	setShape(toast_rect);
 
 	// <FS:Zi> Dialog Stacking browser
-	mScriptForm->getChild<LLButton>("DialogStackButton")->setCommitCallback(boost::bind(&LLScriptFloater::onStackClicked,this));
+	mScriptForm->getChild<LLButton>("DialogStackButton")->setCommitCallback(boost::bind(&LLScriptFloater::onStackClicked, this));
 
-	if(gSavedSettings.getS32("ScriptDialogsPosition")!=(eDialogPosition) POS_DOCKED)
+	if ((eDialogPosition)gSavedSettings.getS32("ScriptDialogsPosition") != POS_DOCKED)
 	{
 		DialogStack::instance().push(notification_id);
 	}
@@ -255,13 +256,13 @@ void LLScriptFloater::createForm(const LLUUID& notification_id)
 // <FS:Zi> Dialog Stacking browser
 void LLScriptFloater::onStackClicked()
 {
-	LLFloater* floater=LLFloaterReg::getTypedInstance<LLScriptFloater>("script_floater",getNotificationId());
-	if(floater->isFrontmost())
+	LLFloater* floater = LLFloaterReg::getTypedInstance<LLScriptFloater>("script_floater", getNotificationId());
+	if (floater->isFrontmost())
 	{
-		const LLUUID& nextNotification=DialogStack::instance().flip(getNotificationId());
-		floater=LLFloaterReg::getTypedInstance<LLScriptFloater>("script_floater",nextNotification);
+		const LLUUID& next_notification = DialogStack::instance().flip(getNotificationId());
+		floater = LLFloaterReg::getTypedInstance<LLScriptFloater>("script_floater", next_notification);
 	}
-	gFloaterView->bringToFront(floater,TRUE);
+	gFloaterView->bringToFront(floater, TRUE);
 }
 // </FS:Zi>
 
@@ -535,6 +536,7 @@ void LLScriptFloaterManager::onAddNotification(const LLUUID& notification_id)
 				{
 					// Pass the new_message icon state further.
 					set_new_message = chicletp->getShowNewMessagesIcon();
+					chicletp->hidePopupMenu();
 				}
 			}
 
@@ -790,26 +792,26 @@ LLScriptFloaterManager::LLScriptFloaterManager()
 S32 LLScriptFloaterManager::getTopPad()
 {
 	// initialize if needed
-	if(mNavigationPanelPad==-1)
+	if (mNavigationPanelPad == -1)
 	{
-		mNavigationPanelPad=LLUI::getRootView()->getChild<LLView>("location_search_layout")->getRect().getHeight();
+		mNavigationPanelPad = LLNavigationBar::instance().getView()->getChild<LLView>("location_search_layout")->getRect().getHeight();
 	}
 
 	// initialize if needed
-	if(mFavoritesPanelPad==-1)
+	if (mFavoritesPanelPad == -1)
 	{
-		mFavoritesPanelPad=LLUI::getRootView()->getChild<LLView>("favorite")->getRect().getHeight();
+		mFavoritesPanelPad = LLNavigationBar::instance().getView()->getChild<LLView>("favorite")->getRect().getHeight();
 	}
 
-	S32 pad=0;
+	S32 pad = 0;
 	if (gSavedSettings.getBOOL("ShowNavbarNavigationPanel"))
 	{
-		pad=mNavigationPanelPad;
+		pad = mNavigationPanelPad;
 	}
 
 	if (gSavedSettings.getBOOL("ShowNavbarFavoritesPanel"))
 	{
-		pad+=mFavoritesPanelPad;
+		pad += mFavoritesPanelPad;
 	}
 
 	return pad;
@@ -911,7 +913,7 @@ LLScriptFloater* LLScriptFloater::show(const LLUUID& notification_id)
 			floater->setDocked(false, true);
 		}
 
-		S32 topPad=LLScriptFloaterManager::instance().getTopPad();
+		S32 topPad = LLScriptFloaterManager::instance().getTopPad();
 
 		S32 bottomPad = 0;
 		if (gToolBarView->getToolbar(LLToolBarEnums::TOOLBAR_BOTTOM)->hasButtons())

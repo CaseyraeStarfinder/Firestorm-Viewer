@@ -314,40 +314,50 @@ void LLControlVariable::resetToDefault(bool fire_signal)
 
 bool LLControlVariable::isSane()
 {
-	if(mSanityType<=0)
-		return TRUE;
-
-	bool sanity=FALSE;
+	if (mSanityType <= 0)
+	{
+		return true;
+	}
 
 	// it's the default value, or we can't check sanity, assume it's sane
-	if(mValues.size() < 2 || !mValues[1] || mValues[1].isUndefined())
-		return TRUE;
+	if (mValues.size() < 2 || !mValues[1] || mValues[1].isUndefined())
+	{
+		return true;
+	}
 
-	switch(mSanityType)
+	bool sanity = false;
+
+	switch (mSanityType)
 	{
 		case SANITY_TYPE_EQUALS:
-			sanity=llsd_compare(mValues[1],mSanityValues[0]);
+			sanity = llsd_compare(mValues[1], mSanityValues[0]);
 			break;
 		case SANITY_TYPE_NOT_EQUALS:
-			sanity=!llsd_compare(mValues[1],mSanityValues[0]);
+			sanity = !llsd_compare(mValues[1], mSanityValues[0]);
 			break;
 		case SANITY_TYPE_LESS_THAN:
-			sanity=(mValues[1].asReal()<mSanityValues[0].asReal());
+			sanity = (mValues[1].asReal() < mSanityValues[0].asReal());
 			break;
 		case SANITY_TYPE_GREATER_THAN:
-			sanity=(mValues[1].asReal()>mSanityValues[0].asReal());
+			sanity = (mValues[1].asReal() > mSanityValues[0].asReal());
+			break;
+		case SANITY_TYPE_LESS_THAN_EQUALS:
+			sanity = (mValues[1].asReal() <= mSanityValues[0].asReal());
+			break;
+		case SANITY_TYPE_GREATER_THAN_EQUALS:
+			sanity = (mValues[1].asReal() >= mSanityValues[0].asReal());
 			break;
 		case SANITY_TYPE_BETWEEN:
-			sanity=(mValues[1].asReal()>=mSanityValues[0].asReal() && mValues[1].asReal()<=mSanityValues[1].asReal());
+			sanity = (mValues[1].asReal() >= mSanityValues[0].asReal() && mValues[1].asReal() <= mSanityValues[1].asReal());
 			break;
 		case SANITY_TYPE_NOT_BETWEEN:
-			sanity=(mValues[1].asReal()<=mSanityValues[0].asReal() || mValues[1].asReal()>=mSanityValues[1].asReal());
+			sanity = (mValues[1].asReal() <= mSanityValues[0].asReal() || mValues[1].asReal() >= mSanityValues[1].asReal());
 			break;
 		case SANITY_TYPE_NONE:
-			sanity=TRUE;
+			sanity = true;
 			break;
 		default:
-			sanity=FALSE;
+			sanity = false;
 	}
 
 	return sanity;
@@ -410,13 +420,15 @@ LLControlGroup::LLControlGroup(const std::string& name)
 	mTypeString[TYPE_COL3] = "Color3";
 	mTypeString[TYPE_LLSD] = "LLSD";
 
-	mSanityTypeString[SANITY_TYPE_NONE]="None";
-	mSanityTypeString[SANITY_TYPE_EQUALS]="Equals";
-	mSanityTypeString[SANITY_TYPE_NOT_EQUALS]="NotEquals";
-	mSanityTypeString[SANITY_TYPE_LESS_THAN]="LessThan";
-	mSanityTypeString[SANITY_TYPE_GREATER_THAN]="GreaterThan";
-	mSanityTypeString[SANITY_TYPE_BETWEEN]="Between";
-	mSanityTypeString[SANITY_TYPE_NOT_BETWEEN]="NotBetween";
+	mSanityTypeString[SANITY_TYPE_NONE] = "None";
+	mSanityTypeString[SANITY_TYPE_EQUALS] = "Equals";
+	mSanityTypeString[SANITY_TYPE_NOT_EQUALS] = "NotEquals";
+	mSanityTypeString[SANITY_TYPE_LESS_THAN] = "LessThan";
+	mSanityTypeString[SANITY_TYPE_GREATER_THAN] = "GreaterThan";
+	mSanityTypeString[SANITY_TYPE_LESS_THAN_EQUALS] = "LessThanEquals";
+	mSanityTypeString[SANITY_TYPE_GREATER_THAN_EQUALS] = "GreaterThanEquals";
+	mSanityTypeString[SANITY_TYPE_BETWEEN] = "Between";
+	mSanityTypeString[SANITY_TYPE_NOT_BETWEEN] = "NotBetween";
 }
 
 LLControlGroup::~LLControlGroup()
@@ -918,12 +930,12 @@ U32 LLControlGroup::saveToFile(const std::string& filename, BOOL nondefault_only
 			settings[iter->first]["Type"] = typeEnumToString(control->type());
 			settings[iter->first]["Comment"] = control->getComment();
 			settings[iter->first]["Value"] = control->getSaveValue();
-				settings[iter->first]["Backup"] = control->isBackupable();		// <FS:Zi> Backup Settings
+			settings[iter->first]["Backup"] = control->isBackupable();		// <FS:Zi> Backup Settings
 			++num_saved;
 		}
 	}
 	llofstream file;
-	file.open(filename);
+	file.open(filename.c_str());
 	if (file.is_open())
 	{
 		LLSDSerialize::toPrettyXML(settings, file);
@@ -943,7 +955,7 @@ U32 LLControlGroup::loadFromFile(const std::string& filename, bool set_default_v
 {
 	LLSD settings;
 	llifstream infile;
-	infile.open(filename);
+	infile.open(filename.c_str());
 	if(!infile.is_open())
 	{
 		LL_WARNS("Settings") << "Cannot find file " << filename << " to load." << LL_ENDL;

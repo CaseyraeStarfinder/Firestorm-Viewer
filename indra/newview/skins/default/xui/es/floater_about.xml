@@ -35,7 +35,7 @@ Distancia de dibujo (Draw distance): [DRAW_DISTANCE]
 Ancho de banda (Bandwidth): [BANDWIDTH]
 Factor de nivel de detalle (LOD factor): [LOD]
 Calidad de dibujo (Render quality): [RENDERQUALITY]
-Advanced Lightning Model: [ALMSTATUS]
+Advanced Lighting Model: [ALMSTATUS]
 Memoria de texturas (Texture memory): [TEXTUREMEMORY] MB ([TEXTUREMEMORYMULTIPLIER])
 	</floater.string>
 	<floater.string name="none">
@@ -56,13 +56,8 @@ http://www.firestormviewer.org
         		<text name="linden_intro">
 				Firestorm no sería posible sin la decisión de Linden Lab de liberar el código fuente de su Visor para Second Life.
 
-Los Linden son:
-			</text>
-			<text name="contrib_intro">
-				Con contribuciones de código de:
-			</text>
-			<text name="trans_intro">
-				Y traducciones de:
+Los Linden son,
+con contribuciones de código de:
 			</text>
 		</panel>
 		<panel label="Créditos de Firestorm" name="fs_credits_panel" height="850">
@@ -88,7 +83,7 @@ Artistas y Diseñadores de la interfaz:
 			</scroll_container>
 		</panel>
 		<panel label="Licencias" name="licenses_panel">
-			 <text_editor name="credits_editor">
+			 <text_editor name="licenses_editor">
 3Dconnexion SDK Copyright (C) 1992-2009 3Dconnexion
 APR Copyright (C) 2011 The Apache Software Foundation
 Collada DOM Copyright 2006 Sony Computer Entertainment Inc.

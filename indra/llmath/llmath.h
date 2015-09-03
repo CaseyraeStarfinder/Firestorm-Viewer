@@ -1,4 +1,4 @@
-/** 
+/**
  * @file llmath.h
  * @brief Useful math constants and macros.
  *
@@ -73,6 +73,7 @@ const F32	F_E			= 2.71828182845904523536f;
 const F32	F_SQRT2		= 1.4142135623730950488016887242097f;
 const F32	F_SQRT3		= 1.73205080756888288657986402541f;
 const F32	OO_SQRT2	= 0.7071067811865475244008443621049f;
+const F32	OO_SQRT3	= 0.577350269189625764509f;
 const F32	DEG_TO_RAD	= 0.017453292519943295769236907684886f;
 const F32	RAD_TO_DEG	= 57.295779513082320876798154814105f;
 const F32	F_APPROXIMATELY_ZERO = 0.00001f;
@@ -83,6 +84,9 @@ const F32	OO_LN2		= 1.4426950408889634073599246810019f;
 
 const F32	F_ALMOST_ZERO	= 0.0001f;
 const F32	F_ALMOST_ONE	= 1.0f - F_ALMOST_ZERO;
+
+const F32	GIMBAL_THRESHOLD = 0.000436f; // sets the gimballock threshold 0.025 away from +/-90 degrees
+// formula: GIMBAL_THRESHOLD = sin(DEG_TO_RAD * gimbal_threshold_angle);
 
 // BUG: Eliminate in favor of F_APPROXIMATELY_ZERO above?
 const F32 FP_MAG_THRESHOLD = 0.0000001f;
@@ -202,17 +206,16 @@ inline S32 llceil( F32 f )
 
 #ifndef BOGUS_ROUND
 // Use this round.  Does an arithmetic round (0.5 always rounds up)
-#define llround _llround // <FS:TM> added to not conflict with 'Long Long Round' in newer compilers
-inline S32 llround(const F32 val)
+inline S32 ll_round(const F32 val)
 {
 	return llfloor(val + 0.5f);
 }
 
 #else // BOGUS_ROUND
-// Old llround implementation - does banker's round (toward nearest even in the case of a 0.5.
+// Old ll_round implementation - does banker's round (toward nearest even in the case of a 0.5.
 // Not using this because we don't have a consistent implementation on both platforms, use
 // llfloor(val + 0.5f), which is consistent on all platforms.
-inline S32 llround(const F32 val)
+inline S32 ll_round(const F32 val)
 {
 	#if LL_WINDOWS
 		// Note: assumes that the floating point control word is set to rounding mode (the default)
@@ -251,12 +254,12 @@ inline int round_int(double x)
 }
 #endif // BOGUS_ROUND
 
-inline F32 llround( F32 val, F32 nearest )
+inline F32 ll_round( F32 val, F32 nearest )
 {
 	return F32(floor(val * (1.0f / nearest) + 0.5f)) * nearest;
 }
 
-inline F64 llround( F64 val, F64 nearest )
+inline F64 ll_round( F64 val, F64 nearest )
 {
 	return F64(floor(val * (1.0 / nearest) + 0.5)) * nearest;
 }
@@ -306,25 +309,6 @@ const S32 LL_SHIFT_AMOUNT			= 16;                    //16.16 fixed point represe
 	#define LL_MAN_INDEX				1
 #endif
 
-/* Deprecated: use llround(), lltrunc(), or llfloor() instead
-// ================================================================================================
-// Real2Int
-// ================================================================================================
-inline S32 F64toS32(F64 val)
-{
-	val		= val + LL_DOUBLE_TO_FIX_MAGIC;
-	return ((S32*)&val)[LL_MAN_INDEX] >> LL_SHIFT_AMOUNT; 
-}
-
-// ================================================================================================
-// Real2Int
-// ================================================================================================
-inline S32 F32toS32(F32 val)
-{
-	return F64toS32 ((F64)val);
-}
-*/
-
 ////////////////////////////////////////////////
 //
 // Fast exp and log
@@ -348,9 +332,7 @@ static union
 #define LL_EXP_A (1048576 * OO_LN2) // use 1512775 for integer
 #define LL_EXP_C (60801)			// this value of C good for -4 < y < 4
 
-#define LL_FAST_EXP(y) (LLECO.n.i = llround(F32(LL_EXP_A*(y))) + (1072693248 - LL_EXP_C), LLECO.d)
-
-
+#define LL_FAST_EXP(y) (LLECO.n.i = ll_round(F32(LL_EXP_A*(y))) + (1072693248 - LL_EXP_C), LLECO.d)
 
 inline F32 llfastpow(const F32 x, const F32 y)
 {
@@ -366,9 +348,6 @@ inline F32 snap_to_sig_figs(F32 foo, S32 sig_figs)
 	{
 		bar *= 10.f;
 	}
-
-	//F32 new_foo = (F32)llround(foo * bar);
-	// the llround() implementation sucks.  Don't us it.
 
 	F32 sign = (foo > 0.f) ? 1.f : -1.f;
 	F32 new_foo = F32( S64(foo * bar + sign * 0.5f));

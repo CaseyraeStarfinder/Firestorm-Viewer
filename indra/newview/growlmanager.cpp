@@ -32,9 +32,14 @@
 
 #include "llviewerprecompiledheaders.h"
 
+#include "growlmanager.h"
+
+#include "growlnotifier.h"
 #include "llagentdata.h"
 #include "llappviewer.h"
+#include "llfloaterimnearbychathandler.h"
 #include "llimview.h"
+#include "llnotificationmanager.h"
 #include "llscriptfloater.h"
 #include "llsdserialize.h"
 #include "llstartup.h"
@@ -42,9 +47,6 @@
 #include "llviewercontrol.h"
 #include "llviewerwindow.h"
 #include "llwindow.h"
-
-#include "growlmanager.h"
-#include "growlnotifier.h"
 
 // Platform-specific includes
 #ifndef LL_LINUX
@@ -61,7 +63,8 @@ GrowlManager::GrowlManager()
 	mNotifier(NULL),
 	mNotificationConnection(),
 	mInstantMessageConnection(),
-	mScriptDialogConnection()
+	mScriptDialogConnection(),
+	mChatMessageConnection()
 {
 	// Create a notifier appropriate to the platform.
 #ifndef LL_LINUX
@@ -105,7 +108,6 @@ GrowlManager::GrowlManager()
 
 	// Hook into LLNotifications...
 	// We hook into all of them, even though (at the time of writing) nothing uses "alert", so more notifications can be added easily.
-	// Ansa: Hope this works...
 	mGrowlNotificationsChannel = new LLNotificationChannel("GrowlNotifications", "Visible", &filterOldNotifications);
 	mNotificationConnection = LLNotifications::instance().getChannel("GrowlNotifications")->connectChanged(&onLLNotification);
 
@@ -114,6 +116,9 @@ GrowlManager::GrowlManager()
 	
 	// Hook into script dialogs
 	mScriptDialogConnection = LLScriptFloaterManager::instance().addNewObjectCallback(&GrowlManager::onScriptDialog);
+
+	// Hook into new chat messages (needed for object IMs that will go into nearby chat)
+	mChatMessageConnection = LLNotificationsUI::LLNotificationManager::instance().getChatHandler()->addNewChatCallback(&GrowlManager::onNearbyChatMessage);
 }
 
 GrowlManager::~GrowlManager()
@@ -129,6 +134,10 @@ GrowlManager::~GrowlManager()
 	if (mScriptDialogConnection.connected())
 	{
 		mScriptDialogConnection.disconnect();
+	}
+	if (mChatMessageConnection.connected())
+	{
+		mChatMessageConnection.disconnect();
 	}
 
 	if (mNotifier)
@@ -147,10 +156,10 @@ void GrowlManager::loadConfig()
 	}
 
 	LL_INFOS("GrowlConfig") << "Loading growl notification config from " << config_file << LL_ENDL;
-	llifstream configs(config_file);
+	llifstream configs(config_file.c_str());
 	LLSD notificationLLSD;
 	std::set<std::string> notificationTypes;
-	notificationTypes.insert("Keyword Alert");
+	notificationTypes.insert(GROWL_KEYWORD_ALERT_TYPE);
 	notificationTypes.insert(GROWL_IM_MESSAGE_TYPE);
 	if (configs.is_open())
 	{
@@ -207,7 +216,7 @@ void GrowlManager::loadConfig()
 
 }
 
-void GrowlManager::notify(const std::string& notification_title, const std::string& notification_message, const std::string& notification_type)
+void GrowlManager::performNotification(const std::string& title, const std::string& message, const std::string& type)
 {
 	static LLCachedControl<bool> enabled(gSavedSettings, "FSEnableGrowl");
 	if (!enabled)
@@ -222,19 +231,19 @@ void GrowlManager::notify(const std::string& notification_title, const std::stri
 	
 	if (mNotifier->needsThrottle())
 	{
-		U64 now = LLTimer::getTotalTime();
-		if (mTitleTimers.find(notification_title) != mTitleTimers.end())
+		const U64 now = LLTimer::getTotalTime();
+		if (mTitleTimers.find(title) != mTitleTimers.end())
 		{
-			if (mTitleTimers[notification_title] > now - GROWL_THROTTLE_TIME)
+			if (mTitleTimers[title] > now - GROWL_THROTTLE_TIME)
 			{
-				LL_WARNS("GrowlNotify") << "Discarded notification with title '" << notification_title << "' - spam ._." << LL_ENDL;
-				mTitleTimers[notification_title] = now;
+				LL_WARNS("GrowlNotify") << "Discarded notification with title '" << title << "' - spam ._." << LL_ENDL;
+				mTitleTimers[title] = now;
 				return;
 			}
 		}
-		mTitleTimers[notification_title] = now;
+		mTitleTimers[title] = now;
 	}
-	mNotifier->showNotification(notification_title, notification_message.substr(0, GROWL_MAX_BODY_LENGTH), notification_type);
+	mNotifier->showNotification(title, message.substr(0, GROWL_MAX_BODY_LENGTH), type);
 }
 
 BOOL GrowlManager::tick()
@@ -251,7 +260,7 @@ bool GrowlManager::onLLNotification(const LLSD& notice)
 	}
 
 	LLNotificationPtr notification = LLNotifications::instance().find(notice["id"].asUUID());
-	std::string name = notification->getName();
+	const std::string name = notification->getName();
 	LLSD substitutions = notification->getSubstitutions();
 	if (gGrowlManager->mNotifications.find(name) != gGrowlManager->mNotifications.end())
 	{
@@ -293,7 +302,7 @@ bool GrowlManager::onLLNotification(const LLSD& notice)
 			}
 			body = wstring_to_utf8str(newLine);
 		}
-		gGrowlManager->notify(title, body, growl_notification->growlName);
+		gGrowlManager->performNotification(title, body, growl_notification->growlName);
 	}
 	return false;
 }
@@ -307,7 +316,7 @@ bool GrowlManager::filterOldNotifications(LLNotificationPtr pNotification)
 void GrowlManager::onInstantMessage(const LLSD& im)
 {
 	LLIMModel::LLIMSession* session = LLIMModel::instance().findIMSession(im["session_id"].asUUID());
-	if (session->isP2PSessionType())
+	if (session->isP2PSessionType() && (!im["keyword_alert_performed"].asBoolean() || !gSavedSettings.getBOOL("FSFilterGrowlKeywordDuplicateIMs")))
 	{
 		// Don't show messages from ourselves or the system.
 		LLUUID from_id = im["from_id"].asUUID();
@@ -322,7 +331,7 @@ void GrowlManager::onInstantMessage(const LLSD& im)
 		{
 			message = message.substr(3);
 		}
-		gGrowlManager->notify(im["from"].asString(), message, GROWL_IM_MESSAGE_TYPE);
+		gGrowlManager->performNotification(im["from"].asString(), message, GROWL_IM_MESSAGE_TYPE);
 	}
 }
 
@@ -330,8 +339,8 @@ void GrowlManager::onInstantMessage(const LLSD& im)
 void GrowlManager::onScriptDialog(const LLSD& data)
 {
 	LLNotificationPtr notification = LLNotifications::instance().find(data["notification_id"].asUUID());
-	std::string name = notification->getName();
-	LLSD payload = notification->getPayload();
+	const std::string name = notification->getName();
+	//LLSD payload = notification->getPayload();
 	LLSD substitutions = notification->getSubstitutions();
 
 	//LL_INFOS("GrowlLLNotification") << "Script dialog: name=" << name << " - payload=" << payload << " subs=" << substitutions << LL_ENDL;
@@ -361,7 +370,23 @@ void GrowlManager::onScriptDialog(const LLSD& data)
 			LLStringUtil::format(body, substitutions);
 		}
 
-		gGrowlManager->notify(title, body, growl_notification->growlName);
+		gGrowlManager->performNotification(title, body, growl_notification->growlName);
+	}
+}
+
+void GrowlManager::onNearbyChatMessage(const LLSD& chat)
+{
+	if ((EChatType)chat["chat_type"].asInteger() == CHAT_TYPE_IM)
+	{
+		std::string message = chat["message"].asString();
+
+		const std::string prefix = message.substr(0, 4);
+		if (prefix == "/me " || prefix == "/me'")
+		{
+			message = message.substr(3);
+		}
+
+		gGrowlManager->performNotification(chat["from"].asString(), message, GROWL_IM_MESSAGE_TYPE);
 	}
 }
 
@@ -376,12 +401,33 @@ bool GrowlManager::shouldNotify()
 	return (activated || (!gViewerWindow->getWindow()->getVisible() || !gFocusMgr.getAppHasFocus()));
 }
 
-void GrowlManager::InitiateManager()
+// static
+void GrowlManager::initiateManager()
 {
 	gGrowlManager = new GrowlManager();
 }
 
+// static
+void GrowlManager::destroyManager()
+{
+	if (gGrowlManager)
+	{
+		delete gGrowlManager;
+		gGrowlManager = NULL;
+	}
+}
+
+// static
 bool GrowlManager::isUsable()
 {
 	return (gGrowlManager && gGrowlManager->mNotifier && gGrowlManager->mNotifier->isUsable());
+}
+
+// static
+void GrowlManager::notify(const std::string& title, const std::string& message, const std::string& type)
+{
+	if (isUsable())
+	{
+		gGrowlManager->performNotification(title, message, type);
+	}
 }

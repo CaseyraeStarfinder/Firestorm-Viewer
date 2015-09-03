@@ -71,6 +71,15 @@ public:
 			NONE_SESSION,
 		} SType;
 
+// [SL:KB] - Patch: Chat-GroupSnooze | Checked: 2014-03-01 (Catznip-3.6)
+		typedef enum e_session_close_action
+		{
+			CLOSE_DEFAULT,
+			CLOSE_LEAVE,
+			CLOSE_SNOOZE
+		} SCloseAction;
+// [/SL:KB]
+
 		LLIMSession(const LLUUID& session_id, const std::string& name, 
 			const EInstantMessage& type, const LLUUID& other_participant_id, const uuid_vec_t& ids, bool voice, bool has_offline_msg);
 		virtual ~LLIMSession();
@@ -105,8 +114,14 @@ public:
 		std::string mName;
 		EInstantMessage mType;
 		SType mSessionType;
+// [SL:KB] - Patch: Chat-GroupSnooze | Checked: 2014-03-01 (Catznip-3.6)
+		SCloseAction mCloseAction;
+		S32 mSnoozeTime;
+// [/SL:KB]
 		LLUUID mOtherParticipantID;
 		uuid_vec_t mInitialTargetIDs;
+		// <FS:Ansariel> Needed to store IDs of initially invited agents; required for FS Communication UI, as original IM floater gets destroyed
+		uuid_vec_t mInitialInvitedIDs;
 		std::string mHistoryFileName;
 
 		// connection to voice channel state change signal
@@ -137,6 +152,8 @@ public:
 		bool mStartedAsIMCall;
 
 		bool mHasOfflineMessage;
+
+		bool mIsDNDsend;
 
 	private:
 		void onAdHocNameCache(const LLAvatarName& av_name);
@@ -223,7 +240,7 @@ public:
 	 */
 	// <FS:Ansariel> Added is_announcement parameter
 	//bool addMessage(const LLUUID& session_id, const std::string& from, const LLUUID& other_participant_id, const std::string& utf8_text, bool log2file = true);
-	bool addMessage(const LLUUID& session_id, const std::string& from, const LLUUID& other_participant_id, const std::string& utf8_text, bool log2file = true, BOOL is_announcement = FALSE);
+	bool addMessage(const LLUUID& session_id, const std::string& from, const LLUUID& other_participant_id, const std::string& utf8_text, bool log2file = true, bool is_announcement = false, bool keyword_alert_performed = false);
 
 	/**
 	 * Similar to addMessage(...) above but won't send a signal about a new message added
@@ -232,7 +249,7 @@ public:
 	//LLIMModel::LLIMSession* addMessageSilently(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, 
 	//	const std::string& utf8_text, bool log2file = true);
 	LLIMModel::LLIMSession* addMessageSilently(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, 
-		const std::string& utf8_text, bool log2file = true, BOOL is_announcement = FALSE);
+		const std::string& utf8_text, bool log2file = true, bool is_announcement = false);
 
 	/**
 	 * Add a system message to an IM Model
@@ -314,7 +331,7 @@ private:
 	 */
 	// <FS:Ansariel> Added is_announcement parameter
 	//bool addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text);
-	bool addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text, BOOL is_announcement = FALSE);
+	bool addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text, bool is_announcement = false);
 };
 
 class LLIMSessionObserver
@@ -357,7 +374,8 @@ public:
 					const LLUUID& region_id = LLUUID::null,
 					const LLVector3& position = LLVector3::zero,
 					bool link_name = false,
-					BOOL is_announcement = FALSE // <FS:Ansariel> Special parameter indicating announcement
+					bool is_announcement = false, // <FS:Ansariel> Special parameter indicating announcement
+					bool keyword_alert_performed = false // <FS:Ansariel> Pass info if keyword alert has been performed
 					);
 
 	void addSystemMessage(const LLUUID& session_id, const std::string& message_name, const LLSD& args);
@@ -434,6 +452,12 @@ public:
 
 	BOOL hasSession(const LLUUID& session_id);
 
+// [SL:KB] - Patch: Chat-GroupSnooze | Checked: 2012-06-16 (Catznip-3.3)
+	bool checkSnoozeExpiration(const LLUUID& session_id) const;
+	bool isSnoozedSession(const LLUUID& session_id) const;
+	bool restoreSnoozedSession(const LLUUID& session_id);
+// [/SL:KB]
+
 	static LLUUID computeSessionID(EInstantMessage dialog, const LLUUID& other_participant_id);
 
 	void clearPendingInvitation(const LLUUID& session_id);
@@ -467,6 +491,12 @@ public:
 	bool endCall(const LLUUID& session_id);
 
 	bool isVoiceCall(const LLUUID& session_id);
+
+	void updateDNDMessageStatus();
+
+	bool isDNDMessageSend(const LLUUID& session_id);
+
+	void setDNDMessageSent(const LLUUID& session_id, bool is_send);
 
 	void addNotifiedNonFriendSessionID(const LLUUID& session_id);
 
@@ -512,6 +542,11 @@ private:
 
 	LLSD mPendingInvitations;
 	LLSD mPendingAgentListUpdates;
+
+// [SL:KB] - Patch: Chat-GroupSnooze | Checked: 2012-06-16 (Catznip-3.3)
+	typedef std::map<LLUUID, F64> snoozed_sessions_t;
+	snoozed_sessions_t mSnoozedSessions;
+// [/SL:KB]
 };
 
 class LLCallDialogManager : public LLInitClass<LLCallDialogManager>

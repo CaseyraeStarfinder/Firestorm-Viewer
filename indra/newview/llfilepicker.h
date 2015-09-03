@@ -88,6 +88,7 @@ public:
 		FFLOAD_SCRIPT = 11,
 		FFLOAD_DICTIONARY = 12,
 		FFLOAD_DIRECTORY = 13,   //To call from lldirpicker.
+		FFLOAD_EXE = 14,         // Note: EXE will be treated as ALL on Windows and Linux but not on Darwin
 		
 		// Firestorm additions
 		FFLOAD_IMPORT = 50
@@ -175,11 +176,9 @@ private:
 #if LL_DARWIN
     S32 mPickOptions;
 	std::vector<std::string> mFileVector;
-	// [FS:CR] Unused 2013.10.24 UInt32 mFileIndex;
 	
 	bool doNavChooseDialog(ELoadFilter filter);
 	bool doNavSaveDialog(ESaveFilter filter, const std::string& filename);
-	//static Boolean navOpenFilterProc(AEDesc *theItem, void *info, void *callBackUD, NavFilterModes filterMode);
     std::vector<std::string>* navOpenFilterProc(ELoadFilter filter);
 #endif
 

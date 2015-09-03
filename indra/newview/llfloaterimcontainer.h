@@ -137,7 +137,8 @@ private:
 	void onExpandCollapseButtonClicked();
 	void onStubCollapseButtonClicked();
 	void processParticipantsStyleUpdate();
-	void onSpeakButtonClicked();
+	void onSpeakButtonPressed();
+	void onSpeakButtonReleased();
 	/*virtual*/ void onClickCloseBtn(bool app_quitting = false);
 	/*virtual*/ void closeHostedFloater();
 
@@ -169,12 +170,16 @@ private:
 	LLSpeaker * getSpeakerOfSelectedParticipant(LLSpeakerMgr * speaker_managerp);
 	LLSpeakerMgr * getSpeakerMgrForSelectedParticipant();
 	bool isGroupModerator();
+	bool haveAbilityToBan();
+	bool canBanSelectedMember(const LLUUID& participant_uuid);
+	LLUUID getGroupUIIDForSelectedParticipant();
 	bool isMuted(const LLUUID& avatar_id);
 	void moderateVoice(const std::string& command, const LLUUID& userID);
 	void moderateVoiceAllParticipants(bool unmute);
 	void moderateVoiceParticipant(const LLUUID& avatar_id, bool unmute);
 	void toggleAllowTextChat(const LLUUID& participant_uuid);
 	void toggleMute(const LLUUID& participant_id, U32 flags);
+	void banSelectedMember(const LLUUID& participant_uuid);
 	void openNearbyChat();
 	bool isParticipantListExpanded();
 

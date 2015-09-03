@@ -45,20 +45,16 @@
 #include "lluictrlfactory.h"
 #include "llstring.h"
 #include "lleconomy.h"
+#include "llpermissions.h"
 
 // linden includes
 #include "llassetstorage.h"
 #include "llinventorytype.h"
 
 const S32 PREVIEW_LINE_HEIGHT = 19;
-const S32 PREVIEW_CLOSE_BOX_SIZE = 16;
 const S32 PREVIEW_BORDER_WIDTH = 2;
 const S32 PREVIEW_RESIZE_HANDLE_SIZE = S32(RESIZE_HANDLE_WIDTH * OO_SQRT2) + PREVIEW_BORDER_WIDTH;
-const S32 PREVIEW_VPAD = 2;
 const S32 PREVIEW_HPAD = PREVIEW_RESIZE_HANDLE_SIZE;
-const S32 PREVIEW_HEADER_SIZE = 3 * PREVIEW_LINE_HEIGHT + PREVIEW_VPAD;
-const S32 PREF_BUTTON_WIDTH = 64;
-const S32 PREF_BUTTON_HEIGHT = 16;
 
 //-----------------------------------------------------------------------------
 // LLFloaterNameDesc()
@@ -167,11 +163,14 @@ void LLFloaterNameDesc::onBtnOK( )
 	S32 expected_upload_cost = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload(); // kinda hack - assumes that unsubclassed LLFloaterNameDesc is only used for uploading chargeable assets, which it is right now (it's only used unsubclassed for the sound upload dialog, and THAT should be a subclass).
 	void *nruserdata = NULL;
 	std::string display_name = LLStringUtil::null;
+
 	upload_new_resource(mFilenameAndPath, // file
 			    getChild<LLUICtrl>("name_form")->getValue().asString(), 
 			    getChild<LLUICtrl>("description_form")->getValue().asString(), 
 			    0, LLFolderType::FT_NONE, LLInventoryType::IT_NONE,
-			    LLFloaterPerms::getNextOwnerPerms(), LLFloaterPerms::getGroupPerms(), LLFloaterPerms::getEveryonePerms(),
+			    LLFloaterPerms::getNextOwnerPerms("Uploads"),
+				LLFloaterPerms::getGroupPerms("Uploads"),
+				LLFloaterPerms::getEveryonePerms("Uploads"),
 			    display_name, callback, expected_upload_cost, nruserdata);
 	closeFloater(false);
 }

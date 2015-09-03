@@ -33,6 +33,45 @@
 	<string name="StartupRequireDriverUpdate">
 		Error de inicialización de gráficos. Actualiza tu controlador de gráficos.
 	</string>
+	<string name="AboutHeader">
+		[APP_NAME] [VIEWER_VERSION_0].[VIEWER_VERSION_1].[VIEWER_VERSION_2] ([VIEWER_VERSION_3]) [BUILD_DATE] [BUILD_TIME] ([CHANNEL])
+[[VIEWER_RELEASE_NOTES_URL] [ReleaseNotes]]
+	</string>
+	<string name="AboutCompiler">
+		Compilado con [COMPILER], versión [COMPILER_VERSION]
+	</string>
+	<string name="AboutPosition">
+		Estás en la posición [POSITION_LOCAL_0,number,1], [POSITION_LOCAL_1,number,1], [POSITION_LOCAL_2,number,1], de [REGION], alojada en &lt;nolink&gt;[HOSTNAME]&lt;/nolink&gt; ([HOSTIP])
+SLURL: &lt;nolink&gt;[SLURL]&lt;/nolink&gt;
+(coordenadas globales [POSITION_0,number,1], [POSITION_1,number,1], [POSITION_2,number,1])
+[SERVER_VERSION]
+[SERVER_RELEASE_NOTES_URL]
+	</string>
+	<string name="AboutSystem">
+		CPU: [CPU]
+Memoria: [MEMORY_MB] MB
+Versión del Sistema Operativo: [OS_VERSION]
+Fabricante de la tarjeta gráfica: [GRAPHICS_CARD_VENDOR]
+Tarjeta gráfica: [GRAPHICS_CARD]
+	</string>
+	<string name="AboutDriver">
+		Versión de Windows Graphics Driver: [GRAPHICS_DRIVER_VERSION]
+	</string>
+	<string name="AboutLibs">
+		Versión de OpenGL: [OPENGL_VERSION]
+
+Versión de libcurl: [LIBCURL_VERSION]
+Versión de J2C Decoder: [J2C_VERSION]
+Versión de Audio Driver: [AUDIO_DRIVER_VERSION]
+Versión de Qt Webkit: [QT_WEBKIT_VERSION]
+Versión del servidor de voz: [VOICE_VERSION]
+	</string>
+	<string name="AboutTraffic">
+		Paquetes perdidos: [PACKETS_LOST,number,0]/[PACKETS_IN,number,0] ([PACKETS_PCT,number,1]%)
+	</string>
+	<string name="ErrorFetchingServerReleaseNotesURL">
+		Error al obtener la URL de las notas de la versión del servidor.
+	</string>
 	<string name="ProgressRestoring">
 		Restaurando...
 	</string>
@@ -307,6 +346,75 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="SocialFacebookErrorDisconnecting">
 		Problema desconectando de Facebook
 	</string>
+	<string name="SocialFlickrConnecting">
+		Conectándose a Flickr...
+	</string>
+	<string name="SocialFlickrPosting">
+		Publicando...
+	</string>
+	<string name="SocialFlickrDisconnecting">
+		Desconectándose de Flickr...
+	</string>
+	<string name="SocialFlickrErrorConnecting">
+		Problema con la conexión a Flickr
+	</string>
+	<string name="SocialFlickrErrorPosting">
+		Problema al publicar en Flickr
+	</string>
+	<string name="SocialFlickrErrorDisconnecting">
+		Problema con la desconexión de Flickr
+	</string>
+	<string name="SocialTwitterConnecting">
+		Conectándose a Twitter...
+	</string>
+	<string name="SocialTwitterPosting">
+		Publicando...
+	</string>
+	<string name="SocialTwitterDisconnecting">
+		Desconectándose de Twitter...
+	</string>
+	<string name="SocialTwitterErrorConnecting">
+		Problema con la conexión a Twitter
+	</string>
+	<string name="SocialTwitterErrorPosting">
+		Problema al publicar en Twitter
+	</string>
+	<string name="SocialTwitterErrorDisconnecting">
+		Problema con la desconexión de Twitter
+	</string>
+	<string name="BlackAndWhite">
+		Blanco y negro
+	</string>
+	<string name="Colors1970">
+		Colores de los 70
+	</string>
+	<string name="Intense">
+		Intenso
+	</string>
+	<string name="Newspaper">
+		Periódico
+	</string>
+	<string name="Sepia">
+		Sepia
+	</string>
+	<string name="Spotlight">
+		Foco
+	</string>
+	<string name="Video">
+		Vídeo
+	</string>
+	<string name="Autocontrast">
+		Contraste automático
+	</string>
+	<string name="LensFlare">
+		Destello de lente
+	</string>
+	<string name="Miniature">
+		Miniatura
+	</string>
+	<string name="Toycamera">
+		Cámara de juguete
+	</string>
 	<string name="TooltipPerson">
 		Persona
 	</string>
@@ -352,12 +460,32 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="TooltipMustSingleDrop">
 		Aquí se puede arrastrar sólo un ítem
 	</string>
-	<string name="TooltipPrice"
-		 value="[AMOUNT] L$:" />
+	<string name="TooltipTooManyWearables">
+		No puedes tener una carpeta de prendas que contenga más de [AMOUNT] elementos.  Puedes cambiar este límite en Avanzado &gt; Mostrar las configuraciones del depurador &gt; WearFolderLimit.
+	</string>
+	<string name="TooltipPrice" value="[AMOUNT] L$:"/>
 	<string name="TooltipFlagScript">Script</string>
 	<string name="TooltipFlagPhysics">Física</string>
 	<string name="TooltipOutboxDragToWorld">
-		No puedes colocar objetos en tu buzón de salida de comerciante
+		No se pueden mostrar artículos desde la carpeta Artículos del mercado
+	</string>
+	<string name="TooltipOutboxWorn">
+		Los artículos que tienes puestos no se pueden colocar en la carpeta Artículos del mercado
+	</string>
+	<string name="TooltipOutboxFolderLevels">
+		La profundidad de carpetas anidadas excede de [AMOUNT]. Disminuye la profundidad de las carpetas anidadas; si es necesario, agrupa los artículos.
+	</string>
+	<string name="TooltipOutboxTooManyFolders">
+		La cantidad de subcarpetas excede de [AMOUNT]. Disminuye la cantidad de carpetas de tu lista de artículos; si es necesario, agrupa los artículos.
+	</string>
+	<string name="TooltipOutboxTooManyObjects">
+		La cantidad de artículos excede de [AMOUNT]. Para vender más de [AMOUNT] artículos en la misma lista, debes agrupar algunos.
+	</string>
+	<string name="TooltipOutboxTooManyStockItems">
+		La cantidad de artículos en stock excede de [AMOUNT].
+	</string>
+	<string name="TooltipOutboxCannotDropOnRoot">
+		Solo se pueden soltar artículos o carpetas en la pestaña TODOS. Selecciona esta pestaña y mueve otra vez los artículos o carpetas.
 	</string>
 	<string name="TooltipFlagTouch">Tocar</string>
 	<string name="TooltipFlagL$">L$</string>
@@ -371,25 +499,25 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="TooltipDistance">Distancia: [DISTANCE] m</string>
 	<string name="TooltipPosition">Posición: [POSITION]</string>
 	<string name="TooltipOutboxNoTransfer">
-		Uno o varios de estos objetos no pueden ser vendidos o transferidos a otro usuario
+		Uno o varios de estos objetos no se pueden vender o transferir
 	</string>
 	<string name="TooltipOutboxNotInInventory">
-		Tu buzón de salida de comerciante sólo puede aceptar objetos procedentes directamente de tu inventario
+		Solo puedes colocar en el mercado artículos de tu inventario
 	</string>
-	<string name="TooltipOutboxWorn">
-		No puedes poner artículos que llevas puestos en el buzón de salida de comerciante
+	<string name="TooltipOutboxLinked">
+		No puedes poner carpetas o artículos vinculados en el Mercado
 	</string>
 	<string name="TooltipOutboxCallingCard">
-		No puedes poner tarjetas de visita en tu buzón de salida de comerciante
+		No puedes colocar tarjetas de visita en el Mercado
 	</string>
-	<string name="TooltipOutboxFolderLevels">
-		La profundidad de carpetas anidadas excede de 3
+	<string name="TooltipOutboxDragActive">
+		No se puede mover una lista de artículos publicada
 	</string>
-	<string name="TooltipOutboxTooManyFolders">
-		El número de subcarpetas de la carpeta de nivel superior excede de 20
+	<string name="TooltipOutboxCannotMoveRoot">
+		No se puede mover la carpeta raíz de artículos del Mercado
 	</string>
-	<string name="TooltipOutboxTooManyObjects">
-		El número de elementos de la carpeta de nivel superior excede de 200
+	<string name="TooltipOutboxMixedStock">
+		Todos los artículos de una carpeta de stock deben tener el mismo tipo y permiso
 	</string>
 	<string name="TooltipDragOntoOwnChild">
 		No puedes mover una carpeta a su carpeta secundaria
@@ -451,8 +579,7 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="TooltipSLAPP">
 		Pulsa para ejecutar el comando secondlife://
 	</string>
-	<string name="CurrentURL"
-		 value="URL actual: [CurrentURL]" />
+	<string name="CurrentURL" value="URL actual: [CurrentURL]"/>
 	<string name="SLurlLabelTeleport">
 		Teleportarse a
 	</string>
@@ -531,7 +658,7 @@ Intenta iniciar sesión de nuevo en unos instantes.
 		(nadie)
 	</string>
 	<string name="AvatarNameWaiting">
-		(esperando)
+		(Cargando...)
 	</string>
  	<string name="AvatarNameMultiple">
 		(multiple)
@@ -878,6 +1005,12 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="use_texture">
 		Usar textura
 	</string>
+	<string name="manip_hint1">
+		Pasa el cursor del ratón sobre la regla
+	</string>
+	<string name="manip_hint2">
+		para ajustar a la cuadrícula
+	</string>
 	<string name="texture_loading">
 		Cargando...
 	</string>
@@ -986,14 +1119,15 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="TeleportYourAgent">
 		Teleportarte
 	</string>
+	<string name="AgentNameSubst">
+		(Tú)
+	</string>
+	<string name="JoinAnExperience"/><!-- intentionally blank -->
 	<string name="ManageEstateSilently">
 		Gestionar tus fincas silenciosamente
 	</string>
 	<string name="ChangeYourDefaultAnimations">
 		Cambiar tus animaciones por defecto
-	</string>
-	<string name="JoinAnExperience">
-		Participar en una experiencia
 	</string>
 	<string name="SilentlyManageEstateAccess">
 		Silenciar notificaciones sobre las modificaciones de acceso al Estado
@@ -1066,6 +1200,12 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	</string>
 	<string name="bitmap_image_files">
 		Imágenes de mapa de bits
+	</string>
+	<string name="png_image_files">
+		Imágenes PNG
+	</string>
+	<string name="save_texture_image_files">
+		Imágenes Targa o PNG
 	</string>
 	<string name="avi_movie_file">
 		Archivo de película AVI
@@ -1327,14 +1467,16 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="FavoritesNoMatchingItems">
 		Arrastra aquí un hito para añadirlo a tus favoritos.
 	</string>
+	<string name="MarketplaceNoMatchingItems">
+		No se han encontrado artículos. Comprueba si has escrito correctamente la cadena de búsqueda y vuelve a intentarlo.
+	</string>
 	<string name="InventoryNoTexture">
 		No tienes en tu inventario una copia de esta textura.
 	</string>
 	<string name="InventoryInboxNoItems">
 		Aquí aparecerán algunos de los objetos que recibas, como los regalos Premium. Después puedes arrastrarlos a tu inventario.
 	</string>
-  <string name="Unconstrained">Sin restricciones</string>
-  <string name="MarketplaceURL">
+	<string name="MarketplaceURL">
 		https://marketplace.[MARKETPLACE_DOMAIN_NAME]/
 	</string>
 	<string name="MarketplaceURL_CreateStore">
@@ -1363,107 +1505,152 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="InventoryOutboxNoItems">
 		Arrastra carpetas a esta sección y pulsa en &quot;Enviar al Mercado&quot; para incluirlas en la lista de venta del [[MARKETPLACE_DASHBOARD_URL] Mercado].
 	</string>
+	<string name="InventoryOutboxInitializingTitle">
+		Inicializando el Mercado.
+	</string>
+	<string name="InventoryOutboxInitializing">
+		Estamos accediendo a tu cuenta de la [[MARKETPLACE_CREATE_STORE_URL] tienda del Mercado].
+	</string>
+	<string name="InventoryOutboxErrorTitle">
+		Errores del Mercado.
+	</string>
+	<string name="InventoryOutboxError">
+		La [[MARKETPLACE_CREATE_STORE_URL] tienda del Mercado] devuelve errores.
+	</string>
+	<string name="InventoryMarketplaceError">
+		Esta función está actualmente en versión beta. Si quieres participar, añade tu nombre a este [http://goo.gl/forms/FCQ7UXkakz Formulario de Google].
+	</string>
+	<string name="InventoryMarketplaceListingsNoItemsTitle">
+		Tu carpeta Artículos del mercado está vacía.
+	</string>
+	<string name="InventoryMarketplaceListingsNoItems">
+		Arrastra carpetas a esta sección para incluirlas en la lista de venta del [[MARKETPLACE_DASHBOARD_URL] Mercado].
+	</string>
+	<string name="Marketplace Validation Warning Stock">
+		La carpeta de stock debe estar contenida en una carpeta de versión
+	</string>
+	<string name="Marketplace Validation Error Mixed Stock">
+		: Error: todos los artículos de una carpeta de stock deben ser del mismo tipo y que no se puedan copiar
+	</string>
+	<string name="Marketplace Validation Error Subfolder In Stock">
+		: Error: la carpeta de stock no puede contener subcarpetas
+	</string>
+	<string name="Marketplace Validation Warning Empty">
+		: Atención: la carpeta no contiene ningún artículo
+	</string>
+	<string name="Marketplace Validation Warning Create Stock">
+		: Atención: creando carpeta de stock
+	</string>
+	<string name="Marketplace Validation Warning Create Version">
+		: Atención: creando la carpeta de versión
+	</string>
+	<string name="Marketplace Validation Warning Move">
+		: Atención: moviendo artículos
+	</string>
+	<string name="Marketplace Validation Warning Delete">
+		: Atención: se ha transferido el contenido de la carpeta a la carpeta de stock, y se eliminará la carpeta vacía
+	</string>
+	<string name="Marketplace Validation Error Stock Item">
+		: Error: los artículos que no se pueden copiar deben estar contenidos en una carpeta de stock
+	</string>
+	<string name="Marketplace Validation Warning Unwrapped Item">
+		: Atención: los artículos deben estar contenidos en una carpeta de versión
+	</string>
+	<string name="Marketplace Validation Error">
+		: Error:
+	</string>
+	<string name="Marketplace Validation Warning">
+		: Atención:
+	</string>
+	<string name="Marketplace Validation Error Empty Version">
+		: Atención: la carpeta de versión debe contener al menos un artículo
+	</string>
+	<string name="Marketplace Validation Error Empty Stock">
+		: Atención: la carpeta de stock debe contener al menos un artículo
+	</string>
+	<string name="Marketplace Validation No Error">
+		No se han producido errores ni advertencias
+	</string>
 	<string name="Marketplace Error None">
 		Sin errores
 	</string>
+	<string name="Marketplace Error Prefix">
+		Error:
+	</string>
 	<string name="Marketplace Error Not Merchant">
-		Error: Para poder enviar objetos al mercado, debes registrarte como comerciante (es gratis).
+		Para poder enviar objetos al mercado, debes registrarte como comerciante (es gratis).
 	</string>
-	<string name="Marketplace Error Empty Folder">
-		Error: Esta carpeta está vacía.
-	</string>
-	<string name="Marketplace Error Unassociated Products">
-		Error: Este objeto no se pudo subir porque tu cuenta de comerciante tiene demasiados objetos que no están asociados a productos. Para corregirlo, inicia sesión en la página web Marketplace y reduce el número de objetos no asociados.
-	</string>
-	<string name="Marketplace Error Object Limit">
-		Error: Este elemento contiene demasiados objetos. Para corregir el error, guarda objetos en cajas de forma que el total de objetos sea menor que 200.
-	</string>
-	<string name="Marketplace Error Folder Depth">
-		Error: Este objeto contiene demasiados niveles de carpetas anidadas. Reorganízalo de forma que tenga como máximo 3 niveles de carpetas anidadas.
+	<string name="Marketplace Error Not Accepted">
+		No se puede mover el artículo a esa carpeta.
 	</string>
 	<string name="Marketplace Error Unsellable Item">
-		Error: Este objeto no se puede vender en el mercado.
+		Este artículo no se puede vender en el Mercado.
 	</string>
-	<string name="Marketplace Error Internal Import">
-		Error: Se ha producido un problema con este objeto. Vuelve a intentarlo más tarde.
+	<string name="MarketplaceNoID">
+		no Mkt ID
+	</string>
+	<string name="MarketplaceLive">
+		en la lista
+	</string>
+	<string name="MarketplaceActive">
+		activa
+	</string>
+	<string name="MarketplaceMax">
+		máx.
+	</string>
+	<string name="MarketplaceStock">
+		stock
+	</string>
+	<string name="MarketplaceNoStock">
+		existencias agotadas
+	</string>
+	<string name="MarketplaceUpdating">
+		actualizando...
 	</string>
 	<string name="Open landmarks">
 		Abrir hitos
 	</string>
-	<string name="no_transfer"
-		 value="(no transferible)" />
-	<string name="no_modify"
-		 value="(no modificable)" />
-	<string name="no_copy"
-		 value="(no copiable)" />
-	<string name="worn"
-		 value="(puesto)" />
-	<string name="link"
-		 value="(enlace)" />
-	<string name="broken_link"
-		 value="(enlace roto)&quot;" />
+	<string name="Unconstrained">
+		Sin restricciones
+	</string>
+	<string name="no_transfer" value="(no transferible)"/>
+	<string name="no_modify" value="(no modificable)"/>
+	<string name="no_copy" value="(no copiable)"/>
+	<string name="worn" value="(puesto)"/>
+	<string name="link" value="(enlace)"/>
+	<string name="broken_link" value="(enlace roto)&quot;"/>
 	<string name="LoadingContents">
 		Cargando el contenido...
 	</string>
 	<string name="NoContents">
 		No hay contenido
 	</string>
-	<string name="WornOnAttachmentPoint"
-		 value="(lo llevas en: [ATTACHMENT_POINT])" />
-	<string name="ActiveGesture"
-		 value="[GESLABEL] (activo)" />
-	<string name="PermYes">
-		Sí
-	</string>
-	<string name="PermNo">
-		No
-	</string>
-	<string name="Chat Message"
-		 value="Chat:" />
-	<string name="Sound"
-		 value="Sonido:" />
-	<string name="Wait"
-		 value="--- Espera:" />
-	<string name="AnimFlagStop"
-		 value="Detener la animación:" />
-	<string name="AnimFlagStart"
-		 value="Iniciar la animación:" />
-	<string name="Wave"
-		 value="Onda" />
-	<string name="GestureActionNone"
-		 value="Ninguno" />
-	<string name="HelloAvatar"
-		 value="¡Hola, avatar!" />
-	<string name="ViewAllGestures"
-		 value="Ver todos &gt;&gt;" />
-	<string name="GetMoreGestures"
-		 value="Obtener más &gt;&gt;" />
-	<string name="Animations"
-		 value="Animaciones," />
-	<string name="Calling Cards"
-		 value="Tarjetas de visita," />
-	<string name="Clothing"
-		 value="Ropa," />
-	<string name="Gestures"
-		 value="Gestos," />
-	<string name="Landmarks"
-		 value="Hitos," />
-	<string name="Notecards"
-		 value="Notas," />
-	<string name="Objects"
-		 value="Objetos," />
-	<string name="Scripts"
-		 value="Scripts," />
-	<string name="Sounds"
-		 value="Sonidos," />
-	<string name="Textures"
-		 value="Texturas," />
-	<string name="Snapshots"
-		 value="Fotos," />
-	<string name="No Filters"
-		 value="No" />
-	<string name="Since Logoff"
-		 value="desde la desconexión" />
+	<string name="WornOnAttachmentPoint" value="(lo llevas en: [ATTACHMENT_POINT])"/>
+	<string name="AttachmentErrorMessage" value="([ATTACHMENT_ERROR])"/>
+	<string name="ActiveGesture" value="[GESLABEL] (activo)"/>
+	<string name="Chat Message" value="Chat:"/>
+	<string name="Sound" value="Sonido :"/>
+	<string name="Wait" value="--- Espera :"/>
+	<string name="AnimFlagStop" value="Parar la animación:"/>
+	<string name="AnimFlagStart" value="Empezar la animación:"/>
+	<string name="Wave" value="Onda"/>
+	<string name="GestureActionNone" value="Ninguno"/>
+	<string name="HelloAvatar" value="¡Hola, avatar!"/>
+	<string name="ViewAllGestures" value="Ver todos &gt;&gt;"/>
+	<string name="GetMoreGestures" value="Obtener más &gt;&gt;"/>
+	<string name="Animations" value="Animaciones,"/>
+	<string name="Calling Cards" value="Tarjetas de visita,"/>
+	<string name="Clothing" value="Ropa,"/>
+	<string name="Gestures" value="Gestos,"/>
+	<string name="Landmarks" value="Hitos,"/>
+	<string name="Notecards" value="Notas,"/>
+	<string name="Objects" value="Objetos,"/>
+	<string name="Scripts" value="Scripts,"/>
+	<string name="Sounds" value="Sonidos,"/>
+	<string name="Textures" value="Texturas,"/>
+	<string name="Snapshots" value="Fotos,"/>
+	<string name="No Filters" value="No"/>
+	<string name="Since Logoff" value="- Desde la desconexión"/>
 	<string name="InvFolder My Inventory">
 		Inventario
 	</string>
@@ -1701,9 +1888,6 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="Right Pec">
 		Pecho derecho
 	</string>
-	<string name="Bridge">
-		Bridge
-	</string>
 	<string name="Neck">
 		Cuello
 	</string>
@@ -1712,6 +1896,15 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	</string>
 	<string name="Invalid Attachment">
 		Punto de anexión no válido
+	</string>
+	<string name="ATTACHMENT_MISSING_ITEM">
+		Error: falta un artículo
+	</string>
+	<string name="ATTACHMENT_MISSING_BASE_ITEM">
+		Error: falta el artículo de base
+	</string>
+	<string name="ATTACHMENT_NOT_ATTACHED">
+		Error: el objeto se encuentra en el vestuario actual, pero no está anexado
 	</string>
 	<string name="YearsMonthsOld">
 		[AGEYEARS] [AGEMONTHS]
@@ -1830,6 +2023,9 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="CompileQueueDownloadedCompiling">
 		Descargado, compilándolo
 	</string>
+	<string name="CompileQueueServiceUnavailable">
+		El servicio de compilación de scripts no está disponible
+	</string>
 	<string name="CompileQueueScriptNotFound">
 		No se encuentra el script en el servidor.
 	</string>
@@ -1887,6 +2083,9 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="SaveComplete">
 		Guardado.
 	</string>
+	<string name="UploadFailed">
+		Error al subir el archivo:
+	</string>
 	<string name="ObjectOutOfRange">
 		Script (objeto fuera de rango)
 	</string>
@@ -1896,22 +2095,20 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="GroupsNone">
 		ninguno
 	</string>
-	<string name="Group"
-		 value="(grupo)" />
+	<string name="CompileNoExperiencePerm">
+		Omitiendo el script [SCRIPT] con la experiencia [EXPERIENCE].
+	</string>
+	<string name="Group" value="(grupo)"/>
 	<string name="Unknown">
 		(Desconocido)
 	</string>
-	<string name="SummaryForTheWeek"
-		 value="Resumen de esta semana, empezando el " />
-	<string name="NextStipendDay"
-		 value=". El próximo día de pago es el " />
+	<string name="SummaryForTheWeek" value="Resumen de esta semana, empezando el "/>
+	<string name="NextStipendDay" value=". El próximo día de pago es el "/>
 	<string name="GroupPlanningDate">
 		[mthnum,datetime,utc]/[day,datetime,utc]/[year,datetime,utc]
 	</string>
-	<string name="GroupIndividualShare"
-		 value="Grupo       Aportaciones individuales" />
-	<string name="GroupColumn"
-		 value="Grupo" />
+	<string name="GroupIndividualShare" value="Grupo       Aportaciones individuales"/>
+	<string name="GroupColumn" value="Grupo"/>
 	<string name="Balance">
 		Saldo
 	</string>
@@ -2128,9 +2325,6 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="ATTACH_AVATAR_CENTER">
 		Centro del avatar
 	</string>
-	<string name="ATTACH_BRIDGE">
-		Bridge
-	</string>
 	<string name="CursorPos">
 		Línea [LINE], Columna [COLUMN]
 	</string>
@@ -2171,7 +2365,7 @@ Intenta iniciar sesión de nuevo en unos instantes.
 		No se ha aportado un contrato para este estado.
 	</string>
 	<string name="RegionNoCovenantOtherOwner">
-		No se ha aportado un contrato para este estado. El terreno de este estado lo vende el propietario del estado, no Linden Lab. Por favor, contacta con ese propietario para informarte sobre la venta.
+		No se ha aportado un contrato para este estado. El terreno de este estado lo vende el propietario del estado. Por favor, contacta con ese propietario para informarte sobre la venta.
 	</string>
 	<string name="covenant_last_modified"
 		 value="Última modificación: " />
@@ -2478,7 +2672,7 @@ Error:
 	</string>
 	<string name="MBUnableToAccessFile">
 		[APP_NAME] no puede acceder a un archivo que necesita.
- 
+
 Puede ser porque estés ejecutando varias copias, o porque tu sistema crea -equivocadamente- que el archivo está abierto.
 Si este mensaje persiste, reinicia tu ordenador y vuelve a intentarlo.
 Si aun así sigue apareciendo el mensaje, debes desinstalar completamente [APP_NAME] y reinstalarlo.
@@ -2512,7 +2706,7 @@ Si este mensaje persiste, reinicia tu ordenador.
 	<string name="MBNoDirectX">
 		[APP_NAME] no encuentra DirectX 9.0b o superior.
 [APP_NAME] usa DirectX para detectar el hardware o los drivers no actualizados que pueden provocar problemas de estabilidad, ejecución pobre y caídas.  Aunque puedes ejecutar [APP_NAME] sin él, recomendamos encarecidamente hacerlo con DirectX 9.0b.
- 
+
 ¿Quieres continuar?
 	</string>
 	<string name="MBWarning">
@@ -4179,6 +4373,12 @@ Si sigues recibiendo este mensaje, contacta con [SUPPORT_SITE].
 	<string name="facebook_post_success">
 		Has publicado en Facebook.
 	</string>
+	<string name="flickr_post_success">
+		Has publicado en Flickr.
+	</string>
+	<string name="twitter_post_success">
+		Has publicado en Twitter.
+	</string>
 	<string name="no_session_message">
 		(La sesión de MI no existe)
 	</string>
@@ -4606,11 +4806,10 @@ Denuncia de infracción
 	<string name="texture_load_dimensions_error">
 		No se puede subir imágenes mayores de [WIDTH]*[HEIGHT]
 	</string>
-	<string name="words_separator"
-		 value="," />
+	<string name="words_separator" value=","/>
 	<string name="server_is_down">
 		Parece que hay algún problema que ha escapado a nuestros controles.
- 
+
 	Visita status.secondlifegrid.net para ver si hay alguna incidencia conocida que esté afectando al servicio.
         Si sigues teniendo problemas, comprueba la configuración de la red y del servidor de seguridad.
 	</string>
@@ -4640,6 +4839,9 @@ Denuncia de infracción
 	</string>
 	<string name="free">
 		gratis
+	</string>
+	<string name="Group Ban">
+		Expulsión de grupo
 	</string>
 	<string name="Membership">
 		Membresía
@@ -5075,6 +5277,12 @@ Inténtalo incluyendo la ruta de acceso al editor entre comillas
 	<string name="Command_Destinations_Label">
 		Destinos
 	</string>
+	<string name="Command_Facebook_Label">
+		Facebook
+	</string>
+	<string name="Command_Flickr_Label">
+		Flickr
+	</string>
 	<string name="Command_Gestures_Label">
 		Gestos
 	</string>
@@ -5088,6 +5296,9 @@ Inténtalo incluyendo la ruta de acceso al editor entre comillas
 		Mapa
 	</string>
 	<string name="Command_Marketplace_Label">
+		Mercado
+	</string>
+	<string name="Command_MarketplaceListings_Label">
 		Mercado
 	</string>
 	<string name="Command_MiniMap_Label">
@@ -5125,6 +5336,9 @@ Inténtalo incluyendo la ruta de acceso al editor entre comillas
 	</string>
 	<string name="Command_Speak_Label">
 		Hablar
+	</string>
+	<string name="Command_Twitter_Label">
+		Twitter
 	</string>
 	<string name="Command_View_Label">
 		Controles de la cámara
@@ -5225,6 +5439,12 @@ Inténtalo incluyendo la ruta de acceso al editor entre comillas
 	<string name="Command_Destinations_Tooltip">
 		Destinos de interés
 	</string>
+	<string name="Command_Facebook_Tooltip">
+		Publicar en Facebook
+	</string>
+	<string name="Command_Flickr_Tooltip">
+		Subir a Flickr
+	</string>
 	<string name="Command_Gestures_Tooltip">
 		Gestos para tu avatar
 	</string>
@@ -5239,6 +5459,9 @@ Inténtalo incluyendo la ruta de acceso al editor entre comillas
 	</string>
 	<string name="Command_Marketplace_Tooltip">
 		Ir de compras
+	</string>
+	<string name="Command_MarketplaceListings_Tooltip">
+		Vende tu creación
 	</string>
 	<string name="Command_MiniMap_Tooltip">
 		Mostrar la gente que está cerca
@@ -5275,6 +5498,9 @@ Inténtalo incluyendo la ruta de acceso al editor entre comillas
 	</string>
 	<string name="Command_Speak_Tooltip">
 		Utiliza el micrófono para hablar con la gente próxima
+	</string>
+	<string name="Command_Twitter_Tooltip">
+		Twitter
 	</string>
 	<string name="Command_View_Tooltip">
 		Cambiar el ángulo de la cámara
@@ -5409,12 +5635,6 @@ Inténtalo incluyendo la ruta de acceso al editor entre comillas
 	<string name="SanityCheckNotBetween">
 		La configuración de &quot;[CONTROL_NAME]&quot; no debería estar entre [VALUE_1] y [VALUE_2].
 	</string>
-	<string name="RlvEnabled">
-		Se activará el soporte para RestrainedLove después de reiniciar.
-	</string>
-	<string name="RlvDisabled">
-		Se desactivará el soporte para RestrainedLove después de reiniciar.
-	</string>
 	<string name="MediaFilterActionAllow">Permitir</string>
 	<string name="MediaFilterActionDeny">Denegar</string>
 	<string name="MediaFilterConditionAlways">Siempre</string>
@@ -5457,16 +5677,97 @@ Inténtalo incluyendo la ruta de acceso al editor entre comillas
 		[Usuario]
 	</string>
 	<string name="logging_calls_disabled_log_empty">
-		No se están registrando las conversaciones. Para empezar a grabar un registro, elige "Guardar: Sólo registro" o "Guardar: Registro y transcripciones" en Preferencias &gt; Privacidad.
+		No se están registrando las conversaciones. Para empezar a grabar un registro, elige &quot;Guardar: Solo registro&quot; o &quot;Guardar: Registro y transcripciones&quot; en Preferencias &gt; Chat.
 	</string>
 	<string name="logging_calls_disabled_log_not_empty">
-		No se registrarán más conversaciones. Para reanudar la grabación de un registro, elige "Guardar: Sólo registro" o "Guardar: Registro y transcripciones" en Preferencias &gt; Privacidad.
+		No se registrarán más conversaciones. Para reanudar la grabación de un registro, elige &quot;Guardar: Solo registro&quot; o &quot;Guardar: Registro y transcripciones&quot; en Preferencias &gt; Chat.
 	</string>
 	<string name="logging_calls_enabled_log_empty">
-		No hay conversaciones guardadas. Después de contactar con un residente o de que alguien contacte contigo, se mostrará aquí una entrada de registro.
+		No hay conversaciones grabadas. Después de contactar con una persona, o de que alguien contacte contigo, aquí se mostrará una entrada de registro.
 	</string>
 	<string name="loading_chat_logs">
 		Cargando...
+	</string>
+	<string name="experience_tools_experience">
+		Experiencia
+	</string>
+	<string name="ExperienceNameNull">
+		(sin experiencia)
+	</string>
+	<string name="ExperienceNameUntitled">
+		(experiencia sin título)
+	</string>
+	<string name="Land-Scope">
+		Activa en el terreno
+	</string>
+	<string name="Grid-Scope">
+		Activa en el Grid
+	</string>
+	<string name="Allowed_Experiences_Tab">
+		PERMITIDO
+	</string>
+	<string name="Blocked_Experiences_Tab">
+		BLOQUEADO
+	</string>
+	<string name="Contrib_Experiences_Tab">
+		COLABORADOR
+	</string>
+	<string name="Admin_Experiences_Tab">
+		ADMIN.
+	</string>
+	<string name="Recent_Experiences_Tab">
+		RECIENTE
+	</string>
+	<string name="Owned_Experiences_Tab">
+		PROPIEDAD
+	</string>
+	<string name="ExperiencesCounter">
+		([EXPERIENCES], máx. [MAXEXPERIENCES])
+	</string>
+	<string name="ExperiencePermission1">
+		hacerte con tus controles
+	</string>
+	<string name="ExperiencePermission3">
+		activar animaciones en tu avatar
+	</string>
+	<string name="ExperiencePermission4">
+		anexar a tu avatar
+	</string>
+	<string name="ExperiencePermission9">
+		seguimiento de la cámara
+	</string>
+	<string name="ExperiencePermission10">
+		controlar tu cámara
+	</string>
+	<string name="ExperiencePermission11">
+		teleportarte
+	</string>
+	<string name="ExperiencePermission12">
+		aceptar automáticamente permisos de experiencias
+	</string>
+	<string name="ExperiencePermissionShortUnknown">
+		ha realizado una operación desconocida: [Permission]
+	</string>
+	<string name="ExperiencePermissionShort1">
+		Ponerte al mando
+	</string>
+	<string name="ExperiencePermissionShort3">
+		Activar animaciones
+	</string>
+	<string name="ExperiencePermissionShort4">
+		Anexar
+	</string>
+	<string name="ExperiencePermissionShort9">
+		Seguir la cámara
+	</string>
+	<string name="ExperiencePermissionShort10">
+		Controlar la cámara
+	</string>
+	<string name="ExperiencePermissionShort11">
+		Teleportarte
+	</string>
+	<string name="ExperiencePermissionShort12">
+		Otorgar permisos
 	</string>
 	<string name="LoadCameraPositionNoneSaved">Todavía no ha sido guardada ninguna vista de cámara.</string>
 	<string name="LoadCameraPositionOutsideDrawDistance">No se puede restaurar la vista de cámara porque su posición está más allá de tu distancia de dibujo.</string>

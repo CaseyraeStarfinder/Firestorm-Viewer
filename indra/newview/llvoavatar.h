@@ -207,9 +207,10 @@ public:
 
 	virtual LLJoint*		getJoint(const std::string &name);
 	
-	void					resetJointPositions( void );
-	void					resetJointPositionsToDefault( void );
-	void					resetSpecificJointPosition( const std::string& name );
+	void 					addAttachmentPosOverridesForObject(LLViewerObject *vo);
+	void					resetJointPositionsOnDetach(const LLUUID& mesh_id);
+	void					resetJointPositionsOnDetach(LLViewerObject *vo);
+	void					clearAttachmentPosOverrides();
 	
 	/*virtual*/ const LLUUID&	getID() const;
 	/*virtual*/ void			addDebugText(const std::string& text);
@@ -218,8 +219,7 @@ public:
 	/*virtual*/ F32				getPixelArea() const;
 	/*virtual*/ LLVector3d		getPosGlobalFromAgent(const LLVector3 &position);
 	/*virtual*/ LLVector3		getPosAgentFromGlobal(const LLVector3d &position);
-	virtual void			updateVisualParams();
-
+	virtual void				updateVisualParams();
 
 /**                    Inherited
  **                                                                            **
@@ -236,10 +236,14 @@ public:
 private: //aligned members
 	LL_ALIGN_16(LLVector4a	mImpostorExtents[2]);
 
+	// <FS:Ansariel> Show muted avatars as cloud
+	bool			mMutedAsCloud;
+
 	//--------------------------------------------------------------------
 	// Updates
 	//--------------------------------------------------------------------
 public:
+	void			updateDebugText();
 	virtual BOOL 	updateCharacter(LLAgent &agent);
 	void 			idleUpdateVoiceVisualizer(bool voice_enabled);
 	void 			idleUpdateMisc(bool detailed_update);
@@ -374,19 +378,11 @@ protected:
 	/*virtual*/ LLAvatarJointMesh*	createAvatarJointMesh(); // Returns LLViewerJointMesh
 public:
 	void				updateHeadOffset();
-	void				setPelvisOffset( bool hasOffset, const LLVector3& translation, F32 offset ) ;
-	bool				hasPelvisOffset( void ) { return mHasPelvisOffset; }
 	void				postPelvisSetRecalc( void );
-	void				setPelvisOffset( F32 pelvixFixupAmount );
 
 	/*virtual*/ BOOL	loadSkeletonNode();
 	/*virtual*/ void	buildCharacter();
 
-	bool				mHasPelvisOffset;
-	LLVector3			mPelvisOffset;
-	F32					mLastPelvisToFoot;
-	F32					mPelvisFixup;
-	F32					mLastPelvisFixup;
 	LLVector3			mCurRootToHeadOffset;
 	LLVector3			mTargetRootToHeadOffset;
 
@@ -405,6 +401,7 @@ public:
 public:
 	U32 		renderImpostor(LLColor4U color = LLColor4U(255,255,255,255), S32 diffuse_channel = 0);
 	bool		isVisuallyMuted();
+	bool 		isInMuteList();
 	void		setCachedVisualMute(bool muted)						{ mCachedVisualMute = muted;	};
 	void		forceUpdateVisualMuteSettings();
 
@@ -444,6 +441,9 @@ private:
 	bool		mCachedVisualMute;				// cached return value for isVisuallyMuted()
 	F64			mCachedVisualMuteUpdateTime;	// Time to update mCachedVisualMute
 
+	bool		mCachedInMuteList;
+	F64			mCachedMuteListUpdateTime;
+
 	VisualMuteSettings		mVisuallyMuteSetting;			// Always or never visually mute this AV
 
 	//--------------------------------------------------------------------
@@ -458,6 +458,8 @@ public:
 	// Global colors
 	//--------------------------------------------------------------------
 public:
+	// <FS:Ansariel> [Legacy Bake]
+	///*virtual*/void onGlobalColorChanged(const LLTexGlobalColor* global_color);
 	/*virtual*/void onGlobalColorChanged(const LLTexGlobalColor* global_color, BOOL upload_bake);
 
 	//--------------------------------------------------------------------
@@ -618,6 +620,8 @@ protected:
 	// Composites
 	//--------------------------------------------------------------------
 public:
+	// <FS:Ansariel> [Legacy Bake]
+	//virtual void	invalidateComposite(LLTexLayerSet* layerset);
 	virtual void	invalidateComposite(LLTexLayerSet* layerset, BOOL upload_result);
 	virtual void	invalidateAll();
 	virtual void	setCompositeUpdatesEnabled(bool b) {}
@@ -655,6 +659,8 @@ private:
 public:
 	void			debugColorizeSubMeshes(U32 i, const LLColor4& color);
 	virtual void 	updateMeshTextures();
+	// <FS:Ansariel> [Legacy Bake]
+	//void 			updateSexDependentLayerSets();
 	void 			updateSexDependentLayerSets(BOOL upload_bake);
 	virtual void	dirtyMesh(); // Dirty the avatar mesh
 	void 			updateMeshData();
@@ -688,8 +694,9 @@ public:
 	void 			processAvatarAppearance(LLMessageSystem* mesgsys);
 	void 			hideSkirt();
 	void			startAppearanceAnimation();
+	// <FS:Ansariel> [Legacy Bake]
 	/*virtual*/ void bodySizeChanged();
-	
+
 	//--------------------------------------------------------------------
 	// Appearance morphing
 	//--------------------------------------------------------------------
@@ -701,11 +708,12 @@ public:
 	// editing or when waiting for a subsequent server rebake.
 	/*virtual*/ BOOL	isUsingLocalAppearance() const { return mUseLocalAppearance; }
 
+	// <FS:Ansariel> [Legacy Bake]
 	// True if this avatar should fetch its baked textures via the new
 	// appearance mechanism.
 	BOOL				isUsingServerBakes() const;
 	void 				setIsUsingServerBakes(BOOL newval);
-
+	// </FS:Ansariel> [Legacy Bake]
 
 	// True if we are currently in appearance editing mode. Often but
 	// not always the same as isUsingLocalAppearance().
@@ -720,6 +728,7 @@ private:
 	F32				mLastAppearanceBlendTime;
 	BOOL			mIsEditingAppearance; // flag for if we're actively in appearance editing mode
 	BOOL			mUseLocalAppearance; // flag for if we're using a local composite
+	// <FS:Ansariel> [Legacy Bake]
 	BOOL			mUseServerBakes; // flag for if baked textures should be fetched from baking service (false if they're temporary uploads)
 
 	//--------------------------------------------------------------------
@@ -746,6 +755,7 @@ public:
 	void 				clampAttachmentPositions();
 	virtual const LLViewerJointAttachment* attachObject(LLViewerObject *viewer_object);
 	virtual BOOL 		detachObject(LLViewerObject *viewer_object);
+	static bool		    getRiggedMeshID( LLViewerObject* pVO, LLUUID& mesh_id );
 	void				cleanupAttachedMesh( LLViewerObject* pVO );
 	static LLVOAvatar*  findAvatarFromAttachment(LLViewerObject* obj);
 	/*virtual*/ BOOL	isWearingWearableType(LLWearableType::EType type ) const;
@@ -923,8 +933,13 @@ private:
 	LLSD			mClientTagData;
 	bool			mHasClientTagColor;
 	std::string  	mTitle;
+	// <FS:Ansariel> FIRE-13414: Avatar name isn't updated when the simulator sends a new name
+	std::string		mNameFirstname;
+	std::string		mNameLastname;
+	// </FS:Ansariel>
 	bool	  		mNameAway;
 	bool	  		mNameDoNotDisturb;
+	bool			mNameAutoResponse; // <FS:Ansariel> Show auto-response in nametag
 	bool	  		mNameMute;
 	bool      		mNameAppearance;
 	bool			mNameFriend;
@@ -1029,6 +1044,7 @@ public:
 protected:
 	LLFrameTimer	mRuthDebugTimer; // For tracking how long it takes for av to rez
 	LLFrameTimer	mDebugExistenceTimer; // Debugging for how long the avatar has been in memory.
+	LLFrameTimer	mLastAppearanceMessageTimer; // Time since last appearance message received.
 
 	//--------------------------------------------------------------------
 	// COF monitoring
@@ -1059,10 +1075,14 @@ protected: // Shared with LLVOAvatarSelf
 
 }; // LLVOAvatar
 extern const F32 SELF_ADDITIONAL_PRI;
-extern const S32 MAX_TEXTURE_VIRTURE_SIZE_RESET_INTERVAL;
+extern const S32 MAX_TEXTURE_VIRTUAL_SIZE_RESET_INTERVAL;
+
+extern const F32 MAX_HOVER_Z;
+extern const F32 MIN_HOVER_Z;
 
 std::string get_sequential_numbered_file_name(const std::string& prefix,
 											  const std::string& suffix);
+void dump_sequential_xml(const std::string outprefix, const LLSD& content);
 
 // <FS:ND> Remove LLVolatileAPRPool/apr_file_t and use FILE* instead
 void dump_visual_param(apr_file_t* file, LLVisualParam* viewer_param, F32 value);

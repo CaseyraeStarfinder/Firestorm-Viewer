@@ -4,9 +4,10 @@
 		Zmiana po logowaniu
 	</floater.string>
 	<button label="Zastosuj" label_selected="Zastosuj" name="Apply"/>
-	<button label="OK" label_selected="OK" name="OK"/>
 	<button label="Anuluj" label_selected="Anuluj" name="Cancel"/>
-	<search_editor label="Szukaj w ustawieniach" name="search_prefs_edit" tool_tip="Wprowadź w tym miejscu interesującą Cię frazę. Wyniki będą wyświetlane dla pasujących fragmentów nazw lub komentarzy przypisanych do ustawień." />
+	<panel name="search_panel">
+		<search_editor label="Szukaj w ustawieniach" name="search_prefs_edit" tool_tip="Wprowadź w tym miejscu interesującą Cię frazę. Wyniki będą wyświetlane dla pasujących fragmentów nazw lub komentarzy przypisanych do ustawień." />
+	</panel>
 	<tab_container name="pref core">
 		<panel label="Ogólne" name="general"/>
 		<panel label="Czat" name="chat"/>
@@ -14,7 +15,7 @@
 		<panel label="Własne kolory" name="custom_colors"/>
 		<panel label="Grafika" name="display"/>
 		<panel label="Dźwięk i media" name="audio"/>
-		<panel label="Sieć i cache" name="input"/>
+		<panel label="Sieć i pliki" name="input"/>
 		<panel label="Ruch i widok" name="move"/>
 		<panel label="Powiadomienia" name="msgs"/>
 		<panel label="Prywatność" name="im"/>

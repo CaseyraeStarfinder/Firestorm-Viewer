@@ -59,7 +59,8 @@ public:
 													item_top_pad;
 
 		Optional<time_t>							creation_date;
-		Optional<bool>								allow_open;
+		Optional<bool>								allow_wear;
+		Optional<bool>								allow_drop;
 
 		Optional<LLUIColor>                         font_color;
 		Optional<LLUIColor>                         font_highlight_color;
@@ -118,10 +119,12 @@ protected:
 	F32							mControlLabelRotation;
 	LLFolderView*				mRoot;
 	bool						mHasVisibleChildren,
+								mIsFolderComplete, // indicates that some children were not loaded/added yet
 								mIsCurSelection,
 								mDragAndDropTarget,
 								mIsMouseOverTitle,
-								mAllowOpen,
+								mAllowWear,
+                                mAllowDrop,
 								mSelectPending;
 	
 	LLUIColor                   mFontColor;
@@ -218,6 +221,9 @@ public:
 	BOOL getIsCurSelection() { return mIsCurSelection; }
 
 	BOOL hasVisibleChildren() { return mHasVisibleChildren; }
+
+	// true if object can't have children
+	BOOL isFolderComplete() { return mIsFolderComplete; }
 
 	// Call through to the viewed object and return true if it can be
 	// removed. Returns true if it's removed.
@@ -331,7 +337,7 @@ protected:
 	F32			mAutoOpenCountdown;
 	S32			mLastArrangeGeneration;
 	S32			mLastCalculatedWidth;
-	bool		mNeedsSort;
+	// bool		mNeedsSort; <FS:ND/> Unused.
 
 public:
 	typedef enum e_recurse_type
@@ -468,5 +474,12 @@ public:
 	template<typename SORT_FUNC> void sortItems(const SORT_FUNC& func) { mItems.sort(func); }
 };
 
+typedef std::deque<LLFolderViewItem*> folder_view_item_deque;
+
+class LLFolderViewGroupedItemModel: public LLRefCount
+{
+public:
+    virtual void groupFilterContextMenu(folder_view_item_deque& selected_items, LLMenuGL& menu) = 0;
+};
 
 #endif  // LLFOLDERVIEWITEM_H

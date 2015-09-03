@@ -314,6 +314,14 @@ void LLScreenChannel::addToast(const LLToast::Params& p)
 			// only cancel notification if it isn't being used in IM session
 			LLNotifications::instance().cancel(notification);
 		}
+
+		// It was assumed that the toast would take ownership of the panel pointer.
+		// But since we have decided not to display the toast, kill the panel to
+		// prevent the memory leak.
+		if (p.panel != NULL)
+		{
+			p.panel()->die();
+		}
 		return;
 	}
 
@@ -574,19 +582,23 @@ void LLScreenChannel::modifyToastByNotificationID(LLUUID id, LLPanel* panel)
 {
 	std::vector<ToastElem>::iterator it = find(mToastList.begin(), mToastList.end(), id);
 	
+	LLPanel* panel_to_delete = panel;
+
 	if( it != mToastList.end() && panel)
 	{
 		LLToast* toast = it->getToast();
 		if (toast)
 		{
-		LLPanel* old_panel = toast->getPanel();
-		toast->removeChild(old_panel);
-		delete old_panel;
-		toast->insertPanel(panel);
-		toast->startTimer();
+			LLPanel* old_panel = toast->getPanel();
+			toast->removeChild(old_panel);
+			panel_to_delete = old_panel;
+			toast->insertPanel(panel);
+			toast->startTimer();
 		}
 		redrawToasts();
 	}
+
+	delete panel_to_delete;
 }
 
 //--------------------------------------------------------------------------

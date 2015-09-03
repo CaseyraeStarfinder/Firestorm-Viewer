@@ -218,9 +218,8 @@ public:
 		mItem(inv_item),
 		mEditor(editor),
 // [SL:KB] - Patch: UI-Notecards | Checked: 2010-09-12 (Catznip-2.1.2d) | Added: Catznip-2.1.2d
-		mContextMenu(NULL),
+		mContextMenu(NULL)
 // [/SL:KB]
-		mHasMouseHover(false)
 	{
 
 		mStyle = new LLStyle(LLStyle::Params().font(LLFontGL::getFontSansSerif()));
@@ -348,7 +347,6 @@ private:
 	std::string		mToolTip;
 	LLPointer<LLInventoryItem> mItem;
 	LLTextEditor&	mEditor;
-	bool			mHasMouseHover;
 // [SL:KB] - Patch: UI-Notecards | Checked: 2010-09-12 (Catznip-2.1.2d) | Added: Catznip-2.1.2d
 	LLContextMenu*  mContextMenu;
 // [/SL:KB]

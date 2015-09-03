@@ -163,7 +163,7 @@ void LLAvatarActions::removeFriendsDialog(const uuid_vec_t& ids)
 		LLAvatarName av_name;
 		if(LLAvatarNameCache::get(agent_id, &av_name))
 		{
-			args["NAME"] = av_name.getDisplayName();
+			args["NAME"] = av_name.getCompleteName();
 		}
 
 		msgType = "RemoveFromFriends";
@@ -300,11 +300,17 @@ void LLAvatarActions::startCall(const LLUUID& id)
 }
 
 // static
-void LLAvatarActions::startAdhocCall(const uuid_vec_t& ids, const LLUUID& floater_id)
+// <FS:Ansariel> [FS Communication UI]
+//void LLAvatarActions::startAdhocCall(const uuid_vec_t& ids, const LLUUID& floater_id)
+const LLUUID LLAvatarActions::startAdhocCall(const uuid_vec_t& ids, const LLUUID& floater_id)
+// </FS:Ansariel>
 {
 	if (ids.size() == 0)
 	{
-		return;
+		// <FS:Ansariel> [FS Communication UI]
+		//return;
+		return LLUUID::null;
+		// </FS:Ansariel>
 	}
 
 	// convert vector into std::vector for addSession
@@ -318,7 +324,7 @@ void LLAvatarActions::startAdhocCall(const uuid_vec_t& ids, const LLUUID& floate
 		{
 			make_ui_sound("UISndInvalidOp");
 			RlvUtil::notifyBlocked(RLV_STRING_BLOCKED_STARTCONF);
-			return;
+			return LLUUID::null;
 		}
 		id_array.push_back(idAgent);
 // [/RLVa:KB]
@@ -331,12 +337,18 @@ void LLAvatarActions::startAdhocCall(const uuid_vec_t& ids, const LLUUID& floate
 										   ids[0], id_array, true, floater_id);
 	if (session_id == LLUUID::null)
 	{
-		return;
+		// <FS:Ansariel> [FS Communication UI]
+		//return;
+		return session_id;
+		// </FS:Ansariel>
 	}
 
 	gIMMgr->autoStartCallOnStartup(session_id);
 
 	make_ui_sound("UISndStartIM");
+
+	// <FS:Ansariel> [FS Communication UI]
+	return session_id;
 }
 
 /* AD *TODO: Is this function needed any more?
@@ -361,7 +373,10 @@ bool LLAvatarActions::canCall()
 }
 
 // static
-void LLAvatarActions::startConference(const uuid_vec_t& ids, const LLUUID& floater_id)
+// <FS:Ansariel> [FS Communication UI]
+//void LLAvatarActions::startConference(const uuid_vec_t& ids, const LLUUID& floater_id)
+const LLUUID LLAvatarActions::startConference(const uuid_vec_t& ids, const LLUUID& floater_id)
+// </FS:Ansariel>
 {
 	// *HACK: Copy into dynamic array
 	std::vector<LLUUID> id_array;
@@ -375,7 +390,7 @@ void LLAvatarActions::startConference(const uuid_vec_t& ids, const LLUUID& float
 		{
 			make_ui_sound("UISndInvalidOp");
 			RlvUtil::notifyBlocked(RLV_STRING_BLOCKED_STARTCONF);
-			return;
+			return LLUUID::null;
 		}
 		id_array.push_back(idAgent);
 // [/RLVa:KB]
@@ -386,7 +401,10 @@ void LLAvatarActions::startConference(const uuid_vec_t& ids, const LLUUID& float
 
 	if (session_id == LLUUID::null)
 	{
-		return;
+		// <FS:Ansariel> [FS Communication UI]
+		//return;
+		return session_id;
+		// </FS:Ansariel>
 	}
 	
 	// <FS:Ansariel> [FS communication UI]
@@ -395,6 +413,9 @@ void LLAvatarActions::startConference(const uuid_vec_t& ids, const LLUUID& float
 	// </FS:Ansariel> [FS communication UI]
 
 	make_ui_sound("UISndStartIM");
+
+	// <FS:Ansariel> [FS Communication UI]
+	return session_id;
 }
 
 static const char* get_profile_floater_name(const LLUUID& avatar_id)
@@ -500,7 +521,7 @@ void LLAvatarActions::showOnMap(const LLUUID& id)
 	}
 
 	gFloaterWorldMap->trackAvatar(id, av_name.getDisplayName());
-	LLFloaterReg::showInstance("world_map");
+	LLFloaterReg::showInstance("world_map", "center");
 }
 
 // static
@@ -570,6 +591,15 @@ void LLAvatarActions::teleport_request_callback(const LLSD& notification, const 
 // static
 void LLAvatarActions::teleportRequest(const LLUUID& id)
 {
+
+	// <FS:PP> Warn if 'reject teleport offers and requests' mode is active
+	if (gSavedPerAccountSettings.getBOOL("FSRejectTeleportOffersMode"))
+	{
+		LLNotificationsUtil::add("RejectTeleportOffersModeWarning");
+		return;
+	}
+	// </FS:PP>
+
 	LLSD notification;
 	notification["uuid"] = id;
 	LLAvatarName av_name;
@@ -659,6 +689,16 @@ void LLAvatarActions::share(const LLUUID& id)
 	{
 		// we should always get here, but check to verify anyways
 		LLIMModel::getInstance()->addMessage(session_id, SYSTEM_FROM, LLUUID::null, LLTrans::getString("share_alert"), false);
+
+		// <FS:Ansariel> [FS Communication UI]
+		//LLFloaterIMSessionTab* session_floater = LLFloaterIMSessionTab::findConversation(session_id);
+		//if (session_floater && session_floater->isMinimized())
+		//{
+		//	session_floater->setMinimized(false);
+		//}
+		//LLFloaterIMContainer *im_container = LLFloaterReg::getTypedInstance<LLFloaterIMContainer>("im_container");
+		//im_container->selectConversationPair(session_id, true);
+		// </FS:Ansariel> [FS Communication UI]
 	}
 }
 
@@ -687,8 +727,6 @@ void LLAvatarActions::teleportTo(const LLUUID& id)
 
 namespace action_give_inventory
 {
-	typedef std::set<LLUUID> uuid_set_t;
-
 	/**
 	 * Returns a pointer to 'Add More' inventory panel of Edit Outfit SP.
 	 */
@@ -918,7 +956,7 @@ namespace action_give_inventory
 		}
 
 		std::string residents;
-		LLAvatarActions::buildResidentsString(avatar_names, residents);
+		LLAvatarActions::buildResidentsString(avatar_names, residents, true);
 
 		std::string items;
 		build_items_string(inventory_selected_uuids, items);
@@ -958,7 +996,7 @@ namespace action_give_inventory
 }
 
 // static
-void LLAvatarActions::buildResidentsString(std::vector<LLAvatarName> avatar_names, std::string& residents_string)
+void LLAvatarActions::buildResidentsString(std::vector<LLAvatarName> avatar_names, std::string& residents_string, bool complete_name)
 {
 	llassert(avatar_names.size() > 0);
 	
@@ -967,9 +1005,17 @@ void LLAvatarActions::buildResidentsString(std::vector<LLAvatarName> avatar_name
 	for (std::vector<LLAvatarName>::const_iterator it = avatar_names.begin(); ; )
 	{
 		// <FS:Ansariel> FIRE-7923: Always show complete name when adding people to something!
-		//residents_string.append((*it).getDisplayName());
+		//if(complete_name)
+		//{
+		//	residents_string.append((*it).getCompleteName());
+		//}
+		//else
+		//{
+		//	residents_string.append((*it).getDisplayName());
+		//}
 		residents_string.append((*it).getCompleteName());
 		// </FS:Ansariel>
+
 		if	(++it == avatar_names.end())
 		{
 			break;
@@ -2150,7 +2196,7 @@ void LLAvatarActions::onDerenderAvatarNameLookup(const LLUUID& agent_id, const L
 {
 	if (permanent)
 	{
-		FSWSAssetBlacklist::getInstance()->addNewItemToBlacklist(agent_id, av_name.getUserName(), "", LLAssetType::AT_OBJECT);
+		FSWSAssetBlacklist::getInstance()->addNewItemToBlacklist(agent_id, av_name.getUserName(), "", LLAssetType::AT_PERSON);
 	}
 
 	LLViewerObject* av_obj = gObjectList.findObject(agent_id);

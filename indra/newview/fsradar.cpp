@@ -37,6 +37,7 @@
 
 // newview
 #include "fscommon.h"
+#include "fskeywords.h"
 #include "fslslbridge.h"
 #include "fslslbridgerequest.h"
 #include "fswsassetblacklist.h"
@@ -44,8 +45,6 @@
 #include "lfsimfeaturehandler.h"
 #include "llagent.h"
 #include "llavataractions.h"
-//#include "llavatarconstants.h"		// for range constants
-#include "llgroupactions.h"
 #include "llmutelist.h"
 #include "llnotificationmanager.h"
 #include "lltracker.h"
@@ -61,12 +60,12 @@
 
 using namespace boost;
 
-#define FS_RADAR_LIST_UPDATE_INTERVAL 1
+static const F32 FS_RADAR_LIST_UPDATE_INTERVAL = 1.f;
 
 /**
  * Periodically updates the nearby people list while the Nearby tab is active.
  * 
- * The period is defined by FS_NEARBY_LIST_UPDATE_INTERVAL constant.
+ * The period is defined by FS_RADAR_LIST_UPDATE_INTERVAL constant.
  */
 class FSRadarListUpdater : public FSRadar::Updater, public LLEventTimer
 {
@@ -138,19 +137,18 @@ FSRadar::~FSRadar()
 void FSRadar::radarAlertMsg(const LLUUID& agent_id, const LLAvatarName& av_name, const std::string& postMsg)
 {
 // <FS:CR> Milkshake-style radar alerts
-	static LLCachedControl<bool> milkshake_radar(gSavedSettings, "FSMilkshakeRadarToasts", false);
+	static LLCachedControl<bool> sFSMilkshakeRadarToasts(gSavedSettings, "FSMilkshakeRadarToasts", false);
 	
-	if (milkshake_radar)
+	if (sFSMilkshakeRadarToasts)
 	{
 		LLSD payload = agent_id;
 		LLSD args;
 		args["NAME"] = FSRadarEntry::getRadarName(av_name);
 		args["MESSAGE"] = postMsg;
-		LLNotificationPtr notification;
-		notification = LLNotificationsUtil::add("RadarAlert",
-												args,
-												payload.with("respond_on_mousedown", TRUE),
-												boost::bind(&LLAvatarActions::zoomIn, agent_id));
+		LLNotificationsUtil::add("RadarAlert",
+									args,
+									payload.with("respond_on_mousedown", TRUE),
+									boost::bind(&LLAvatarActions::zoomIn, agent_id));
 	}
 	else
 	{
@@ -164,7 +162,12 @@ void FSRadar::radarAlertMsg(const LLUUID& agent_id, const LLAvatarName& av_name,
 		// FS:LO FIRE-1439 - Clickable avatar names on local chat radar crossing reports
 		LLSD args;
 		LLNotificationsUI::LLNotificationManager::instance().onChat(chat, args);
-	} // <FS:CR />
+
+		if (FSKeywords::getInstance()->chatContainsKeyword(chat, true))
+		{
+			FSKeywords::notify(chat);
+		}
+	} // </FS:CR>
 }
 
 void FSRadar::updateRadarList()
@@ -186,25 +189,25 @@ void FSRadar::updateRadarList()
 	static const std::string str_region_leaving =			LLTrans::getString("leaving_region");
 	static const std::string str_avatar_age_alert =			LLTrans::getString("avatar_age_alert");
 
-	static LLCachedControl<bool> RadarReportChatRangeEnter(gSavedSettings, "RadarReportChatRangeEnter");
-	static LLCachedControl<bool> RadarReportChatRangeLeave(gSavedSettings, "RadarReportChatRangeLeave");
-	static LLCachedControl<bool> RadarReportDrawRangeEnter(gSavedSettings, "RadarReportDrawRangeEnter");
-	static LLCachedControl<bool> RadarReportDrawRangeLeave(gSavedSettings, "RadarReportDrawRangeLeave");
-	static LLCachedControl<bool> RadarReportSimRangeEnter(gSavedSettings, "RadarReportSimRangeEnter");
-	static LLCachedControl<bool> RadarReportSimRangeLeave(gSavedSettings, "RadarReportSimRangeLeave");
-	static LLCachedControl<bool> RadarEnterChannelAlert(gSavedSettings, "RadarEnterChannelAlert");
-	static LLCachedControl<bool> RadarLeaveChannelAlert(gSavedSettings, "RadarLeaveChannelAlert");
-	static LLCachedControl<bool> RadarAvatarAgeAlert(gSavedSettings, "RadarAvatarAgeAlert");
-	static LLCachedControl<F32> nearMeRange(gSavedSettings, "NearMeRange");
-	static LLCachedControl<bool> limitRange(gSavedSettings, "LimitRadarByRange");
-	static LLCachedControl<F32> RenderFarClip(gSavedSettings, "RenderFarClip");
+	static LLCachedControl<bool> sRadarReportChatRangeEnter(gSavedSettings, "RadarReportChatRangeEnter");
+	static LLCachedControl<bool> sRadarReportChatRangeLeave(gSavedSettings, "RadarReportChatRangeLeave");
+	static LLCachedControl<bool> sRadarReportDrawRangeEnter(gSavedSettings, "RadarReportDrawRangeEnter");
+	static LLCachedControl<bool> sRadarReportDrawRangeLeave(gSavedSettings, "RadarReportDrawRangeLeave");
+	static LLCachedControl<bool> sRadarReportSimRangeEnter(gSavedSettings, "RadarReportSimRangeEnter");
+	static LLCachedControl<bool> sRadarReportSimRangeLeave(gSavedSettings, "RadarReportSimRangeLeave");
+	static LLCachedControl<bool> sRadarEnterChannelAlert(gSavedSettings, "RadarEnterChannelAlert");
+	static LLCachedControl<bool> sRadarLeaveChannelAlert(gSavedSettings, "RadarLeaveChannelAlert");
+	static LLCachedControl<bool> sRadarAvatarAgeAlert(gSavedSettings, "RadarAvatarAgeAlert");
+	static LLCachedControl<F32> sNearMeRange(gSavedSettings, "NearMeRange");
+	static LLCachedControl<bool> sLimitRange(gSavedSettings, "LimitRadarByRange");
+	static LLCachedControl<F32> sRenderFarClip(gSavedSettings, "RenderFarClip");
 	static LLCachedControl<bool> sFSLegacyRadarFriendColoring(gSavedSettings, "FSLegacyRadarFriendColoring");
-	static LLCachedControl<bool> sRadarColorNamesByDistance(gSavedSettings, "FSRadarColorNamesByDistance", false);
-	static LLCachedControl<bool> RadarShowMutedAndDerendered(gSavedSettings, "FSRadarShowMutedAndDerendered");
+	static LLCachedControl<bool> sFSRadarColorNamesByDistance(gSavedSettings, "FSRadarColorNamesByDistance", false);
+	static LLCachedControl<bool> sFSRadarShowMutedAndDerendered(gSavedSettings, "FSRadarShowMutedAndDerendered");
 	static LLCachedControl<bool> sFSRadarEnhanceByBridge(gSavedSettings, "FSRadarEnhanceByBridge");
 	bool sUseLSLBridge = FSLSLBridge::instance().canUseBridge();
 
-	F32 drawRadius(RenderFarClip);
+	F32 drawRadius(sRenderFarClip);
 	const LLVector3d& posSelf = gAgent.getPositionGlobal();
 	LLViewerRegion* own_reg = gAgent.getRegion();
 	LLUUID regionSelf;
@@ -225,9 +228,9 @@ void FSRadar::updateRadarList()
 	//STEP 1: Update our basic data model: detect Avatars & Positions in our defined range
 	std::vector<LLVector3d> positions;
 	uuid_vec_t avatar_ids;
-	if (limitRange)
+	if (sLimitRange)
 	{
-		world->getAvatars(&avatar_ids, &positions, gAgent.getPositionGlobal(), nearMeRange);
+		world->getAvatars(&avatar_ids, &positions, gAgent.getPositionGlobal(), sNearMeRange);
 	}
 	else
 	{
@@ -303,8 +306,8 @@ void FSRadar::updateRadarList()
 		// Try to get the avatar's viewer object - we will need it anyway later
 		LLVOAvatar* avVo = (LLVOAvatar*)gObjectList.findObject(avId);
 
-		static LLUICachedControl<bool> showdummyav("FSShowDummyAVsinRadar");
-		if (!showdummyav)
+		static LLUICachedControl<bool> sFSShowDummyAVsinRadar("FSShowDummyAVsinRadar");
+		if (!sFSShowDummyAVsinRadar)
 		{
 			if (avVo && avVo->mIsDummy)
 			{
@@ -313,10 +316,10 @@ void FSRadar::updateRadarList()
 		}
 
 		bool is_muted = mutelist->isMuted(avId);
-		bool is_blacklisted = blacklist->isBlacklisted(avId, LLAssetType::AT_OBJECT);
+		bool is_blacklisted = blacklist->isBlacklisted(avId, LLAssetType::AT_PERSON);
 		bool should_be_ignored = is_muted || is_blacklisted;
 		ent->mIgnore = should_be_ignored;
-		if (!RadarShowMutedAndDerendered && should_be_ignored)
+		if (!sFSRadarShowMutedAndDerendered && should_be_ignored)
 		{
 			continue;
 		}
@@ -373,7 +376,7 @@ void FSRadar::updateRadarList()
 		if (last_sweep_found_it == mLastRadarSweep.end())
 		{
 			// chat alerts
-			if (RadarReportChatRangeEnter && (avRange <= chat_range_say) && avRange > AVATAR_UNKNOWN_RANGE)
+			if (sRadarReportChatRangeEnter && (avRange <= chat_range_say) && avRange > AVATAR_UNKNOWN_RANGE)
 			{
 				LLStringUtil::format_map_t args;
 				args["DISTANCE"] = llformat("%3.2f", avRange);
@@ -381,7 +384,7 @@ void FSRadar::updateRadarList()
 				make_ui_sound("UISndRadarChatEnter"); // <FS:PP> FIRE-6069: Radar alerts sounds
 				LLAvatarNameCache::get(avId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, message));
 			}
-			if (RadarReportDrawRangeEnter && (avRange <= drawRadius) && avRange > AVATAR_UNKNOWN_RANGE)
+			if (sRadarReportDrawRangeEnter && (avRange <= drawRadius) && avRange > AVATAR_UNKNOWN_RANGE)
 			{
 				LLStringUtil::format_map_t args;
 				args["DISTANCE"] = llformat("%3.2f", avRange);
@@ -389,7 +392,7 @@ void FSRadar::updateRadarList()
 				make_ui_sound("UISndRadarDrawEnter"); // <FS:PP> FIRE-6069: Radar alerts sounds
 				LLAvatarNameCache::get(avId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, message));
 			}
-			if (RadarReportSimRangeEnter && isInSameRegion)
+			if (sRadarReportSimRangeEnter && isInSameRegion)
 			{
 				make_ui_sound("UISndRadarSimEnter"); // <FS:PP> FIRE-6069: Radar alerts sounds
 				if (avRange != AVATAR_UNKNOWN_RANGE) // Don't report an inaccurate range in localchat, if the true range is not known.
@@ -404,11 +407,11 @@ void FSRadar::updateRadarList()
 					LLAvatarNameCache::get(avId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, str_region_entering));
 				}
 			}
-			if (RadarEnterChannelAlert || (alertScripts))
+			if (sRadarEnterChannelAlert || (alertScripts))
 			{
 				// Autodetect Phoenix chat UUID compatibility. 
 				// If Leave channel alerts are not set, restrict reports to same-sim only.
-				if (!RadarLeaveChannelAlert)
+				if (!sRadarLeaveChannelAlert)
 				{
 					if (isInSameRegion)
 					{
@@ -428,9 +431,9 @@ void FSRadar::updateRadarList()
 		else
 		{
 			RadarFields rf = last_sweep_found_it->second;
-			if (RadarReportChatRangeEnter || RadarReportChatRangeLeave)
+			if (sRadarReportChatRangeEnter || sRadarReportChatRangeLeave)
 			{
-				if (RadarReportChatRangeEnter && (avRange <= chat_range_say && avRange > AVATAR_UNKNOWN_RANGE) && (rf.lastDistance > chat_range_say || rf.lastDistance == AVATAR_UNKNOWN_RANGE))
+				if (sRadarReportChatRangeEnter && (avRange <= chat_range_say && avRange > AVATAR_UNKNOWN_RANGE) && (rf.lastDistance > chat_range_say || rf.lastDistance == AVATAR_UNKNOWN_RANGE))
 				{
 					LLStringUtil::format_map_t args;
 					args["DISTANCE"] = llformat("%3.2f", avRange);
@@ -438,15 +441,15 @@ void FSRadar::updateRadarList()
 					make_ui_sound("UISndRadarChatEnter"); // <FS:PP> FIRE-6069: Radar alerts sounds
 					LLAvatarNameCache::get(avId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, message));
 				}
-				else if (RadarReportChatRangeLeave && (avRange > chat_range_say || avRange == AVATAR_UNKNOWN_RANGE) && (rf.lastDistance <= chat_range_say && rf.lastDistance > AVATAR_UNKNOWN_RANGE))
+				else if (sRadarReportChatRangeLeave && (avRange > chat_range_say || avRange == AVATAR_UNKNOWN_RANGE) && (rf.lastDistance <= chat_range_say && rf.lastDistance > AVATAR_UNKNOWN_RANGE))
 				{
 					make_ui_sound("UISndRadarChatLeave"); // <FS:PP> FIRE-6069: Radar alerts sounds
 					LLAvatarNameCache::get(avId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, str_chat_leaving));
 				}
 			}
-			if (RadarReportDrawRangeEnter || RadarReportDrawRangeLeave)
+			if (sRadarReportDrawRangeEnter || sRadarReportDrawRangeLeave)
 			{
-				if (RadarReportDrawRangeEnter && (avRange <= drawRadius && avRange > AVATAR_UNKNOWN_RANGE) && (rf.lastDistance > drawRadius || rf.lastDistance == AVATAR_UNKNOWN_RANGE))
+				if (sRadarReportDrawRangeEnter && (avRange <= drawRadius && avRange > AVATAR_UNKNOWN_RANGE) && (rf.lastDistance > drawRadius || rf.lastDistance == AVATAR_UNKNOWN_RANGE))
 				{
 					LLStringUtil::format_map_t args;
 					args["DISTANCE"] = llformat("%3.2f", avRange);
@@ -454,15 +457,15 @@ void FSRadar::updateRadarList()
 					make_ui_sound("UISndRadarDrawEnter"); // <FS:PP> FIRE-6069: Radar alerts sounds
 					LLAvatarNameCache::get(avId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, message));
 				}
-				else if (RadarReportDrawRangeLeave && (avRange > drawRadius || avRange == AVATAR_UNKNOWN_RANGE) && (rf.lastDistance <= drawRadius && rf.lastDistance > AVATAR_UNKNOWN_RANGE))
+				else if (sRadarReportDrawRangeLeave && (avRange > drawRadius || avRange == AVATAR_UNKNOWN_RANGE) && (rf.lastDistance <= drawRadius && rf.lastDistance > AVATAR_UNKNOWN_RANGE))
 				{
 					make_ui_sound("UISndRadarDrawLeave"); // <FS:PP> FIRE-6069: Radar alerts sounds
 					LLAvatarNameCache::get(avId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, str_draw_distance_leaving));
 				}
 			}
-			if (RadarReportSimRangeEnter || RadarReportSimRangeLeave)
+			if (sRadarReportSimRangeEnter || sRadarReportSimRangeLeave)
 			{
-				if (RadarReportSimRangeEnter && isInSameRegion && avRegion != rf.lastRegion && rf.lastRegion.notNull())
+				if (sRadarReportSimRangeEnter && isInSameRegion && avRegion != rf.lastRegion && rf.lastRegion.notNull())
 				{
 					make_ui_sound("UISndRadarSimEnter"); // <FS:PP> FIRE-6069: Radar alerts sounds
 					if (avRange != AVATAR_UNKNOWN_RANGE) // Don't report an inaccurate range in localchat, if the true range is not known.
@@ -477,7 +480,7 @@ void FSRadar::updateRadarList()
 						LLAvatarNameCache::get(avId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, str_region_entering));
 					}
 				}
-				else if (RadarReportSimRangeLeave && rf.lastRegion == regionSelf && !isInSameRegion && avRegion.notNull())
+				else if (sRadarReportSimRangeLeave && rf.lastRegion == regionSelf && !isInSameRegion && avRegion.notNull())
 				{
 					make_ui_sound("UISndRadarSimLeave"); // <FS:PP> FIRE-6069: Radar alerts sounds
 					LLAvatarNameCache::get(avId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, str_region_leaving));
@@ -509,16 +512,16 @@ void FSRadar::updateRadarList()
 		entry["range"] = (avRange > AVATAR_UNKNOWN_RANGE ? llformat("%3.2f", avRange) : llformat(">%3.2f", drawRadius));
 		entry["typing"] = (avVo && avVo->isTyping());
 		entry["sitting"] = (avVo && (avVo->getParent() || avVo->isMotionActive(ANIM_AGENT_SIT_GROUND) || avVo->isMotionActive(ANIM_AGENT_SIT_GROUND_CONSTRAINED)));
-		entry["has_notes"] = ent->hasNotes();
 
 		if (!gRlvHandler.hasBehaviour(RLV_BHVR_SHOWNAMES))
 		{
+			entry["has_notes"] = ent->hasNotes();
 			entry["age"] = (avAge > -1 ? llformat("%d", avAge) : "");
 			if (ent->hasAlertAge())
 			{
 				entry_options["age_color"] = LLUIColorTable::instance().getColor("AvatarListItemAgeAlert", LLColor4::red).get().getValue();
 
-				if (RadarAvatarAgeAlert && !ent->hasAgeAlertPerformed())
+				if (sRadarAvatarAgeAlert && !ent->hasAgeAlertPerformed())
 				{
 					make_ui_sound("UISndRadarAgeAlert");
 					LLStringUtil::format_map_t args;
@@ -531,6 +534,7 @@ void FSRadar::updateRadarList()
 		}
 		else
 		{
+			entry["has_notes"] = false;
 			entry["age"] = "---";
 		}
 
@@ -581,14 +585,12 @@ void FSRadar::updateRadarList()
 		}
 		entry_options["name_style"] = nameCellStyle;
 
-		LLUIColor name_color = LLUIColorTable::instance().getColor("AvatarListItemIconDefaultColor", LLColor4::white);
-		name_color = LGGContactSets::getInstance()->colorize(avId, (sRadarColorNamesByDistance ? range_color : name_color), LGG_CS_RADAR);
+		LLColor4 name_color = LLUIColorTable::instance().getColor("AvatarListItemIconDefaultColor", LLColor4::white).get();
+		name_color = LGGContactSets::getInstance()->colorize(avId, (sFSRadarColorNamesByDistance ? range_color.get() : name_color), LGG_CS_RADAR);
 
-		if (LGGContactSets::getInstance()->hasFriendColorThatShouldShow(avId, LGG_CS_RADAR))
-		{
-			name_color = LGGContactSets::getInstance()->getFriendColor(avId);
-		}
-		entry_options["name_color"] = name_color.get().getValue();
+		LGGContactSets::getInstance()->hasFriendColorThatShouldShow(avId, LGG_CS_RADAR, name_color);
+
+		entry_options["name_color"] = name_color.getValue();
 
 		// Voice power level indicator
 		LLVoiceClient* voice_client = LLVoiceClient::getInstance();
@@ -679,37 +681,36 @@ void FSRadar::updateRadarList()
 	{
 		LLUUID prevId = i->first;
 		RadarFields rf = i->second;
-		if ((RadarShowMutedAndDerendered || !rf.lastIgnore) && mEntryList.find(prevId) == mEntryList.end())
+		if ((sFSRadarShowMutedAndDerendered || !rf.lastIgnore) && mEntryList.find(prevId) == mEntryList.end())
 		{
-			if (RadarReportChatRangeLeave && (rf.lastDistance <= chat_range_say) && rf.lastDistance > AVATAR_UNKNOWN_RANGE)
+			if (sRadarReportChatRangeLeave && (rf.lastDistance <= chat_range_say) && rf.lastDistance > AVATAR_UNKNOWN_RANGE)
 			{
 				make_ui_sound("UISndRadarChatLeave"); // <FS:PP> FIRE-6069: Radar alerts sounds
 				LLAvatarNameCache::get(prevId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, str_chat_leaving));
 			}
-			if (RadarReportDrawRangeLeave && (rf.lastDistance <= drawRadius) && rf.lastDistance > AVATAR_UNKNOWN_RANGE)
+			if (sRadarReportDrawRangeLeave && (rf.lastDistance <= drawRadius) && rf.lastDistance > AVATAR_UNKNOWN_RANGE)
 			{
 				make_ui_sound("UISndRadarDrawLeave"); // <FS:PP> FIRE-6069: Radar alerts sounds
 				LLAvatarNameCache::get(prevId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, str_draw_distance_leaving));
 			}
-			if (RadarReportSimRangeLeave && (rf.lastRegion == regionSelf || rf.lastRegion.isNull()))
+			if (sRadarReportSimRangeLeave && (rf.lastRegion == regionSelf || rf.lastRegion.isNull()))
 			{
 				make_ui_sound("UISndRadarSimLeave"); // <FS:PP> FIRE-6069: Radar alerts sounds
 				LLAvatarNameCache::get(prevId, boost::bind(&FSRadar::radarAlertMsg, this, _1, _2, str_region_leaving));
 			}
 				
-			if (RadarLeaveChannelAlert)
+			if (sRadarLeaveChannelAlert)
 			{
 				mRadarLeaveAlerts.push_back(prevId);
 			}
 		}
 	}
 
-	static LLCachedControl<S32> RadarAlertChannel(gSavedSettings, "RadarAlertChannel");
-	U32 num_entering = mRadarEnterAlerts.size();
+	static LLCachedControl<S32> sRadarAlertChannel(gSavedSettings, "RadarAlertChannel");
+	U32 num_entering = (U32)mRadarEnterAlerts.size();
 	if (num_entering > 0)
 	{
 		mRadarFrameCount++;
-		S32 chan(RadarAlertChannel);
 		U32 num_this_pass = llmin(FSRADAR_MAX_AVATARS_PER_ALERT, num_entering);
 		std::string msg = llformat("%d,%d", mRadarFrameCount, num_this_pass);
 		U32 loop = 0;
@@ -722,11 +723,11 @@ void FSRadar::updateRadarList()
 			LLMessageSystem* msgs = gMessageSystem;
 			msgs->newMessage("ScriptDialogReply");
 			msgs->nextBlock("AgentData");
-			msgs->addUUID("AgentID", gAgent.getID());
-			msgs->addUUID("SessionID", gAgent.getSessionID());
+			msgs->addUUID("AgentID", gAgentID);
+			msgs->addUUID("SessionID", gAgentSessionID);
 			msgs->nextBlock("Data");
-			msgs->addUUID("ObjectID", gAgent.getID());
-			msgs->addS32("ChatChannel", chan);
+			msgs->addUUID("ObjectID", gAgentID);
+			msgs->addS32("ChatChannel", sRadarAlertChannel());
 			msgs->addS32("ButtonIndex", 1);
 			msgs->addString("ButtonLabel", msg.c_str());
 			gAgent.sendReliableMessage();
@@ -735,11 +736,10 @@ void FSRadar::updateRadarList()
 			msg = llformat("%d,%d", mRadarFrameCount, num_this_pass);
 		}
 	}
-	U32 num_leaving  = mRadarLeaveAlerts.size();
+	U32 num_leaving  = (U32)mRadarLeaveAlerts.size();
 	if (num_leaving > 0)
 	{
 		mRadarFrameCount++;
-		S32 chan(RadarAlertChannel);
 		U32 num_this_pass = llmin(FSRADAR_MAX_AVATARS_PER_ALERT, num_leaving);
 		std::string msg = llformat("%d,-%d", mRadarFrameCount, llmin(FSRADAR_MAX_AVATARS_PER_ALERT, num_leaving));
 		U32 loop = 0;
@@ -752,11 +752,11 @@ void FSRadar::updateRadarList()
 			LLMessageSystem* msgs = gMessageSystem;
 			msgs->newMessage("ScriptDialogReply");
 			msgs->nextBlock("AgentData");
-			msgs->addUUID("AgentID", gAgent.getID());
-			msgs->addUUID("SessionID", gAgent.getSessionID());
+			msgs->addUUID("AgentID", gAgentID);
+			msgs->addUUID("SessionID", gAgentSessionID);
 			msgs->nextBlock("Data");
-			msgs->addUUID("ObjectID", gAgent.getID());
-			msgs->addS32("ChatChannel", chan);
+			msgs->addUUID("ObjectID", gAgentID);
+			msgs->addS32("ChatChannel", sRadarAlertChannel());
 			msgs->addS32("ButtonIndex", 1);
 			msgs->addString("ButtonLabel", msg.c_str());
 			gAgent.sendReliableMessage();
@@ -861,7 +861,7 @@ void FSRadar::teleportToAvatar(const LLUUID& targetAv)
 //static
 void FSRadar::onRadarNameFmtClicked(const LLSD& userdata)
 {
-	std::string chosen_item = userdata.asString();
+	const std::string chosen_item = userdata.asString();
 	if (chosen_item == "DN")
 	{
 		gSavedSettings.setU32("RadarNameFormat", FSRADAR_NAMEFORMAT_DISPLAYNAME);
@@ -883,7 +883,7 @@ void FSRadar::onRadarNameFmtClicked(const LLSD& userdata)
 //static
 bool FSRadar::radarNameFmtCheck(const LLSD& userdata)
 {
-	std::string menu_item = userdata.asString();
+	const std::string menu_item = userdata.asString();
 	U32 name_format = gSavedSettings.getU32("RadarNameFormat");
 	switch (name_format)
 	{
@@ -905,7 +905,7 @@ bool FSRadar::radarNameFmtCheck(const LLSD& userdata)
 //static
 void FSRadar::onRadarReportToClicked(const LLSD& userdata)
 {
-	std::string chosen_item = userdata.asString();
+	const std::string chosen_item = userdata.asString();
 	if (chosen_item == "radar_toasts")
 	{
 		gSavedSettings.setBOOL("FSMilkshakeRadarToasts", TRUE);
@@ -919,7 +919,7 @@ void FSRadar::onRadarReportToClicked(const LLSD& userdata)
 //static
 bool FSRadar::radarReportToCheck(const LLSD& userdata)
 {
-	std::string menu_item = userdata.asString();
+	const std::string menu_item = userdata.asString();
 	bool report_to = gSavedSettings.getBOOL("FSMilkshakeRadarToasts");
 	if (report_to)
 	{

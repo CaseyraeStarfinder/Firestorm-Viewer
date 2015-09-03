@@ -79,6 +79,28 @@ const LLVector3 DEFAULT_OBJECT_SCALE(0.5f, 0.5f, 0.5f);
 //static 
 LLPCode	LLToolPlacer::sObjectType = LL_PCODE_CUBE;
 
+// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+template<class P>
+U32 get_selected_plant(const std::map<U32, P*>& list, const std::string& type, S32 max) // MC
+{
+	if (!type.empty() && !list.empty())
+	{
+		std::string last_selected = gSavedSettings.getString("LastSelected"+type);
+		if (!last_selected.empty())
+		{
+			for (size_t i = 0; i < list.size(); ++i)
+			{
+				if (list.at(i) && list.at(i)->mName == last_selected)
+				{
+					return (U32)i;
+				}
+			}
+		}
+	}
+	return rand() % max;
+}
+// </FS:Ansariel>
+
 LLToolPlacer::LLToolPlacer()
 :	LLTool( "Create" )
 {
@@ -97,7 +119,7 @@ BOOL LLToolPlacer::raycastForNewObjPos( S32 x, S32 y, LLViewerObject** hit_obj, 
 	// First find the surface the object will be created on.
 //	LLPickInfo pick = gViewerWindow->pickImmediate(x, y, FALSE);
 // [SL:KB] - Patch: UI-PickRiggedAttachment | Checked: 2012-07-12 (Catznip-3.3)
-	LLPickInfo pick = gViewerWindow->pickImmediate(x, y, FALSE, FALSE);
+	LLPickInfo pick = gViewerWindow->pickImmediate(x, y, FALSE, FALSE, FALSE);
 // [/SL:KB]
 	
 	// Note: use the frontmost non-flora version because (a) plants usually have lots of alpha and (b) pants' Havok
@@ -242,13 +264,19 @@ BOOL LLToolPlacer::addObject( LLPCode pcode, S32 x, S32 y, U8 use_physics )
 	case LL_PCODE_LEGACY_GRASS:
 		//  Randomize size of grass patch 
 		scale.setVec(10.f + ll_frand(20.f), 10.f + ll_frand(20.f),  1.f + ll_frand(2.f));
-		state = rand() % LLVOGrass::sMaxGrassSpecies;
+		// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+		//state = rand() % LLVOGrass::sMaxGrassSpecies;
+		state = get_selected_plant(LLVOGrass::sSpeciesTable, "Grass", LLVOGrass::sMaxGrassSpecies);
+		// </FS:Ansariel>
 		break;
 
 
 	case LL_PCODE_LEGACY_TREE:
 	case LL_PCODE_TREE_NEW:
-		state = rand() % LLVOTree::sMaxTreeSpecies;
+		// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+		//state = rand() % LLVOTree::sMaxTreeSpecies;
+		state = get_selected_plant(LLVOTree::sSpeciesTable, "Tree", LLVOTree::sMaxTreeSpecies);
+		// </FS:Ansariel>
 		break;
 
 	case LL_PCODE_SPHERE:

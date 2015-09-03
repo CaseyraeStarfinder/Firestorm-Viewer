@@ -76,10 +76,7 @@ static LLPanelInjector<LLSidepanelInventory> t_inventory("sidepanel_inventory");
 
 static const char * const INBOX_BUTTON_NAME = "inbox_btn";
 static const char * const INBOX_LAYOUT_PANEL_NAME = "inbox_layout_panel";
-static const char * const MAIN_INVENTORY_LAYOUT_PANEL_NAME = "main_inventory_layout_panel";
-
 static const char * const INVENTORY_LAYOUT_STACK_NAME = "inventory_layout_stack";
-
 static const char * const MARKETPLACE_INBOX_PANEL = "marketplace_inbox";
 
 //
@@ -254,6 +251,7 @@ BOOL LLSidepanelInventory::postBuild()
 
 	// <FS:Ansariel> Optional hiding of Received Items folder aka Inbox
 	gSavedSettings.getControl("FSShowInboxFolder")->getSignal()->connect(boost::bind(&LLSidepanelInventory::refreshInboxVisibility, this));
+	gSavedSettings.getControl("FSAlwaysShowInboxButton")->getSignal()->connect(boost::bind(&LLSidepanelInventory::refreshInboxVisibility, this));
 
 	// Update the verbs buttons state.
 	updateVerbs();
@@ -266,12 +264,9 @@ void LLSidepanelInventory::updateInbox()
 	//
 	// Track inbox folder changes
 	//
-
-	const bool do_not_create_folder = false;
-
-	const LLUUID inbox_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_INBOX, do_not_create_folder);
+	const LLUUID inbox_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_INBOX, true);
 	
-	// Set up observer to listen for creation of inbox if at least one of them doesn't exist
+	// Set up observer to listen for creation of inbox if it doesn't exist
 	if (inbox_id.isNull())
 	{
 		observeInboxCreation();
@@ -279,6 +274,11 @@ void LLSidepanelInventory::updateInbox()
 	// Set up observer for inbox changes, if we have an inbox already
 	else 
 	{
+        // Consolidate Received items
+        // We shouldn't have to do that but with a client/server system relying on a "well known folder" convention,
+        // things can get messy and conventions broken. This call puts everything back together in its right place.
+        gInventory.consolidateForType(inbox_id, LLFolderType::FT_INBOX);
+        
 		// Enable the display of the inbox if it exists
 		enableInbox(true);
 
@@ -352,12 +352,11 @@ void LLSidepanelInventory::enableInbox(bool enabled)
 	LLLayoutPanel * inbox_layout_panel = getChild<LLLayoutPanel>(INBOX_LAYOUT_PANEL_NAME);
 	// <FS:Ansariel> Optional hiding of Received Items folder aka Inbox
 	//inbox_layout_panel->setVisible(enabled);
-	inbox_layout_panel->setVisible(enabled&& !gSavedSettings.getBOOL("FSShowInboxFolder")//); <FS:CR>
+	inbox_layout_panel->setVisible(enabled && (!gSavedSettings.getBOOL("FSShowInboxFolder") || gSavedSettings.getBOOL("FSAlwaysShowInboxButton"))
 // <FS:CR> Show Received Items panel only in Second Life
 #ifdef OPENSIM
 								   && LLGridManager::getInstance()->isInSecondLife()
 #endif // OPENSIM
-
 								   );
 // </FS:CR>
 }

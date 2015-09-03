@@ -42,6 +42,15 @@
 			<combo_box.item label="Sonne/Mond" name="1"/>
 			<combo_box.item label="Sonne/Mond + Projektoren" name="2"/>
 		</combo_box>
+		<text name="avatar_shadows_label">
+			Avatar-Schatten:
+		</text>
+		<combo_box name="AvatarShadowDetail">
+			<combo_box.item label="Keine" name="0"/>
+			<combo_box.item label="Vereinfacht" name="1"/>
+			<combo_box.item label="Optimiert" name="2"/>
+			<combo_box.item label="Komplex" name="3"/>
+		</combo_box>
 		<text name="reflection_label">
 			Wasserreflexionen:
 		</text>
@@ -151,11 +160,13 @@
 		<text name="Miscellaneous Rendering">
 			Sonstige Darstellungsoptionen:
 		</text>
-		<check_box label="Screen Space Reflections aktivieren" tool_tip="Aktiviert Screen Space Reflections, wenn das erweiterte Beleuchtungsmodell aktiviert wird. Benötigt Atmosphären-Shader, Hardware-Hautberechnung und aktivierte Schatten." name="FSRenderSSR"/>
 		<check_box label="Leuchten anzeigen" tool_tip="Stellt Leuchteffekte dar. Stärke muss auf 0 gesetzt werden, um Leuchteffekte zu deaktiveren, falls Schatten aktiviert sind." name="RenderGlow"/>
 		<slider label="Stärke:" tool_tip="Leuchtstärke. Größer = Breitere und weichere Darstellung (Standardwert: 2)" name="glow_strength"/>
 		<check_box label="Avatare anzeigen, die nicht vollständig geladen sind" name="RenderUnloadedAvatars"/>
 		<check_box label="Framerate begrenzen" name="FSLimitFramerate"/>
+		<check_box label="Szene als Wireframe darstellen" name="Wireframe"/>
+		<check_box label="Angehängte Lichter rendern" tool_tip="Diese Option aktiviert alle Lichtquellen, die Avatare angehängt haben, wie z.B. Facelights. Nützlich, um beispielsweise Facelights zu deaktivieren falls notwendig." name="Render Attached Lights"/>
+		<check_box label="Angehängte Partikel rendern" name="Render Attached Particles"/>
 		<slider name="MaxFPS" label="FPS:"/>
 		<slider label="Pre-Caching-Verzögerung bevor die Welt angezeigt wird." tool_tip="Setzt die Verzögerung, nach der die Welt angezeigt wird, nachdem man selbst als Online gemeldet wird. (Standard: 6 Sekunden)" name="PrecachingDelay"/>
 		<text name="PrecachingDelayText" width="60">
@@ -168,6 +179,7 @@
 	<panel label="Schärfentiefe" name="DOF panel">
 		<check_box label="Schärfentiefe aktivieren (Bereiche außerhalb des Kamerafokus erscheinen unscharf)" name="UseDoF"/>
 		<check_box label="Im Editier-Modus aktivieren" name="RenderDepthOfFieldInEditMode"/>
+		<check_box label="Unter Wasser aktivieren" name="FSRenderDoFUnderwater"/>
 		<slider label="Kamera-Blendenzahl (k-Wert):" name="CameraFNum" tool_tip="Kamera-Blendenzahl (k-Wert) für die Schärfentiefe" label_width="195" width="409"/>
 		<slider label="Kamera-Brennweite in mm:" name="CameraFocal" tool_tip="Kamera-Brennweite für die Schärfentiefe (in Millimeter)" label_width="195" width="409"/>
 		<slider label="Kamera-Sichtfeld (Grad):" name="Camera FOV" tool_tip="Vertikales Kamera-Sichtfeld für die Schärfentiefe (in Grad)" label_width="195" width="409"/>

@@ -109,7 +109,8 @@
 			<menu_item_check label="Ret ind til gitter" name="Snap to Grid"/>
 			<menu_item_call label="Ret XY for objekt ind til gitter" name="Snap Object XY to Grid"/>
 			<menu_item_call label="Benyt valgte som grundlag for gitter" name="Use Selection for Grid"/>
-			<menu_item_call label="Gitter indstillinger" name="Grid Options"/>
+			<menu_item_call label="Gitter indstillinger..." name="Grid Options"/>
+			<menu_item_call label="Sæt standardværdier for rettigheder..." name="Set default permissions"/>
 		</menu>
 		<menu label="Send" name="Upload">
 			<menu_item_call label="Billede ([COST])..." name="Upload Image"/>
@@ -118,7 +119,6 @@
 			<menu_item_call label="Model..." name="Upload Model"/>
 			<menu_item_call label="Model Wizard..." name="Upload Model Wizard"/>
 			<menu_item_call label="Mange ([COST] pr. fil)..." name="Bulk Upload"/>
-			<menu_item_call label="Sæt standardværdier for upload rettigheder" name="perm prefs"/>
 		</menu>
 		<menu_item_call label="Fortyd" name="Undo"/>
 		<menu_item_call label="Gendan" name="Redo"/>
@@ -140,6 +140,7 @@
 		<menu_item_check label="Højopløsningsfoto" name="HighResSnapshot"/>
 		<menu_item_check label="Lydløse fotos til disk" name="QuietSnapshotsToDisk"/>
 		<menu label="Værktøjer til ydelse" name="Performance Tools">
+			<menu_item_call label="Lag meter" name="Lag Meter"/>
 			<menu_item_check label="Statistik bjælke" name="Statistics Bar"/>
 			<menu_item_check label="Vis avatarers gengivelsesbelastning" name="Avatar Rendering Cost"/>
 		</menu>
@@ -261,7 +262,7 @@
 		<menu label="Netværk" name="Network">
 			<menu_item_check label="Pause avatar" name="AgentPause"/>
 			<menu_item_call label="Mist en netværkspakke" name="Drop a Packet"/>
-		</menu>
+		</menu>		
 		<menu label="Verden" name="DevelopWorld">
 			<menu_item_check label="Vælg anden sol end region" name="Sim Sun Override"/>
 			<menu_item_check label="Fast vejr" name="Fixed Weather"/>

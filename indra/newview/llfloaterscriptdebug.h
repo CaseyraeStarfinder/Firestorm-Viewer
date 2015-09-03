@@ -28,6 +28,7 @@
 #define LL_LLFLOATERSCRIPTDEBUG_H
 
 #include "llmultifloater.h"
+#include "llviewerchat.h"
 
 class LLTextEditor;
 class LLUUID;
@@ -38,8 +39,10 @@ public:
 	LLFloaterScriptDebug(const LLSD& key);
 	virtual ~LLFloaterScriptDebug();
 	virtual BOOL postBuild();
-    static void show(const LLUUID& object_id);
-	static void addScriptLine(const std::string &utf8mesg, const std::string &user_name, const LLColor4& color, const LLUUID& source_id);
+	static void show(const LLUUID& object_id);
+	// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+	// static void addScriptLine(const std::string &utf8mesg, const std::string &user_name, const LLColor4& color, const LLUUID& source_id);
+	static void addScriptLine(const LLChat& chat);
 
 protected:
 	// <FS:Ansariel> Script debug icon
@@ -49,6 +52,10 @@ protected:
 
 protected:
 	static LLFloaterScriptDebug*	sInstance;
+
+// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+private:
+	/*virtual*/ void onClickCloseBtn(bool app_qutting);
 };
 
 class LLFloaterScriptDebugOutput : public LLFloater
@@ -57,14 +64,22 @@ public:
 	LLFloaterScriptDebugOutput(const LLSD& object_id);
 	~LLFloaterScriptDebugOutput();
 
-	void addLine(const std::string &utf8mesg, const std::string &user_name, const LLColor4& color);
+	// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+	// void addLine(const std::string &utf8mesg, const std::string &user_name, const LLColor4& color);
+	void addLine(const LLChat& chat, const std::string &user_name);
 
 	virtual BOOL postBuild();
+
+	// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+	void clear();
 	
 protected:
 	LLTextEditor* mHistoryEditor;
 
 	LLUUID mObjectID;
+
+	// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+	std::string mUserName; //KC: This should be "object_name", but LL.
 };
 
 #endif // LL_LLFLOATERSCRIPTDEBUG_H

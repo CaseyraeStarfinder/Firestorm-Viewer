@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <menu name="Popup">
+	<menu_item_call label="Utwórz nową rzecz" name="Marketplace Create Listing"/>
+	<menu_item_call label="Przypisz rzecz" name="Marketplace Associate Listing"/>
+	<menu_item_call label="Pobierz ponownie (odśwież)" name="Marketplace Get Listing"/>
+	<menu_item_call label="Sprawdź pod kątem błędów" name="Marketplace Check Listing"/>
+	<menu_item_call label="Edytuj rzecz" name="Marketplace Edit Listing"/>
+	<menu_item_call label="Dodaj na listę" name="Marketplace List"/>
+	<menu_item_call label="Usuń z listy" name="Marketplace Unlist"/>
+	<menu_item_call label="Aktywuj" name="Marketplace Activate"/>
+	<menu_item_call label="Dezaktywuj" name="Marketplace Deactivate"/>
 	<menu_item_call label="Udostępnij" name="Share"/>
 	<menu_item_call label="Kupuj" name="Task Buy"/>
 	<menu_item_call label="Otwórz" name="Task Open"/>
@@ -56,7 +65,7 @@
 	<menu_item_call label="Usuń obiekt" name="Purge Item"/>
 	<menu_item_call label="Przywróć obiekt" name="Restore Item"/>
 	<menu_item_call label="Otwórz" name="Open"/>
-	<menu_item_call label="Otwórz oryginalne" name="Open Original"/>
+	<menu_item_call label="Otwórz oryginał" name="Open Original"/>
 	<menu_item_call label="Właściwości" name="Properties"/>
 	<menu_item_call label="Zmień nazwę" name="Rename"/>
 	<menu_item_call label="Kopiuj identyfikator UUID" name="Copy Asset UUID"/>
@@ -65,6 +74,7 @@
 	<menu_item_call label="Wytnij" name="Cut"/>
 	<menu_item_call label="Wklej" name="Paste"/>
 	<menu_item_call label="Wklej jako link" name="Paste As Link"/>
+	<menu_item_call label="Znajdź wszystkie linki" name="Find Links"/>
 	<menu_item_call label="Zastąp linki" name="Replace Links"/>
 	<menu_item_call label="Usuń ten link" name="Remove Link"/>
 	<menu_item_call label="Usuń" name="Delete"/>
@@ -75,10 +85,10 @@
 	<menu_item_call label="Rozpocznij konferencję czatową" name="Conference Chat Folder"/>
 	<menu_item_call label="Odtwarzaj" name="Sound Play"/>
 	<menu_item_call label="Kopiuj SLurl" name="url_copy"/>
-	<menu_item_call label="O Miejscu" name="About Landmark"/>
+	<menu_item_call label="O miejscu" name="About Landmark"/>
 	<menu_item_call label="Pokaż na mapie" name="show_on_map"/>
-	<menu_item_call label="Odtwarzaj publicznie" name="Animation Play"/>
-	<menu_item_call label="Odtwarzaj lokalnie" name="Animation Audition"/>
+	<menu_item_call label="Odtwórz publicznie" name="Animation Play"/>
+	<menu_item_call label="Odtwórz prywatnie" name="Animation Audition"/>
 	<menu_item_call label="Wyślij wiadomość IM" name="Send Instant Message"/>
 	<menu_item_call label="Proponuj teleport" name="Offer Teleport..."/>
 	<menu_item_call label="Poproś o teleport" name="Request Teleport..."/>
@@ -87,6 +97,7 @@
 	<menu_item_call label="Deaktywuj" name="Deactivate"/>
 	<menu_item_call label="Zapisz jako" name="Save As"/>
 	<menu_item_call label="Załóż" name="Wearable And Object Wear"/>
+	<menu_item_call label="Znajdź w widoku ogólnym" name="Find in Main"/>
 	<menu_item_call label="Dodaj/dołącz" name="Wearable Add"/>
 	<menu label="Dołącz do" name="Attach To"/>
 	<menu label="Dołącz do HUD-a" name="Attach To HUD"/>
@@ -95,6 +106,7 @@
 	<menu_item_call label="Zdejmij" name="Take Off"/>
 	<menu_item_call label="Odłącz od siebie" name="Detach From Yourself"/>
 	<menu_item_call label="Kopiuj do Skrzynki Kupca" name="Merchant Copy"/>
-	<menu_item_call label="Wyślij na Marketplace" name="Marketplace Send"/>
+	<menu_item_call label="Kopiuj do rzeczy Marketplace" name="Marketplace Copy"/>
+	<menu_item_call label="Przenieś do rzeczy Marketplace" name="Marketplace Move"/>
 	<menu_item_call label="--brak opcji--" name="--no options--"/>
 </menu>

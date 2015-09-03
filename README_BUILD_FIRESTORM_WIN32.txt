@@ -2,7 +2,7 @@ Before you start configuring your Windows build system, be aware of our tested c
 	Memory: You will need at least 2GB RAM, 4GB strongly recommended.
 	CPU: Multiple CPUs are strongly recommended. 
 	  A build can take over an hour.
-	Visual Studio 2010. 
+	Visual Studio 2013 Community Edition.
 
 Ensure you can build a stock viewer-development try as described in the SL wiki. Before asking for any help
 compiling Firestorm, make sure you can build viewer-development first. If you try and skip this step, you may
@@ -22,11 +22,11 @@ mailing list. We've created a non-KDU build target to make this easier. Everywhe
 
 To build firestorm:
 
-	Launch the VS2010 CMD Environment. This is NOT just cmd.exe, this is the CMD shell in the VS2010 start folder
+	Launch the VS2013 CMD Environment. This is NOT just cmd.exe, this is the CMD shell in the VS2013 start folder
 that sets your dev environment variables. You will use this shell to kick off command line builds. CYGWIN or standard
 CMD.EXE will not work.
 
-After launching the VS2010 cmd shell and navigating to your firestorm code repo:
+After launching the VS2013 cmd shell and navigating to your firestorm code repo:
 
         autobuild build -c ReleaseFS
 
@@ -47,7 +47,8 @@ If you want to set custom configuration, do this in the configure step separatel
 build -c ReleaseFS --no-configure" as a secondary step.
 
 Logs:
-	Look for logs in build-vc100/logs
+	Look for logs in build-vc120/logs
 
 Output:
-	Look for output in build-vc100/newview/Release
+	Look for output in build-vc120/newview/Release
+

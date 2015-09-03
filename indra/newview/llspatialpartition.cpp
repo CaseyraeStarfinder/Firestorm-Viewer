@@ -1632,7 +1632,7 @@ void pushVertsColorCoded(LLSpatialGroup* group, U32 mask)
 {
 	LLDrawInfo* params = NULL;
 
-	LLColor4 colors[] = {
+	static const LLColor4 colors[] = {
 		LLColor4::green,
 		LLColor4::green1,
 		LLColor4::green2,
@@ -2514,7 +2514,10 @@ void renderPhysicsShape(LLDrawable* drawable, LLVOVolume* volume)
 				}
 			}
 
-			if (phys_volume->mHullPoints)
+			// <FS:Ansariel> Crash fix due to invalid calls to drawElements by Drake Arconis
+			//if (phys_volume->mHullPoints)
+			if (phys_volume->mHullPoints && phys_volume->mHullIndices && phys_volume->mNumHullPoints > 0 && phys_volume->mNumHullIndices > 0)
+			// </FS:Ansariel>
 			{
 				//render hull
 			
@@ -4178,6 +4181,8 @@ LLCullResult::LLCullResult()
 		mRenderMapAllocated[i] = 0;
 	}
 
+	memset( mRenderMapSize, 0, sizeof(mRenderMapSize) ); // <FS:ND> Initialize with 0.
+	
 	clear();
 }
 

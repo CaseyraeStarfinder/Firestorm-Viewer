@@ -53,6 +53,7 @@ LLChatEntry::LLChatEntry(const Params& p)
 	mCurrentHistoryLine = mLineHistory.begin();
 
 	mAutoIndent = false;
+	keepSelectionOnReturn(true);
 }
 
 LLChatEntry::~LLChatEntry()
@@ -185,15 +186,6 @@ BOOL LLChatEntry::handleSpecialKey(const KEY key, const MASK mask)
 {
 	BOOL handled = FALSE;
 
-    // In the case of a chat entry, pressing RETURN when something is selected
-    // should NOT erase the selection (unlike a notecard, for example)
-    if (key == KEY_RETURN)
-    {
-        endOfDoc();
-        startSelection();
-        endSelection();
-    }
-
 	LLTextEditor::handleSpecialKey(key, mask);
 
 	switch(key)
@@ -276,3 +268,21 @@ void LLChatEntry::enableSingleLineMode(bool single_line_mode)
 	mPrevLinesCount = -1;
 	setWordWrap(!single_line_mode);
 }
+
+
+// <FS:Ansariel> Fix linefeed pasting
+//virtual
+void LLChatEntry::paste()
+{
+	LLTextEditor::paste();
+
+	if (mSingleLineMode)
+	{
+		S32 cursor_pos = getCursorPos();
+		LLWString content = getWText();
+		LLWStringUtil::replaceChar(content, '\n', llwchar(182));
+		setWText(content);
+		setCursorPos(cursor_pos);
+	}
+}
+// </FS:Ansariel>

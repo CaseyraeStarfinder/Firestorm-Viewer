@@ -61,13 +61,13 @@
 #include "llui.h"
 #include "pipeline.h"
 #include "llviewershadermgr.h"
+#include "lltrans.h"
 // [RLVa:KB] - Checked: 2010-03-23 (RLVa-1.2.0a)
 #include "rlvhandler.h"
 // [/RLVa:KB]
 
 const S32 NUM_AXES = 3;
 const S32 MOUSE_DRAG_SLOP = 2;       // pixels
-const F32 HANDLE_HIDE_ANGLE = 0.15f; // radians
 const F32 SELECTED_ARROW_SCALE = 1.3f;
 const F32 MANIPULATOR_HOTSPOT_START = 0.2f;
 const F32 MANIPULATOR_HOTSPOT_END = 1.2f;
@@ -114,7 +114,6 @@ LLManipTranslate::LLManipTranslate( LLToolComposite* composite )
 :	LLManip( std::string("Move"), composite ),
 	mLastHoverMouseX(-1),
 	mLastHoverMouseY(-1),
-	mSendUpdateOnMouseUp(FALSE),
 	mMouseOutsideSlop(FALSE),
 	mCopyMadeThisDrag(FALSE),
 	mWarningNoDragCopy(false),	// <FS:Zi> Warning when trying to duplicate while in edit linked parts/select face mode
@@ -129,7 +128,6 @@ LLManipTranslate::LLManipTranslate( LLToolComposite* composite )
 	mSnapOffsetMeters(0.f),
 	mSubdivisions(10.f),
 	mInSnapRegime(FALSE),
-	mSnapped(FALSE),
 	mArrowScales(1.f, 1.f, 1.f),
 	mPlaneScales(1.f, 1.f, 1.f),
 	mPlaneManipPositions(1.f, 1.f, 1.f, 1.f)
@@ -379,7 +377,7 @@ BOOL LLManipTranslate::handleMouseDownOnPart( S32 x, S32 y, MASK mask )
 	//LLVector3 select_center_agent = gAgent.getPosAgentFromGlobal(LLSelectMgr::getInstance()->getSelectionCenterGlobal());
 	// TomY: The above should (?) be identical to the below
 	LLVector3 select_center_agent = getPivotPoint();
-	mSubdivisions = llclamp(getSubdivisionLevel(select_center_agent, axis_exists ? axis : LLVector3::z_axis, getMinGridScale()), sGridMinSubdivisionLevel, sGridMaxSubdivisionLevel);
+	mSubdivisions = getSubdivisionLevel(select_center_agent, axis_exists ? axis : LLVector3::z_axis, getMinGridScale());
 
 	// if we clicked on a planar manipulator, recenter mouse cursor
 	if (mManipPart >= LL_YZ_PLANE && mManipPart <= LL_XY_PLANE)
@@ -533,7 +531,7 @@ BOOL LLManipTranslate::handleHover(S32 x, S32 y, MASK mask)
 	LLSelectMgr::getInstance()->updateSelectionCenter();
 	LLVector3d current_pos_global = gAgent.getPosGlobalFromAgent(getPivotPoint());
 
-	mSubdivisions = llclamp(getSubdivisionLevel(getPivotPoint(), axis_f, getMinGridScale()), sGridMinSubdivisionLevel, sGridMaxSubdivisionLevel);
+	mSubdivisions = getSubdivisionLevel(getPivotPoint(), axis_f, getMinGridScale());
 
 	// Project the cursor onto that plane
 	LLVector3d relative_move;
@@ -568,7 +566,6 @@ BOOL LLManipTranslate::handleHover(S32 x, S32 y, MASK mask)
 
 	if (gSavedSettings.getBOOL("SnapEnabled"))
 	{
-
 		if (off_axis_magnitude > mSnapOffsetMeters)
 		{
 			mInSnapRegime = TRUE;
@@ -629,7 +626,7 @@ BOOL LLManipTranslate::handleHover(S32 x, S32 y, MASK mask)
 				max_grid_scale = mGridScale.mV[VZ];
 			}
 
-			F32 num_subdivisions = llclamp(getSubdivisionLevel(getPivotPoint(), camera_projected_dir, max_grid_scale), sGridMinSubdivisionLevel, sGridMaxSubdivisionLevel);
+			F32 num_subdivisions = getSubdivisionLevel(getPivotPoint(), camera_projected_dir, max_grid_scale);
 
 			F32 grid_scale_a;
 			F32 grid_scale_b;
@@ -1275,7 +1272,7 @@ void LLManipTranslate::renderSnapGuides()
 		// find distance to nearest smallest grid unit
 		F32 offset_nearest_grid_unit = fmodf(dist_grid_axis, smallest_grid_unit_scale);
 		// how many smallest grid units are we away from largest grid scale?
-		S32 sub_div_offset = llround(fmod(dist_grid_axis - offset_nearest_grid_unit, getMinGridScale() / sGridMinSubdivisionLevel) / smallest_grid_unit_scale);
+		S32 sub_div_offset = ll_round(fmodf(dist_grid_axis - offset_nearest_grid_unit, getMinGridScale() / sGridMinSubdivisionLevel) / smallest_grid_unit_scale);
 		S32 num_ticks_per_side = llmax(1, llfloor(0.5f * guide_size_meters / smallest_grid_unit_scale));
 
 		LLGLDepthTest gls_depth(GL_FALSE);
@@ -1283,6 +1280,7 @@ void LLManipTranslate::renderSnapGuides()
 		for (S32 pass = 0; pass < 3; pass++)
 		{
 			LLColor4 line_color = setupSnapGuideRenderPass(pass);
+			LLGLDepthTest gls_depth(pass != 1);
 
 			gGL.begin(LLRender::LINES);
 			{
@@ -1314,12 +1312,12 @@ void LLManipTranslate::renderSnapGuides()
 				{
 					tick_start = selection_center + (translate_axis * (smallest_grid_unit_scale * (F32)i - offset_nearest_grid_unit));
 
-					F32 cur_subdivisions = llclamp(getSubdivisionLevel(tick_start, translate_axis, getMinGridScale()), sGridMinSubdivisionLevel, sGridMaxSubdivisionLevel);
-
-					if (fmodf((F32)(i + sub_div_offset), (max_subdivisions / cur_subdivisions)) != 0.f)
+					//No need check this condition to prevent tick position scaling (FIX MAINT-5207/5208)
+					//F32 cur_subdivisions = getSubdivisionLevel(tick_start, translate_axis, getMinGridScale());
+					/*if (fmodf((F32)(i + sub_div_offset), (max_subdivisions / cur_subdivisions)) != 0.f)
 					{
 						continue;
-					}
+					}*/
 
 					// add in off-axis offset
 					tick_start += (mSnapOffsetAxis * mSnapOffsetMeters);
@@ -1389,12 +1387,12 @@ void LLManipTranslate::renderSnapGuides()
 			}
 		}
 
-		sub_div_offset = llround(fmod(dist_grid_axis - offset_nearest_grid_unit, getMinGridScale() * 32.f) / smallest_grid_unit_scale);
+		sub_div_offset = ll_round(fmod(dist_grid_axis - offset_nearest_grid_unit, getMinGridScale() * 32.f) / smallest_grid_unit_scale);
 
 		LLVector2 screen_translate_axis(llabs(translate_axis * LLViewerCamera::getInstance()->getLeftAxis()), llabs(translate_axis * LLViewerCamera::getInstance()->getUpAxis()));
 		screen_translate_axis.normVec();
 
-		S32 tick_label_spacing = llround(screen_translate_axis * sTickLabelSpacing);
+		S32 tick_label_spacing = ll_round(screen_translate_axis * sTickLabelSpacing);
         
 		// render tickmark values
 		for (S32 i = -num_ticks_per_side; i <= num_ticks_per_side; i++)
@@ -1412,7 +1410,7 @@ void LLManipTranslate::renderSnapGuides()
 				tick_scale *= 0.7f;
 			}
 
-			if (fmodf((F32)(i + sub_div_offset), (max_subdivisions / llmin(sGridMaxSubdivisionLevel, getSubdivisionLevel(tick_pos, translate_axis, getMinGridScale(), tick_label_spacing)))) == 0.f)
+			if (fmodf((F32)(i + sub_div_offset), (max_subdivisions / getSubdivisionLevel(tick_pos, translate_axis, getMinGridScale(), tick_label_spacing))) == 0.f)
 			{
 				F32 snap_offset_meters;
 
@@ -1432,7 +1430,7 @@ void LLManipTranslate::renderSnapGuides()
 				F32 offset_val = 0.5f * tick_offset.mV[ARROW_TO_AXIS[mManipPart]] / getMinGridScale();
 				EGridMode grid_mode = LLSelectMgr::getInstance()->getGridMode();
 				F32 text_highlight = 0.8f;
-				if(i - llround(offset_nearest_grid_unit / smallest_grid_unit_scale) == 0 && mInSnapRegime)
+				if(i - ll_round(offset_nearest_grid_unit / smallest_grid_unit_scale) == 0 && mInSnapRegime)
 				{
 					text_highlight = 1.f;
 				}
@@ -1464,18 +1462,18 @@ void LLManipTranslate::renderSnapGuides()
 					snap_offset_meters_up = -mSnapOffsetMeters;
 				}
 
-				LLVector3 selection_center_start = getSavedPivotPoint();
+				LLVector3 selection_center_start = getSavedPivotPoint();//LLSelectMgr::getInstance()->getSavedBBoxOfSelection().getCenterAgent();
 
 				LLVector3 help_text_pos = selection_center_start + (snap_offset_meters_up * 3.f * mSnapOffsetAxis);
 				const LLFontGL* big_fontp = LLFontGL::getFontSansSerif();
 
-				std::string help_text = "Move mouse cursor over ruler";
+				std::string help_text = LLTrans::getString("manip_hint1");
 				LLColor4 help_text_color = LLColor4::white;
 				help_text_color.mV[VALPHA] = clamp_rescale(mHelpTextTimer.getElapsedTimeF32(), sHelpTextVisibleTime, sHelpTextVisibleTime + sHelpTextFadeTime, line_alpha, 0.f);
-				hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, mObjectSelection->getSelectType() == SELECT_TYPE_HUD);
-				help_text = "to snap to grid";
+				hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, false);
+				help_text = LLTrans::getString("manip_hint2");
 				help_text_pos -= LLViewerCamera::getInstance()->getUpAxis() * mSnapOffsetMeters * 0.2f;
-				hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, mObjectSelection->getSelectType() == SELECT_TYPE_HUD);
+				hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, false);
 			}
 		}
 	}

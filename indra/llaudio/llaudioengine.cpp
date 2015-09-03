@@ -72,6 +72,10 @@ LLStreamingAudioInterface* LLAudioEngine::getStreamingAudioImpl()
 
 void LLAudioEngine::setStreamingAudioImpl(LLStreamingAudioInterface *impl)
 {
+	// <FS> FMOD fixes
+	if (mStreamingAudioImpl)
+		delete mStreamingAudioImpl;
+	// </FS>
 	mStreamingAudioImpl = impl;
 }
 
@@ -134,6 +138,12 @@ bool LLAudioEngine::init(const S32 num_channels, void* userdata)
 
 void LLAudioEngine::shutdown()
 {
+	// <FS> FMOD fixes
+	// Clean up streaming audio
+	delete mStreamingAudioImpl;
+	mStreamingAudioImpl = NULL;
+	// </FS>
+
 	// Clean up decode manager
 	delete gAudioDecodeMgrp;
 	gAudioDecodeMgrp = NULL;
@@ -1270,6 +1280,7 @@ void LLAudioEngine::assetCallback(LLVFS *vfs, const LLUUID &uuid, LLAssetType::E
         {
 			// Should never happen
 			LL_WARNS() << "Got asset callback without audio data for " << uuid << LL_ENDL;
+			gAudiop->removeAudioData( uuid ); // <FS:ND/> Remove this corrupt asset from the queue, or we're in danger of endless recursion.
         }
 		else
 		{
@@ -1960,6 +1971,17 @@ bool LLAudioData::load()
 		// Hrm.  Right now, let's unset the buffer, since it's empty.
 		gAudiop->cleanupBuffer(mBufferp);
 		mBufferp = NULL;
+
+		// <FS:Ansariel> FIRE-480: Opening multiple instances causes sound failures
+		if (!gDirUtilp->fileExists(wav_path))
+		{
+			mHasLocalData = false;
+			mHasDecodedData = false;
+			mHasCompletedDecode = false;
+			mHasValidData = true;
+			gAudiop->preloadSound(mID);
+		}
+		// </FS:Ansariel>
 
 		return false;
 	}

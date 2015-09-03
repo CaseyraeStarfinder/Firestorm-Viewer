@@ -176,6 +176,9 @@ F32 LLPipeline::RenderGlowWidth;
 F32 LLPipeline::RenderGlowStrength;
 BOOL LLPipeline::RenderDepthOfField;
 BOOL LLPipeline::RenderDepthOfFieldInEditMode;
+//<FS:TS> FIRE-16251: Depth of field does not work underwater
+BOOL LLPipeline::FSRenderDepthOfFieldUnderwater;
+//</FS:TS> FIRE-16251
 F32 LLPipeline::CameraFocusTransitionTime;
 F32 LLPipeline::CameraFNumber;
 F32 LLPipeline::CameraFocalLength;
@@ -212,15 +215,9 @@ F32 LLPipeline::CameraDoFResScale;
 F32 LLPipeline::RenderAutoHideSurfaceAreaLimit;
 LLTrace::EventStatHandle<S64> LLPipeline::sStatBatchSize("renderbatchsize");
 
-const F32 BACKLIGHT_DAY_MAGNITUDE_AVATAR = 0.2f;
-const F32 BACKLIGHT_NIGHT_MAGNITUDE_AVATAR = 0.1f;
 const F32 BACKLIGHT_DAY_MAGNITUDE_OBJECT = 0.1f;
 const F32 BACKLIGHT_NIGHT_MAGNITUDE_OBJECT = 0.08f;
-const S32 MAX_OFFSCREEN_GEOMETRY_CHANGES_PER_FRAME = 10;
-const U32 REFLECTION_MAP_RES = 128;
 const U32 DEFERRED_VB_MASK = LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_TEXCOORD0 | LLVertexBuffer::MAP_TEXCOORD1;
-// Max number of occluders to search for. JC
-const S32 MAX_OCCLUDER_COUNT = 2;
 
 extern S32 gBoxFrame;
 //extern BOOL gHideSelectedObjects;
@@ -417,16 +414,6 @@ bool	LLPipeline::sRenderParticles; // <FS:LO> flag to hold correct, user selecte
 static LLPipelineListener sPipelineListener;
 
 static LLCullResult* sCull = NULL;
-
-static const U32 gl_cube_face[] = 
-{
-	GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB,
-	GL_TEXTURE_CUBE_MAP_NEGATIVE_X_ARB,
-	GL_TEXTURE_CUBE_MAP_POSITIVE_Y_ARB,
-	GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_ARB,
-	GL_TEXTURE_CUBE_MAP_POSITIVE_Z_ARB,
-	GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_ARB,
-};
 
 void validate_framebuffer_object();
 
@@ -648,6 +635,9 @@ void LLPipeline::init()
 	connectRefreshCachedSettingsSafe("RenderGlowStrength");
 	connectRefreshCachedSettingsSafe("RenderDepthOfField");
 	connectRefreshCachedSettingsSafe("RenderDepthOfFieldInEditMode");
+	//<FS:TS> FIRE-16251: Depth of Field does not work underwater
+	connectRefreshCachedSettingsSafe("FSRenderDoFUnderwater");
+	//</FS:TS> FIRE-16251
 	connectRefreshCachedSettingsSafe("CameraFocusTransitionTime");
 	connectRefreshCachedSettingsSafe("CameraFNumber");
 	connectRefreshCachedSettingsSafe("CameraFocalLength");
@@ -1199,6 +1189,9 @@ void LLPipeline::refreshCachedSettings()
 	RenderGlowStrength = gSavedSettings.getF32("RenderGlowStrength");
 	RenderDepthOfField = gSavedSettings.getBOOL("RenderDepthOfField");
 	RenderDepthOfFieldInEditMode = gSavedSettings.getBOOL("RenderDepthOfFieldInEditMode");
+	//<FS:TS> FIRE-16251: Depth of Field does not work underwater
+	FSRenderDepthOfFieldUnderwater = gSavedSettings.getBOOL("FSRenderDoFUnderwater");
+	//</FS:TS> FIRE-16251
 	CameraFocusTransitionTime = gSavedSettings.getF32("CameraFocusTransitionTime");
 	CameraFNumber = gSavedSettings.getF32("CameraFNumber");
 	CameraFocalLength = gSavedSettings.getF32("CameraFocalLength");
@@ -1409,11 +1402,11 @@ void LLPipeline::createLUTBuffers()
 	{
 		if (!mLightFunc)
 		{
-			/*U32 lightResX = gSavedSettings.getU32("RenderSpecularResX");
+			U32 lightResX = gSavedSettings.getU32("RenderSpecularResX");
 			U32 lightResY = gSavedSettings.getU32("RenderSpecularResY");
-			U8* ls = new U8[lightResX*lightResY];
+			F32* ls = new F32[lightResX*lightResY];
 			F32 specExp = gSavedSettings.getF32("RenderSpecularExponent");
-            // Calculate the (normalized) Blinn-Phong specular lookup texture.
+            // Calculate the (normalized) blinn-phong specular lookup texture. (with a few tweaks)
 			for (U32 y = 0; y < lightResY; ++y)
 			{
 				for (U32 x = 0; x < lightResX; ++x)
@@ -1429,67 +1422,11 @@ void LLPipeline::createLUTBuffers()
 					// Apply our normalization function.
 					// Note: This is the full equation that applies the full normalization curve, not an approximation.
 					// This is fine, given we only need to create our LUT once per buffer initialization.
-					// The only trade off is we have a really low dynamic range.
-					// This means we have to account for things not being able to exceed 0 to 1 in our shaders.
-					spec *= (((n + 2) * (n + 4)) / (8 * F_PI * (powf(2, -n/2) + n)));
-					
-					// Always sample at a 1.0/2.2 curve.
-					// This "Gamma corrects" our specular term, boosting our lower exponent reflections.
-					spec = powf(spec, 1.f/2.2f);
-					
-					// Easy fix for our dynamic range problem: divide by 6 here, multiply by 6 in our shaders.
-					// This allows for our specular term to exceed a value of 1 in our shaders.
-					// This is something that can be important for energy conserving specular models where higher exponents can result in highlights that exceed a range of 0 to 1.
-					// Technically, we could just use an R16F texture, but driver support for R16F textures can be somewhat spotty at times.
-					// This works remarkably well for higher specular exponents, though banding can sometimes be seen on lower exponents.
-					// Combined with a bit of noise and trilinear filtering, the banding is hardly noticable.
-					ls[y*lightResX+x] = (U8)(llclamp(spec * (1.f / 6), 0.f, 1.f) * 255);
-				}
-			}*/
-		
-
-			U32 lightResX = gSavedSettings.getU32("RenderSpecularResX");
-			U32 lightResY = gSavedSettings.getU32("RenderSpecularResY");
-			F32* ls = new F32[lightResX*lightResY];
-			//F32 specExp = gSavedSettings.getF32("RenderSpecularExponent"); // Note: only use this when creating new specular lighting functions.
-            // Calculate the (normalized) blinn-phong specular lookup texture. (with a few tweaks)
-			for (U32 y = 0; y < lightResY; ++y)
-			{
-				for (U32 x = 0; x < lightResX; ++x)
-				{
-					ls[y*lightResX+x] = 0;
-					F32 sa = (F32) x/(lightResX-1);
-					F32 spec = (F32) y/(lightResY-1);
-					F32 n = spec * spec * 368;
-					
-					// Nothing special here.  Just your typical blinn-phong term.
-					spec = powf(sa, n);
-					
-					// Apply our normalization function.
-					// Note: This is the full equation that applies the full normalization curve, not an approximation.
-					// This is fine, given we only need to create our LUT once per buffer initialization.
 					spec *= (((n + 2) * (n + 4)) / (8 * F_PI * (powf(2, -n/2) + n)));
 
 					// Since we use R16F, we no longer have a dynamic range issue we need to work around here.
 					// Though some older drivers may not like this, newer drivers shouldn't have this problem.
 					ls[y*lightResX+x] = spec;
-
-					
-					//beckmann distribution
-					/*F32 alpha = acosf((F32) x/(lightResX-1));
-					F32 m = 1.f - (F32) y/(lightResY-1);
-
-					F32 cos4_alpha = cosf(alpha);
-					cos4_alpha *= cos4_alpha;
-					cos4_alpha *= cos4_alpha;
-
-					F32 tan_alpha = tanf(alpha);
-					F32 tan2_alpha = tan_alpha*tan_alpha;
-
-					F32 k = expf(-(tan2_alpha)/(m*m)) /
-						(3.14159f*m*m*cos4_alpha);
-
-					ls[y*lightResX+x] = k;*/
 				}
 			}
 			
@@ -1502,7 +1439,6 @@ void LLPipeline::createLUTBuffers()
 			LLImageGL::generateTextures(1, &mLightFunc);
 			gGL.getTexUnit(0)->bindManual(LLTexUnit::TT_TEXTURE, mLightFunc);
 			LLImageGL::setManualImage(LLTexUnit::getInternalType(LLTexUnit::TT_TEXTURE), 0, pix_format, lightResX, lightResY, GL_RED, GL_FLOAT, ls, false);
-			//LLImageGL::setManualImage(LLTexUnit::getInternalType(LLTexUnit::TT_TEXTURE), 0, GL_UNSIGNED_BYTE, lightResX, lightResY, GL_RED, GL_UNSIGNED_BYTE, ls, false);
 			gGL.getTexUnit(0)->setTextureAddressMode(LLTexUnit::TAM_CLAMP);
 			gGL.getTexUnit(0)->setTextureFilteringOption(LLTexUnit::TFO_TRILINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -3502,7 +3438,10 @@ void LLPipeline::markRebuild(LLDrawable *drawablep, LLDrawable::EDrawableFlags f
 			mBuildQ2.push_back(drawablep);
 			drawablep->setState(LLDrawable::IN_REBUILD_Q2); // need flag here because it is just a list
 		}
-		if (flag & (LLDrawable::REBUILD_VOLUME | LLDrawable::REBUILD_POSITION))
+		// <FS:Ansariel> FIRE-16485: Crash when calling texture refresh on an object that has a blacklisted copy
+		//if (flag & (LLDrawable::REBUILD_VOLUME | LLDrawable::REBUILD_POSITION))
+		if ((flag & (LLDrawable::REBUILD_VOLUME | LLDrawable::REBUILD_POSITION)) && drawablep->getVObj().notNull())
+		// </FS:Ansariel>
 		{
 			drawablep->getVObj()->setChanged(LLXform::SILHOUETTE);
 		}
@@ -7823,9 +7762,12 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 	if (LLPipeline::sRenderDeferred)
 	{
 
-		bool dof_enabled = !LLViewerCamera::getInstance()->cameraUnderWater() &&
+		//<FS:TS> FIRE-16251: Depth of Field does not work underwater
+		//bool dof_enabled = !LLViewerCamera::getInstance()->cameraUnderWater() &&
+		bool dof_enabled = (FSRenderDepthOfFieldUnderwater || !LLViewerCamera::getInstance()->cameraUnderWater()) &&
 			(RenderDepthOfFieldInEditMode || !LLToolMgr::getInstance()->inBuildMode()) &&
 							RenderDepthOfField;
+                //</FS:TS> FIRE-16251
 
 
 		bool multisample = RenderFSAASamples > 1 && mFXAABuffer.isComplete();
@@ -11842,6 +11784,7 @@ BOOL LLPipeline::hasAnyRenderType(U32 type, ...) const
 	{
 		if (mRenderTypeEnabled[type])
 		{
+			va_end(args); // <FS:ND/> Need to end varargs being returning.
 			return TRUE;
 		}
 		type = va_arg(args, U32);

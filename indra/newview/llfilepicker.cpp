@@ -171,7 +171,8 @@ BOOL LLFilePicker::setupFilter(ELoadFilter filter)
 	BOOL res = TRUE;
 	switch (filter)
 	{
-	case FFLOAD_ALL:
+    case FFLOAD_ALL:
+    case FFLOAD_EXE:
 		mOFN.lpstrFilter = L"All Files (*.*)\0*.*\0" \
 		SOUND_FILTER \
 		IMAGE_FILTER \
@@ -650,6 +651,10 @@ std::vector<std::string>* LLFilePicker::navOpenFilterProc(ELoadFilter filter) //
             allowedv->push_back("tpic");
             allowedv->push_back("png");
             break;
+        case FFLOAD_EXE:
+            allowedv->push_back("app");
+            allowedv->push_back("exe");
+            break;
         case FFLOAD_WAV:
             allowedv->push_back("wav");
             break;
@@ -666,6 +671,9 @@ std::vector<std::string>* LLFilePicker::navOpenFilterProc(ELoadFilter filter) //
             allowedv->push_back("slg");
             break;
 #endif
+        case FFLOAD_XML:
+            allowedv->push_back("xml");
+            break;
         case FFLOAD_RAW:
             allowedv->push_back("raw");
             break;
@@ -675,9 +683,6 @@ std::vector<std::string>* LLFilePicker::navOpenFilterProc(ELoadFilter filter) //
         case FFLOAD_DICTIONARY:
             allowedv->push_back("dic");
             allowedv->push_back("xcu");
-            break;
-	case FFLOAD_XML:
-            allowedv->push_back("xml");
             break;
         case FFLOAD_DIRECTORY:
             break;
@@ -777,7 +782,15 @@ bool	LLFilePicker::doNavSaveDialog(ESaveFilter filter, const std::string& filena
 			creator = "\?\?\?\?";
 			extension = "slg";
 			break;
-#endif		
+#endif	
+		// <FS:TS> Compile fix
+		// case FFSAVE_XML:
+		//	type = "\?\?\?\?";
+		//	creator = "\?\?\?\?";
+		//	extension = "xml";
+		//	break;
+		// </FS:TS> Compile fix
+			
 		case FFSAVE_RAW:
 			type = "\?\?\?\?";
 			creator = "\?\?\?\?";
@@ -881,7 +894,7 @@ BOOL LLFilePicker::getOpenFile(ELoadFilter filter, bool blocking)
         mPickOptions &= ~F_FILE;
     }
 
-	if(filter == FFLOAD_ALL)	// allow application bundles etc. to be traversed; important for DEV-16869, but generally useful
+	if (filter == FFLOAD_ALL)	// allow application bundles etc. to be traversed; important for DEV-16869, but generally useful
 	{
         mPickOptions |= F_NAV_SUPPORT;
 	}
@@ -1225,6 +1238,12 @@ static std::string add_anim_filter_to_gtkchooser(GtkWindow *picker)
 	return filtername;
 }
 
+static std::string add_xml_filter_to_gtkchooser(GtkWindow *picker)
+{
+	return add_simple_pattern_filter_to_gtkchooser(picker,  "*.xml",
+												   LLTrans::getString("xml_files") + " (*.xml)");
+}
+
 static std::string add_collada_filter_to_gtkchooser(GtkWindow *picker)
 {
 	return add_simple_pattern_filter_to_gtkchooser(picker,  "*.dae",
@@ -1235,9 +1254,9 @@ static std::string add_imageload_filter_to_gtkchooser(GtkWindow *picker)
 {
 	GtkFileFilter *gfilter = gtk_file_filter_new();
 	gtk_file_filter_add_pattern(gfilter, "*.tga");
-	gtk_file_filter_add_mime_type(gfilter, "image/jpeg");
-	gtk_file_filter_add_mime_type(gfilter, "image/png");
-	gtk_file_filter_add_mime_type(gfilter, "image/bmp");
+	gtk_file_filter_add_mime_type(gfilter, HTTP_CONTENT_IMAGE_JPEG.c_str());
+	gtk_file_filter_add_mime_type(gfilter, HTTP_CONTENT_IMAGE_PNG.c_str());
+	gtk_file_filter_add_mime_type(gfilter, HTTP_CONTENT_IMAGE_BMP.c_str());
 	std::string filtername = LLTrans::getString("image_files") + " (*.tga; *.bmp; *.jpg; *.png)";
 	add_common_filters_to_gtkchooser(gfilter, picker, filtername);
 	return filtername;
@@ -1245,13 +1264,13 @@ static std::string add_imageload_filter_to_gtkchooser(GtkWindow *picker)
  
 static std::string add_script_filter_to_gtkchooser(GtkWindow *picker)
 {
-	return add_simple_mime_filter_to_gtkchooser(picker,  "text/plain",
+	return add_simple_mime_filter_to_gtkchooser(picker,  HTTP_CONTENT_TEXT_PLAIN,
 							LLTrans::getString("script_files") + " (*.lsl)");
 }
 
 static std::string add_dictionary_filter_to_gtkchooser(GtkWindow *picker)
 {
-	return add_simple_mime_filter_to_gtkchooser(picker,  "text/plain",
+	return add_simple_mime_filter_to_gtkchooser(picker, HTTP_CONTENT_TEXT_PLAIN,
 							LLTrans::getString("dictionary_files") + " (*.dic; *.xcu)");
 }
 
@@ -1320,7 +1339,7 @@ BOOL LLFilePicker::getSaveFile( ESaveFilter filter, const std::string& filename,
 			break;
 		case FFSAVE_BMP:
 			caption += add_simple_mime_filter_to_gtkchooser
-				(picker, "image/bmp", LLTrans::getString("bitmap_image_files") + " (*.bmp)");
+				(picker, HTTP_CONTENT_IMAGE_BMP, LLTrans::getString("bitmap_image_files") + " (*.bmp)");
 			suggest_ext = ".bmp";
 			break;
 		case FFSAVE_PNG:
@@ -1354,6 +1373,7 @@ BOOL LLFilePicker::getSaveFile( ESaveFilter filter, const std::string& filename,
 			suggest_ext = ".raw";
 			break;
 		case FFSAVE_J2C:
+			// *TODO: Should this be 'image/j2c' ?
 			caption += add_simple_mime_filter_to_gtkchooser
 				(picker, "images/jp2",
 				 LLTrans::getString("compressed_image_files") + " (*.j2c)");
@@ -1443,6 +1463,9 @@ BOOL LLFilePicker::getOpenFile( ELoadFilter filter, bool blocking )
 			break;
 		case FFLOAD_ANIM:
 			filtername = add_anim_filter_to_gtkchooser(picker);
+			break;
+		case FFLOAD_XML:
+			filtername = add_xml_filter_to_gtkchooser(picker);
 			break;
 		case FFLOAD_COLLADA:
 			filtername = add_collada_filter_to_gtkchooser(picker);

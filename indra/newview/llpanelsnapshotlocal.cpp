@@ -48,6 +48,7 @@ class LLPanelSnapshotLocal
 
 public:
 	LLPanelSnapshotLocal();
+	/*virtual*/ ~LLPanelSnapshotLocal(); // <FS:Ansariel> Store settings at logout
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void onOpen(const LLSD& key);
 
@@ -57,10 +58,10 @@ private:
 	/*virtual*/ std::string getAspectRatioCBName() const	{ return "local_keep_aspect_check"; }
 	/*virtual*/ std::string getImageSizeComboName() const	{ return "local_size_combo"; }
 	/*virtual*/ std::string getImageSizePanelName() const	{ return "local_image_size_lp"; }
-	/*virtual*/ std::string getTempUploadCBName() const		{ return LLStringUtil::null; } //FS:LO Fire-6268 [Regression] Temp upload for snapshots missing after FUI merge.
 	/*virtual*/ LLFloaterSnapshot::ESnapshotFormat getImageFormat() const;
-	/*virtual*/ std::string getImageSizeControlName() const	{ return "LastSnapshotToDiskResolution"; }	// <FS:Zi> Save all settings
 	/*virtual*/ void updateControls(const LLSD& info);
+
+	S32 mLocalFormat;
 
 	void onFormatComboCommit(LLUICtrl* ctrl);
 	void onQualitySliderCommit(LLUICtrl* ctrl);
@@ -71,6 +72,7 @@ static LLPanelInjector<LLPanelSnapshotLocal> panel_class("llpanelsnapshotlocal")
 
 LLPanelSnapshotLocal::LLPanelSnapshotLocal()
 {
+	mLocalFormat = gSavedSettings.getS32("SnapshotFormat");
 	mCommitCallbackRegistrar.add("Local.Cancel",	boost::bind(&LLPanelSnapshotLocal::cancel,		this));
 }
 
@@ -81,12 +83,28 @@ BOOL LLPanelSnapshotLocal::postBuild()
 	getChild<LLUICtrl>("local_format_combo")->setCommitCallback(boost::bind(&LLPanelSnapshotLocal::onFormatComboCommit, this, _1));
 	getChild<LLUICtrl>("save_btn")->setCommitCallback(boost::bind(&LLPanelSnapshotLocal::onSaveFlyoutCommit, this, _1));
 
+	// <FS:Ansariel> Store settings at logout
+	getImageSizeComboBox()->setCurrentByIndex(gSavedSettings.getS32("LastSnapshotToDiskResolution"));
+	getWidthSpinner()->setValue(gSavedSettings.getS32("LastSnapshotToDiskWidth"));
+	getHeightSpinner()->setValue(gSavedSettings.getS32("LastSnapshotToDiskHeight"));
+	// </FS:Ansariel>
+
 	return LLPanelSnapshot::postBuild();
 }
 
 // virtual
 void LLPanelSnapshotLocal::onOpen(const LLSD& key)
 {
+	// <FS:Ansariel> FIRE-7090: Snapshot format for disk changes when selecting snapshot to inventory or email
+	//if(gSavedSettings.getS32("SnapshotFormat") != mLocalFormat)
+	//{
+	//	getChild<LLComboBox>("local_format_combo")->selectNthItem(mLocalFormat);
+	//}
+	S32 index = gSavedSettings.getS32("FSSnapshotLocalFormat");
+	gSavedSettings.setS32("SnapshotFormat", index);
+	getChild<LLComboBox>("local_format_combo")->setCurrentByIndex(index);
+	// </FS:Ansariel>
+
 	LLPanelSnapshot::onOpen(key);
 }
 
@@ -117,18 +135,17 @@ LLFloaterSnapshot::ESnapshotFormat LLPanelSnapshotLocal::getImageFormat() const
 void LLPanelSnapshotLocal::updateControls(const LLSD& info)
 {
 	LLFloaterSnapshot::ESnapshotFormat fmt =
+		// <FS:Ansariel> FIRE-7090: Snapshot format for disk changes when selecting snapshot to inventory or email
 		(LLFloaterSnapshot::ESnapshotFormat) gSavedSettings.getS32("SnapshotFormat");
+		//(LLFloaterSnapshot::ESnapshotFormat) gSavedSettings.getS32("FSSnapshotLocalFormat");
+		// </FS:Ansariel>
 	getChild<LLComboBox>("local_format_combo")->selectNthItem((S32) fmt);
 
 	const bool show_quality_ctrls = (fmt == LLFloaterSnapshot::SNAPSHOT_FORMAT_JPEG);
-	// <FS:Zi> Save all settings
-	// getChild<LLUICtrl>("image_quality_slider")->setVisible(show_quality_ctrls);
-	// getChild<LLUICtrl>("image_quality_level")->setVisible(show_quality_ctrls);
-	getChild<LLUICtrl>("image_quality_slider")->setEnabled(show_quality_ctrls);
-	getChild<LLUICtrl>("image_quality_level")->setEnabled(show_quality_ctrls);
-	// </FS:Zi>
+	getChild<LLUICtrl>("image_quality_slider")->setVisible(show_quality_ctrls);
+	getChild<LLUICtrl>("image_quality_level")->setVisible(show_quality_ctrls);
 
-	// getChild<LLUICtrl>("image_quality_slider")->setValue(gSavedSettings.getS32("SnapshotQuality"));	// <FS:Zi> Save all settings
+	getChild<LLUICtrl>("image_quality_slider")->setValue(gSavedSettings.getS32("SnapshotQuality"));
 	updateImageQualityLevel();
 
 	const bool have_snapshot = info.has("have-snapshot") ? info["have-snapshot"].asBoolean() : true;
@@ -137,6 +154,10 @@ void LLPanelSnapshotLocal::updateControls(const LLSD& info)
 
 void LLPanelSnapshotLocal::onFormatComboCommit(LLUICtrl* ctrl)
 {
+	mLocalFormat = getImageFormat();
+	// <FS:Ansariel> FIRE-7090: Snapshot format for disk changes when selecting snapshot to inventory or email
+	gSavedSettings.setS32("FSSnapshotLocalFormat", getChild<LLComboBox>("local_format_combo")->getCurrentIndex());
+
 	// will call updateControls()
 	LLFloaterSnapshot::getInstance()->notify(LLSD().with("image-format-change", true));
 }
@@ -166,13 +187,25 @@ void LLPanelSnapshotLocal::onSaveFlyoutCommit(LLUICtrl* ctrl)
 	if (saved)
 	{
 		LLFloaterSnapshot::postSave();
-		goBack();
+		// <FS:Ansariel> Don't return to target selection after taking a snapshot
+		//goBack();
 		floater->notify(LLSD().with("set-finished", LLSD().with("ok", true).with("msg", "local")));
 	}
 	else
 	{
 		// <FS:Ansariel> Notify user if we could not save file
 		LLNotificationsUtil::add("CannotSaveSnapshot");
-		cancel();
+		floater->notify(LLSD().with("set-ready", true));
+		// <FS:Ansariel> Don't return to target selection after taking a snapshot
+		//cancel();
 	}
 }
+
+// <FS:Ansariel> Store settings at logout
+LLPanelSnapshotLocal::~LLPanelSnapshotLocal()
+{
+	gSavedSettings.setS32("LastSnapshotToDiskResolution", getImageSizeComboBox()->getCurrentIndex());
+	gSavedSettings.setS32("LastSnapshotToDiskWidth", getTypedPreviewWidth());
+	gSavedSettings.setS32("LastSnapshotToDiskHeight", getTypedPreviewHeight());
+}
+// </FS:Ansariel>

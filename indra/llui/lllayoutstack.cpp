@@ -49,8 +49,7 @@ LLLayoutPanel::Params::Params()
 :	expanded_min_dim("expanded_min_dim", 0),
 	min_dim("min_dim", -1),
 	user_resize("user_resize", false),
-	auto_resize("auto_resize", true),
-	force_resize_bar("force_resize_bar", false) // <FS:Ansariel> FIRE-5141: Add option to force display of a resize handle
+	auto_resize("auto_resize", true)
 {
 	addSynonym(min_dim, "min_width");
 	addSynonym(min_dim, "min_height");
@@ -69,8 +68,7 @@ LLLayoutPanel::LLLayoutPanel(const Params& p)
 	mFractionalSize(0.f),
 	mTargetDim(0),
 	mIgnoreReshape(false),
-	mOrientation(LLLayoutStack::HORIZONTAL),
-	mForceResizeBar(p.force_resize_bar) // <FS:Ansariel> FIRE-5141: Add option to force display of a resize handle
+	mOrientation(LLLayoutStack::HORIZONTAL)
 {
 	// panels initialized as hidden should not start out partially visible
 	if (!getVisible())
@@ -105,7 +103,7 @@ F32 LLLayoutPanel::getVisibleAmount() const
 
 S32 LLLayoutPanel::getLayoutDim() const
 {
-	return llround((F32)((mOrientation == LLLayoutStack::HORIZONTAL)
+	return ll_round((F32)((mOrientation == LLLayoutStack::HORIZONTAL)
 					? getRect().getWidth()
 					: getRect().getHeight()));
 }
@@ -132,7 +130,7 @@ void LLLayoutPanel::setTargetDim(S32 value)
 S32 LLLayoutPanel::getVisibleDim() const
 {
 	F32 min_dim = getRelevantMinDim();
-	return llround(mVisibleAmt
+	return ll_round(mVisibleAmt
 					* (min_dim
 						+ (((F32)mTargetDim - min_dim) * (1.f - mCollapseAmt))));
 }
@@ -140,7 +138,7 @@ S32 LLLayoutPanel::getVisibleDim() const
 void LLLayoutPanel::setOrientation( LLView::EOrientation orientation )
 {
 	mOrientation = orientation;
-	S32 layout_dim = llround((F32)((mOrientation == LLLayoutStack::HORIZONTAL)
+	S32 layout_dim = ll_round((F32)((mOrientation == LLLayoutStack::HORIZONTAL)
 		? getRect().getWidth()
 		: getRect().getHeight()));
 
@@ -253,7 +251,7 @@ LLLayoutStack::LLLayoutStack(const LLLayoutStack::Params& p)
 		std::string res = std::string("layout_size_") + getName();
 		LLStringUtil::replaceChar(res, ' ', '_');
 		mSizeControlName = res;
-		LLControlGroup* controlGroup = LLUI::sSettingGroups["config"];
+		LLControlGroup* controlGroup = LLUI::sSettingGroups["account"];
 		if (!controlGroup->controlExists(mSizeControlName))
 		{
 			LL_WARNS() << "declaring control " << mSizeControlName << LL_ENDL;
@@ -265,7 +263,7 @@ LLLayoutStack::LLLayoutStack(const LLLayoutStack::Params& p)
 		}
 		else
 		{
-			mSavedSizes = LLControlGroup::getInstance("Global")->getLLSD(mSizeControlName);
+			mSavedSizes = controlGroup->getLLSD(mSizeControlName);
 		}
 	}
 	// </FS:Zi>
@@ -273,6 +271,13 @@ LLLayoutStack::LLLayoutStack(const LLLayoutStack::Params& p)
 
 LLLayoutStack::~LLLayoutStack()
 {
+	// <FS:Zi> Save new sizes for this layout stack's panels
+	if (mSaveSizes)
+	{
+		LLUI::sSettingGroups["account"]->setLLSD(mSizeControlName, mSavedSizes);
+	}
+	// </FS:Zi>
+
 	e_panel_list_t panels = mPanels; // copy list of panel pointers
 	mPanels.clear(); // clear so that removeChild() calls don't cause trouble
 	std::for_each(panels.begin(), panels.end(), DeletePointer());
@@ -443,14 +448,14 @@ void LLLayoutStack::updateLayout()
 		{
 			panelp->mTargetDim = panelp->getRelevantMinDim();
 		}
-		space_to_distribute -= panelp->getVisibleDim() + llround((F32)mPanelSpacing * panelp->getVisibleAmount());
+		space_to_distribute -= panelp->getVisibleDim() + ll_round((F32)mPanelSpacing * panelp->getVisibleAmount());
 		total_visible_fraction += panelp->mFractionalSize * panelp->getAutoResizeFactor();
 	}
 
 	llassert(total_visible_fraction < 1.05f);
 
 	// don't need spacing after last panel
-	space_to_distribute += panelp ? llround((F32)mPanelSpacing * panelp->getVisibleAmount()) : 0;
+	space_to_distribute += panelp ? ll_round((F32)mPanelSpacing * panelp->getVisibleAmount()) : 0;
 
 	S32 remaining_space = space_to_distribute;
 	F32 fraction_distributed = 0.f;
@@ -461,7 +466,7 @@ void LLLayoutStack::updateLayout()
 			if (panelp->mAutoResize)
 			{
 				F32 fraction_to_distribute = (panelp->mFractionalSize * panelp->getAutoResizeFactor()) / (total_visible_fraction);
-				S32 delta = llround((F32)space_to_distribute * fraction_to_distribute);
+				S32 delta = ll_round((F32)space_to_distribute * fraction_to_distribute);
 				fraction_distributed += fraction_to_distribute;
 				panelp->mTargetDim += delta;
 				remaining_space -= delta;
@@ -476,10 +481,7 @@ void LLLayoutStack::updateLayout()
 
 		if (panelp->mAutoResize 
 			&& !panelp->mCollapsed 
-			// <FS:Ansariel> FIRE-5141: Add option to force display of a resize handle
-			//&& panelp->getVisible())
-			&& (panelp->getVisible() || panelp->mForceResizeBar))
-			// </FS:Ansariel>
+			&& panelp->getVisible())
 		{
 			S32 space_for_panel = remaining_space > 0 ? 1 : -1;
 			panelp->mTargetDim += space_for_panel;
@@ -489,7 +491,9 @@ void LLLayoutStack::updateLayout()
 
 	F32 cur_pos = (mOrientation == HORIZONTAL) ? 0.f : (F32)getRect().getHeight();
 
-	S32 index=0;
+	// <FS:Zi> Record new size for this panel
+	mSavedSizes = LLSD();
+	// </FS:Zi>
 	BOOST_FOREACH(LLLayoutPanel* panelp, mPanels)
 	{
 		F32 panel_dim = llmax(panelp->getExpandedMinDim(), panelp->mTargetDim);
@@ -497,23 +501,23 @@ void LLLayoutStack::updateLayout()
 		LLRect panel_rect;
 		if (mOrientation == HORIZONTAL)
 		{
-			panel_rect.setLeftTopAndSize(llround(cur_pos),
+			panel_rect.setLeftTopAndSize(ll_round(cur_pos),
 										getRect().getHeight(),
-										llround(panel_dim),
+										ll_round(panel_dim),
 										getRect().getHeight());
 		}
 		else
 		{
 			panel_rect.setLeftTopAndSize(0,
-										llround(cur_pos),
+										ll_round(cur_pos),
 										getRect().getWidth(),
-										llround(panel_dim));
+										ll_round(panel_dim));
 		}
 
 		LLRect resize_bar_rect(panel_rect);
 		F32 panel_spacing = (F32)mPanelSpacing * panelp->getVisibleAmount();
 		F32 panel_visible_dim = panelp->getVisibleDim();
-		S32 panel_spacing_round = (S32)(llround(panel_spacing));
+		S32 panel_spacing_round = (S32)(ll_round(panel_spacing));
 
 		if (mOrientation == HORIZONTAL)
 		{
@@ -567,18 +571,10 @@ void LLLayoutStack::updateLayout()
 		// <FS:Zi> Record new size for this panel
 		if (mSaveSizes)
 		{
-			mSavedSizes[index] = panelp->mTargetDim;
-			index++;
+			mSavedSizes.append(panelp->mTargetDim);
 		}
 		// </FS:Zi>
 	}
-
-	// <FS:Zi> Save new sizes for this layout stack's panels
-	if (mSaveSizes)
-	{
-		LLControlGroup::getInstance("Global")->setLLSD(mSizeControlName, mSavedSizes);
-	}
-	// </FS:Zi>
 
 	updateResizeBarLimits();
 
@@ -792,10 +788,7 @@ bool LLLayoutStack::animatePanels()
 	//
 	BOOST_FOREACH(LLLayoutPanel* panelp, mPanels)
 	{
-		// <FS:Ansariel> FIRE-5141: Add option to force display of a resize handle
-		//if (panelp->getVisible())
-		if (panelp->getVisible() || panelp->mForceResizeBar)
-		// </FS:Ansariel>
+		if (panelp->getVisible())
 		{
 			if (mAnimate && panelp->mVisibleAmt < 1.f)
 			{
@@ -896,10 +889,7 @@ void LLLayoutStack::updatePanelRect( LLLayoutPanel* resized_panel, const LLRect&
 		if (panelp->mAutoResize)
 		{
 			old_auto_resize_headroom += (F32)(panelp->mTargetDim - panelp->getRelevantMinDim());
-			// <FS:Ansariel> FIRE-5141: Add option to force display of a resize handle
-			//if (panelp->getVisible() && !panelp->mCollapsed)
-			if ((panelp->getVisible() || panelp->mForceResizeBar) && !panelp->mCollapsed)
-			// </FS:Ansariel>
+			if (panelp->getVisible() && !panelp->mCollapsed)
 			{
 				total_visible_fraction += panelp->mFractionalSize;
 			}
@@ -910,10 +900,7 @@ void LLLayoutStack::updatePanelRect( LLLayoutPanel* resized_panel, const LLRect&
 			other_resize_panel = following_panel;
 		}
 
-		// <FS:Ansariel> FIRE-5141: Add option to force display of a resize handle
-		//if (panelp->getVisible() && !panelp->mCollapsed)
-		if ((panelp->getVisible() || panelp->mForceResizeBar) && !panelp->mCollapsed)
-		// </FS:Ansariel>
+		if (panelp->getVisible() && !panelp->mCollapsed)
 		{
 			following_panel = panelp;
 		}
@@ -948,10 +935,7 @@ void LLLayoutStack::updatePanelRect( LLLayoutPanel* resized_panel, const LLRect&
 
 	BOOST_FOREACH(LLLayoutPanel* panelp, mPanels)
 	{
-		// <FS:Ansariel> FIRE-5141: Add option to force display of a resize handle
-		//if (!panelp->getVisible() || panelp->mCollapsed) 
-		if ((!panelp->getVisible() && !panelp->mForceResizeBar) || panelp->mCollapsed) 
-		// </FS:Ansariel>
+		if (!panelp->getVisible() || panelp->mCollapsed) 
 		{
 			if (panelp->mAutoResize) 
 			{
@@ -1059,10 +1043,7 @@ void LLLayoutStack::updateResizeBarLimits()
 	LLLayoutPanel* previous_visible_panelp = NULL;
 	BOOST_REVERSE_FOREACH(LLLayoutPanel* visible_panelp, mPanels)
 	{
-		// <FS:Ansariel> FIRE-5141: Add option to force display of a resize handle
-		//if (!visible_panelp->getVisible() || visible_panelp->mCollapsed)
-		if ((!visible_panelp->getVisible() && !visible_panelp->mForceResizeBar) || visible_panelp->mCollapsed)
-		// </FS:Ansariel>
+		if (!visible_panelp->getVisible() || visible_panelp->mCollapsed)
 		{
 			visible_panelp->mResizeBar->setVisible(FALSE);
 			continue;
@@ -1088,3 +1069,39 @@ void LLLayoutStack::updateResizeBarLimits()
 	}
 }
 
+// <FS:Ansariel> Applier for dimensions
+void LLLayoutStack::refreshFromSettings()
+{
+	if (!mSaveSizes)
+	{
+		return;
+	}
+
+	LLSD dimensions = LLUI::sSettingGroups["account"]->getLLSD(mSizeControlName);
+	if (dimensions.size() < mPanels.size())
+	{
+		return;
+	}
+
+	for (size_t i = 0; i < mPanels.size(); ++i)
+	{
+		LLLayoutPanel* panelp = mPanels.at(i);
+
+		S32 width = panelp->getRect().getWidth();
+		S32 height = panelp->getRect().getHeight();
+
+		S32 dim = dimensions[i].asInteger();
+
+		if (mOrientation == LLLayoutStack::HORIZONTAL)
+		{
+			width = dim;
+		}
+		else
+		{
+			height = dim;
+		}
+		panelp->reshape(width, height, TRUE);
+	}
+	mNeedsLayout = true;
+}
+// </FS:Ansariel>

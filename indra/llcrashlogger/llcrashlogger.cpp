@@ -64,17 +64,20 @@ std::string getStartupStateFromLog(std::string& sllog);
 
 class LLCrashLoggerResponder : public LLHTTPClient::Responder
 {
+	LOG_CLASS(LLCrashLoggerResponder);
 public:
 	LLCrashLoggerResponder() 
 	{
 	}
 
-	virtual void error(U32 status, const std::string& reason)
+protected:
+	virtual void httpFailure()
 	{
+		LL_WARNS() << dumpResponse() << LL_ENDL;
 		gBreak = true;
 	}
 
-	virtual void result(const LLSD& content)
+	virtual void httpSuccess()
 	{
 		gBreak = true;
 		gSent = true;
@@ -517,7 +520,11 @@ bool LLCrashLogger::runCrashLogPost(std::string host, LLSD data, std::string msg
 				 << "Content-Type: application/octet-stream"
 				 << "\r\n\r\n";
 
-			llifstream fstream(itFile->second, std::iostream::binary | std::iostream::out);
+			// <FS:ND> Linux wants a char const * here
+			// llifstream fstream(itFile->second, std::iostream::binary | std::iostream::out);
+			llifstream fstream(itFile->second.c_str(), std::iostream::binary | std::iostream::out);
+			// </FS:ND>
+
 			if (fstream.is_open())
 			{
 				fstream.seekg(0, std::ios::end);

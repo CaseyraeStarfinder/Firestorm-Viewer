@@ -30,7 +30,7 @@ F32 convertXToHue(S32 place)
 
 S32 convertHueToX(F32 place)
 {
-	return llround((place / 720.0f) * 396.0f) + 6;
+	return ll_round((place / 720.0f) * 396.0f) + 6;
 }
 
 
@@ -299,7 +299,7 @@ void lggBeamColorMapFloater::onClickSave()
 	LLSD main = getMyDataSerialized();
 
 	llofstream export_file;
-	export_file.open(filename);
+	export_file.open( filename.c_str() );
 	LLSDSerialize::toPrettyXML(main, export_file);
 	export_file.close();
 
@@ -325,7 +325,7 @@ void lggBeamColorMapFloater::onClickLoad()
 		return;
 	}
 	LLSD minedata;
-	llifstream importer(picker.getFirstFile());
+	llifstream importer( picker.getFirstFile().c_str() );
 	LLSDSerialize::fromXMLDocument(minedata, importer);
 
 	myData = lggBeamsColors::fromLLSD(minedata);

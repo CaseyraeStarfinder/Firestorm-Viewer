@@ -81,7 +81,7 @@ void hslToRgb(F32 hValIn, F32 sValIn, F32 lValIn, F32& rValOut, F32& gValOut, F3
 LLSD lggBeamMaps::getPic(const std::string& filename)
 {
 	LLSD data;
-	llifstream importer(filename);
+	llifstream importer(filename.c_str());
 	LLSDSerialize::fromXMLDocument(data, importer);
 
 	return data;
@@ -127,7 +127,7 @@ LLColor4U lggBeamMaps::beamColorFromData(const lggBeamsColors& data)
 	LLColor4U toReturn;
 	F32 timeinc =  timer.getElapsedTimeF32() * 0.3f * ((data.mRotateSpeed + .01f)) * (360 / (data.mEndHue - data.mStartHue));
 
-	S32 diference = llround(data.mEndHue  - data.mStartHue);
+	S32 diference = ll_round(data.mEndHue  - data.mStartHue);
 	if (diference == 360 || diference == 720)
 	{
 		//full rainbow

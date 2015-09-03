@@ -18,10 +18,8 @@
 #define RLV_INVENTORY_H
 
 #include "llinventoryfunctions.h"
-#include "llinventorymodel.h"
 #include "llinventoryobserver.h"
 #include "llsingleton.h"
-#include "llviewerinventory.h"
 
 #include "rlvhelper.h"
 #include "rlvlocks.h"
@@ -116,7 +114,7 @@ public:
 	virtual void done();
 protected:
 	void doneIdle();
-	static void onCategoryCreate(const LLSD& sdData, void* pParam);
+	static void onCategoryCreate(const LLUUID& idFolder, const LLUUID idItem);
 };
 
 // ============================================================================
@@ -133,7 +131,7 @@ protected:
 	virtual void onDestinationCreated(const LLUUID& idFolder, const std::string& strName) = 0;
 	void         moveAndRename(const LLUUID& idFolder, const LLUUID& idDestination, const std::string& strName);
 private:
-	static void  onCategoryCreateCallback(const LLSD& sdData, void* pInstance);
+	static void  onCategoryCreateCallback(LLUUID idFolder, RlvGiveToRLVOffer* pInstance);
 
 private:
 	std::list<std::string> m_DestPath;
@@ -311,7 +309,7 @@ inline bool RlvInventory::isFoldedFolder(const LLInventoryCategory* pFolder, boo
 		// .(<attachpt>) type folder
 		(0 != RlvAttachPtLookup::getAttachPointIndex(pFolder))
 		// .(nostrip) folder
-		|| ( (pFolder) && (".("RLV_FOLDER_FLAG_NOSTRIP")" == pFolder->getName()) )
+		|| ( (pFolder) && (".(" RLV_FOLDER_FLAG_NOSTRIP ")" == pFolder->getName()) )
 		// Composite folder (if composite folders are enabled and we're asked to look for them)
 		#ifdef RLV_EXPERIMENTAL_COMPOSITEFOLDERS
 		|| ( (fCheckComposite) && (RlvSettings::getEnableComposites()) &&

@@ -42,8 +42,6 @@ struct FT_FaceRec_;
 typedef struct FT_FaceRec_* LLFT_Face;
 
 // <FS:ND> FIRE-7570. Only load/mmap fonts once.
-#include "nd/ndallocstats.h"
-
 namespace nd
 {
 	namespace fonts
@@ -53,7 +51,7 @@ namespace nd
 }
 // </FS:ND>
 
-class LLFontManager: public nd::allocstats::provider
+class LLFontManager
 {
 public:
 	static void initClass();
@@ -67,7 +65,6 @@ private:
 public:
 	U8 const *loadFont( std::string const &aFilename, long &a_Size );
 	void unloadFont( std::string const &aFilename );
-	void dumpStats( std::ostream &aOut );
 
 private:
 	void unloadAllFonts();
@@ -184,8 +181,6 @@ private:
 
 	BOOL mIsFallback;
 	font_vector_t mFallbackFonts; // A list of fallback fonts to look for glyphs in (for Unicode chars)
-
-	BOOL mValid;
 
 	typedef boost::unordered_map<llwchar, LLFontGlyphInfo*> char_glyph_info_map_t;
 	mutable char_glyph_info_map_t mCharGlyphInfoMap; // Information about glyph location in bitmap

@@ -22,6 +22,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  * 
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * http://www.firestormviewer.org
  * $/LicenseInfo$
  */
 
@@ -63,6 +64,7 @@
 #include "llrootview.h"
 #include "llspinctrl.h"
 #include "llstylemap.h"
+#include "lltextbox.h"
 #include "lltrans.h"
 #include "lltranslate.h"
 #include "llviewercontrol.h"
@@ -93,12 +95,15 @@ static LLChatTypeTrigger sChatTypeTriggers[] = {
 FSFloaterNearbyChat::FSFloaterNearbyChat(const LLSD& key) 
 	: LLFloater(key)
 	,mChatHistory(NULL)
-	,mInputEditor(NULL)
-	// <FS:Ansariel> Optional muted chat history
 	,mChatHistoryMuted(NULL)
+	,mInputEditor(NULL)
 	,mChatLayoutPanel(NULL)
 	,mInputPanels(NULL)
 	,mChatLayoutPanelHeight(0)
+	,mUnreadMessagesNotificationPanel(NULL)
+	,mUnreadMessagesNotificationTextBox(NULL)
+	,mUnreadMessages(0)
+	,mUnreadMessagesMuted(0)
 {
 }
 
@@ -134,25 +139,25 @@ BOOL FSFloaterNearbyChat::postBuild()
 	registrar.add("NearbyChat.Action", boost::bind(&FSFloaterNearbyChat::onNearbyChatContextMenuItemClicked, this, _2));
 	
 	LLMenuGL* menu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>("menu_nearby_chat.xml", gMenuHolder, LLViewerMenuHolderGL::child_registry_t::instance());
-	if(menu)
+	if (menu)
+	{
 		mPopupMenuHandle = menu->getHandle();
+	}
 
-	gSavedSettings.declareS32("nearbychat_showicons_and_names",2,"NearByChat header settings");
+	gSavedSettings.declareS32("nearbychat_showicons_and_names", 2, "NearByChat header settings");
 
 	mInputEditor = getChild<LLChatEntry>("chat_box");
-	if (mInputEditor)
-	{
-		mInputEditor->setAutoreplaceCallback(boost::bind(&LLAutoReplace::autoreplaceCallback, LLAutoReplace::getInstance(), _1, _2, _3, _4, _5));
-		mInputEditor->setCommitCallback(boost::bind(&FSFloaterNearbyChat::onChatBoxCommit, this));
-		mInputEditor->setKeystrokeCallback(boost::bind(&FSFloaterNearbyChat::onChatBoxKeystroke, this));
-		mInputEditor->setFocusLostCallback(boost::bind(&FSFloaterNearbyChat::onChatBoxFocusLost, this));
-		mInputEditor->setFocusReceivedCallback(boost::bind(&FSFloaterNearbyChat::onChatBoxFocusReceived, this));
-		mInputEditor->setTextExpandedCallback(boost::bind(&FSFloaterNearbyChat::reshapeChatLayoutPanel, this));
-		mInputEditor->setPassDelete(TRUE);
-		mInputEditor->setFont(LLViewerChat::getChatFont());
-		mInputEditor->setLabel(getString("chatbox_label"));
-		mInputEditor->enableSingleLineMode(gSavedSettings.getBOOL("FSUseSingleLineChatEntry"));
-	}
+	mInputEditor->setAutoreplaceCallback(boost::bind(&LLAutoReplace::autoreplaceCallback, LLAutoReplace::getInstance(), _1, _2, _3, _4, _5));
+	mInputEditor->setCommitCallback(boost::bind(&FSFloaterNearbyChat::onChatBoxCommit, this));
+	mInputEditor->setKeystrokeCallback(boost::bind(&FSFloaterNearbyChat::onChatBoxKeystroke, this));
+	mInputEditor->setFocusLostCallback(boost::bind(&FSFloaterNearbyChat::onChatBoxFocusLost, this));
+	mInputEditor->setFocusReceivedCallback(boost::bind(&FSFloaterNearbyChat::onChatBoxFocusReceived, this));
+	mInputEditor->setTextExpandedCallback(boost::bind(&FSFloaterNearbyChat::reshapeChatLayoutPanel, this));
+	mInputEditor->setPassDelete(TRUE);
+	mInputEditor->setFont(LLViewerChat::getChatFont());
+	mInputEditor->setLabel(getString("chatbox_label"));
+	mInputEditor->enableSingleLineMode(gSavedSettings.getBOOL("FSUseSingleLineChatEntry"));
+
 	mChatLayoutPanel = getChild<LLLayoutPanel>("chat_layout_panel");
 	mInputPanels = getChild<LLLayoutStack>("input_panels");
 	mChatLayoutPanelHeight = mChatLayoutPanel->getRect().getHeight();
@@ -160,37 +165,39 @@ BOOL FSFloaterNearbyChat::postBuild()
 
 	enableTranslationButton(LLTranslate::isTranslationConfigured());
 
-	childSetCommitCallback("chat_history_btn",onHistoryButtonClicked,this);
+	getChild<LLButton>("chat_history_btn")->setCommitCallback(boost::bind(&FSFloaterNearbyChat::onHistoryButtonClicked, this));
 
 	// chat type selector and send chat button
-	mChatTypeCombo=getChild<LLComboBox>("chat_type");
+	mChatTypeCombo = getChild<LLComboBox>("chat_type");
 	mChatTypeCombo->selectByValue("say");
-	mChatTypeCombo->setCommitCallback(boost::bind(&FSFloaterNearbyChat::onChatTypeChanged,this));
-	mSendChatButton=getChild<LLButton>("send_chat");
-	mSendChatButton->setCommitCallback(boost::bind(&FSFloaterNearbyChat::onChatBoxCommit,this));
+	mChatTypeCombo->setCommitCallback(boost::bind(&FSFloaterNearbyChat::onChatTypeChanged, this));
+	mSendChatButton = getChild<LLButton>("send_chat");
+	mSendChatButton->setCommitCallback(boost::bind(&FSFloaterNearbyChat::onChatBoxCommit, this));
 	onChatTypeChanged();
 
 	mChatHistory = getChild<FSChatHistory>("chat_history");
-
-	// <FS:Ansariel> Optional muted chat history
 	mChatHistoryMuted = getChild<FSChatHistory>("chat_history_muted");
+
+	mUnreadMessagesNotificationPanel = getChild<LLLayoutPanel>("unread_messages_holder");
+	mUnreadMessagesNotificationTextBox = getChild<LLTextBox>("unread_messages_text");
+	mChatHistory->setUnreadMessagesUpdateCallback(boost::bind(&FSFloaterNearbyChat::updateUnreadMessageNotification, this, _1, false));
+	mChatHistoryMuted->setUnreadMessagesUpdateCallback(boost::bind(&FSFloaterNearbyChat::updateUnreadMessageNotification, this, _1, true));
 	
 	FSUseNearbyChatConsole = gSavedSettings.getBOOL("FSUseNearbyChatConsole");
 	gSavedSettings.getControl("FSUseNearbyChatConsole")->getSignal()->connect(boost::bind(&FSFloaterNearbyChat::updateFSUseNearbyChatConsole, this, _2));
 	
+	gSavedSettings.getControl("FSShowMutedChatHistory")->getSignal()->connect(boost::bind(&FSFloaterNearbyChat::updateShowMutedChatHistory, this, _2));
+
 	return LLFloater::postBuild();
 }
 
 std::string appendTime()
 {
-	time_t utc_time;
-	utc_time = time_corrected();
-	std::string timeStr ="["+ LLTrans::getString("TimeHour")+"]:["
-		+LLTrans::getString("TimeMin")+"]";
+	time_t utc_time = time_corrected();
+	std::string timeStr ="[" + LLTrans::getString("TimeHour") + "]:[" + LLTrans::getString("TimeMin") + "]";
 	if (gSavedSettings.getBOOL("FSSecondsinChatTimestamps"))
 	{
-		timeStr += ":["
-			+LLTrans::getString("TimeSec")+"]";
+		timeStr += ":[" + LLTrans::getString("TimeSec") + "]";
 	}
 
 	LLSD substitution;
@@ -215,22 +222,14 @@ void FSFloaterNearbyChat::addMessage(const LLChat& chat,bool archive,const LLSD 
 		}
 	}
 
-	// <FS:Ansariel> Optional muted chat history
 	tmp_chat.mFromName = chat.mFromName;
 	LLSD chat_args = args;
 	chat_args["use_plain_text_chat_history"] = use_plain_text_chat_history;
 	chat_args["show_time"] = show_timestamps_nearby_chat;
 	chat_args["is_local"] = true;
 	mChatHistoryMuted->appendMessage(chat, chat_args);
-	// </FS:Ansariel> Optional muted chat history
 	if (!chat.mMuted)
 	{
-		// <FS:Ansariel> Optional muted chat history
-		//tmp_chat.mFromName = chat.mFromName;
-		//LLSD chat_args = args;
-		//chat_args["use_plain_text_chat_history"] = use_plain_text_chat_history;
-		//chat_args["show_timestamps_nearby_chat"] = show_timestamps_nearby_chat;
-		// <(FS:Ansariel> Optional muted chat history
 		mChatHistory->appendMessage(chat, chat_args);
 	}
 
@@ -243,10 +242,7 @@ void FSFloaterNearbyChat::addMessage(const LLChat& chat,bool archive,const LLSD 
 		}
 	}
 
-	// <FS:Ansariel> Optional muted chat history
-	//if (args["do_not_log"].asBoolean()) 
 	if (args["do_not_log"].asBoolean() || chat.mMuted) 
-	// </FS:Ansariel> Optional muted chat history
 	{
 		return;
 	}
@@ -255,9 +251,8 @@ void FSFloaterNearbyChat::addMessage(const LLChat& chat,bool archive,const LLSD 
 	if (isChatMultiTab())
 	{
 		LLMultiFloater* hostp = getHost();
-        // KC: Don't flash tab on system messages
-		if (!isInVisibleChain() && hostp
-        && (chat.mSourceType == CHAT_SOURCE_AGENT || chat.mSourceType == CHAT_SOURCE_OBJECT))
+		// KC: Don't flash tab on system messages
+		if (!isInVisibleChain() && hostp && (chat.mSourceType == CHAT_SOURCE_AGENT || chat.mSourceType == CHAT_SOURCE_OBJECT))
 		{
 			hostp->setFloaterFlashing(this, TRUE);
 		}
@@ -329,8 +324,7 @@ void FSFloaterNearbyChat::onNearbySpeakers()
 	LLFloaterSidePanelContainer::showPanel("people", "panel_people", param);
 }
 
-// static
-void FSFloaterNearbyChat::onHistoryButtonClicked(LLUICtrl* ctrl, void* userdata)
+void FSFloaterNearbyChat::onHistoryButtonClicked()
 {
 	if (gSavedSettings.getBOOL("FSUseBuiltInHistory"))
 	{
@@ -471,7 +465,6 @@ void FSFloaterNearbyChat::onOpen(const LLSD& key )
 void FSFloaterNearbyChat::clearChatHistory()
 {
 	mChatHistory->clear();
-	// <FS:Ansariel> Optional muted chat history
 	mChatHistoryMuted->clear();
 }
 
@@ -495,6 +488,12 @@ void FSFloaterNearbyChat::processChatHistoryStyleUpdate(const LLSD& newvalue)
 	if (nearby_chat)
 	{
 		nearby_chat->updateChatHistoryStyle();
+		nearby_chat->mInputEditor->setFont(LLViewerChat::getChatFont());
+
+		// Re-set the current text to make style update instant
+		std::string text = nearby_chat->mInputEditor->getText();
+		nearby_chat->mInputEditor->clear();
+		nearby_chat->mInputEditor->setText(text);
 	}
 }
 
@@ -683,29 +682,57 @@ BOOL FSFloaterNearbyChat::handleKeyHere( KEY key, MASK mask )
 	
 	if (KEY_RETURN == key)
 	{
-		if (mask == MASK_CONTROL)
+		if (mask == MASK_CONTROL && gSavedSettings.getBOOL("FSUseCtrlShout"))
 		{
 			// shout
 			mInputEditor->updateHistory();
 			sendChat(CHAT_TYPE_SHOUT);
 			handled = TRUE;
 		}
-		else if (mask == MASK_SHIFT)
+		else if (mask == MASK_SHIFT && gSavedSettings.getBOOL("FSUseShiftWhisper"))
 		{
 			// whisper
 			mInputEditor->updateHistory();
 			sendChat(CHAT_TYPE_WHISPER);
 			handled = TRUE;
 		}
-		else if (mask == MASK_ALT)
+		else if (mask == MASK_ALT && gSavedSettings.getBOOL("FSUseAltOOC"))
 		{
 			// OOC
 			mInputEditor->updateHistory();
 			sendChat(CHAT_TYPE_OOC);
 			handled = TRUE;
 		}
+		else if (mask == (MASK_SHIFT | MASK_CONTROL))
+		{
+			if (!gSavedSettings.getBOOL("FSUseSingleLineChatEntry"))
+			{
+				if ((wstring_utf8_length(mInputEditor->getWText()) + wchar_utf8_length('\n')) > mInputEditor->getMaxTextLength())
+				{
+					LLUI::reportBadKeystroke();
+				}
+				else
+				{
+					mInputEditor->insertLinefeed();
+				}
+			}
+			else
+			{
+				if ((wstring_utf8_length(mInputEditor->getWText()) + wchar_utf8_length(llwchar(182))) > mInputEditor->getMaxTextLength())
+				{
+					LLUI::reportBadKeystroke();
+				}
+				else
+				{
+					LLWString line_break(1, llwchar(182));
+					mInputEditor->insertText(line_break);
+				}
+			}
+
+			handled = TRUE;
+		}
 	}
-	
+
 	return handled;
 }
 
@@ -811,9 +838,8 @@ void FSFloaterNearbyChat::onChatBoxKeystroke()
 		if (cur_pos && (raw_text[cur_pos - 1] != ' '))
 		{
 			// Get a list of avatars within range
-			std::vector<LLUUID> avatar_ids;
-			std::vector<LLVector3d> positions;
-			LLWorld::getInstance()->getAvatars(&avatar_ids, &positions, gAgent.getPositionGlobal(), gSavedSettings.getF32("NearMeRange"));
+			uuid_vec_t avatar_ids;
+			LLWorld::getInstance()->getAvatars(&avatar_ids, NULL, gAgent.getPositionGlobal(), gSavedSettings.getF32("NearMeRange"));
 			
 			if (avatar_ids.empty()) return; // Nobody's in range!
 			
@@ -840,7 +866,7 @@ void FSFloaterNearbyChat::onChatBoxKeystroke()
 			std::string name;
 			bool found = false;
 			bool full_name = false;
-			std::vector<LLUUID>::iterator iter = avatar_ids.begin();
+			uuid_vec_t::iterator iter = avatar_ids.begin();
 			
 			if (last_space != std::string::npos && !prefix.empty())
 			{
@@ -855,7 +881,7 @@ void FSFloaterNearbyChat::onChatBoxKeystroke()
 				// Look for a match
 				while (iter != avatar_ids.end() && !found)
 				{
-					if ((bool)gCacheName->getFullName(*iter++, name))
+					if (gCacheName->getFullName(*iter++, name))
 					{
 						if (gRlvHandler.hasBehaviour(RLV_BHVR_SHOWNAMES))
 						{
@@ -881,7 +907,7 @@ void FSFloaterNearbyChat::onChatBoxKeystroke()
 				// Look for a match
 				while (iter != avatar_ids.end() && !found)
 				{
-					if ((bool)gCacheName->getFullName(*iter++, name))
+					if (gCacheName->getFullName(*iter++, name))
 					{
 						if (gRlvHandler.hasBehaviour(RLV_BHVR_SHOWNAMES))
 						{
@@ -919,7 +945,7 @@ void FSFloaterNearbyChat::onChatBoxKeystroke()
 				if (!rest_of_match.empty())
 				{
 					mInputEditor->setText(prefix + replaced_text + suffix);
-					mInputEditor->selectByCursorPosition(prefix.size() + match.size(), prefix.size() + replaced_text.size());
+					mInputEditor->selectByCursorPosition(utf8string_to_wstring(prefix).size() + utf8string_to_wstring(match).size(), utf8string_to_wstring(prefix).size() + utf8string_to_wstring(replaced_text).size());
 				}
 			}
 		}
@@ -1015,7 +1041,10 @@ void FSFloaterNearbyChat::sendChat( EChatType type )
 				utf8text = applyMuPose(utf8text);
 				
 				// discard returned "found" boolean
-				LLGestureMgr::instance().triggerAndReviseString(utf8text, &utf8_revised_text);
+				if(!LLGestureMgr::instance().triggerAndReviseString(utf8text, &utf8_revised_text))
+				{
+					utf8_revised_text = utf8text;
+				}
 			}
 			else
 			{
@@ -1025,10 +1054,14 @@ void FSFloaterNearbyChat::sendChat( EChatType type )
 			utf8_revised_text = utf8str_trim(utf8_revised_text);
 			
 			EChatType nType;
-			if(type == CHAT_TYPE_OOC)
+			if (type == CHAT_TYPE_OOC)
+			{
 				nType = CHAT_TYPE_NORMAL;
+			}
 			else
+			{
 				nType = type;
+			}
 			
 			type = processChatTypeTriggers(nType, utf8_revised_text);
 			
@@ -1056,17 +1089,17 @@ void FSFloaterNearbyChat::onChatBoxCommit()
 {
 	if (mInputEditor->getText().length() > 0)
 	{
-		EChatType type=CHAT_TYPE_NORMAL;
-		if(gSavedSettings.getBOOL("FSShowChatType"))
+		EChatType type = CHAT_TYPE_NORMAL;
+		if (gSavedSettings.getBOOL("FSShowChatType"))
 		{
-			std::string typeString=mChatTypeCombo->getValue();
-			if(typeString=="whisper")
+			const std::string typeString = mChatTypeCombo->getValue();
+			if (typeString == "whisper")
 			{
-				type=CHAT_TYPE_WHISPER;
+				type = CHAT_TYPE_WHISPER;
 			}
-			else if(typeString=="shout")
+			else if (typeString == "shout")
 			{
-				type=CHAT_TYPE_SHOUT;
+				type = CHAT_TYPE_SHOUT;
 			}
 		}
 		sendChat(type);
@@ -1299,8 +1332,8 @@ void really_send_chat_from_nearby_floater(std::string utf8_out_text, EChatType t
 	{
 		msg->newMessageFast(_PREHASH_ChatFromViewer);
 		msg->nextBlockFast(_PREHASH_AgentData);
-		msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-		msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+		msg->addUUIDFast(_PREHASH_AgentID, gAgentID);
+		msg->addUUIDFast(_PREHASH_SessionID, gAgentSessionID);
 		msg->nextBlockFast(_PREHASH_ChatData);
 		msg->addStringFast(_PREHASH_Message, utf8_out_text);
 		msg->addU8Fast(_PREHASH_Type, type);
@@ -1310,10 +1343,10 @@ void really_send_chat_from_nearby_floater(std::string utf8_out_text, EChatType t
 	{
 		msg->newMessage("ScriptDialogReply");
 		msg->nextBlock("AgentData");
-		msg->addUUID("AgentID", gAgent.getID());
-		msg->addUUID("SessionID", gAgent.getSessionID());
+		msg->addUUID("AgentID", gAgentID);
+		msg->addUUID("SessionID", gAgentSessionID);
 		msg->nextBlock("Data");
-		msg->addUUID("ObjectID", gAgent.getID());
+		msg->addUUID("ObjectID", gAgentID);
 		msg->addS32("ChatChannel", channel);
 		msg->addS32("ButtonIndex", 0);
 		msg->addString("ButtonLabel", utf8_out_text);
@@ -1322,3 +1355,41 @@ void really_send_chat_from_nearby_floater(std::string utf8_out_text, EChatType t
 	gAgent.sendReliableMessage();
 }
 //</FS:TS> FIRE-787
+
+void FSFloaterNearbyChat::updateUnreadMessageNotification(S32 unread_messages, bool muted_history)
+{
+	BOOL show_muted_history = gSavedSettings.getBOOL("FSShowMutedChatHistory");
+
+	if (muted_history)
+	{
+		mUnreadMessagesMuted = unread_messages;
+		if (!show_muted_history)
+		{
+			return;
+		}
+	}
+	else
+	{
+		mUnreadMessages = unread_messages;
+		if (show_muted_history)
+		{
+			return;
+		}
+	}
+
+	if (unread_messages == 0 || !gSavedSettings.getBOOL("FSNotifyUnreadChatMessages"))
+	{
+		mUnreadMessagesNotificationPanel->setVisible(FALSE);
+	}
+	else
+	{
+		mUnreadMessagesNotificationTextBox->setTextArg("[NUM]", llformat("%d", unread_messages));
+		mUnreadMessagesNotificationPanel->setVisible(TRUE);
+	}
+}
+
+void FSFloaterNearbyChat::updateShowMutedChatHistory(const LLSD &data)
+{
+	bool show_muted = data.asBoolean();
+	updateUnreadMessageNotification((show_muted ? mUnreadMessagesMuted : mUnreadMessages), show_muted);
+}

@@ -49,13 +49,17 @@ if (WINDOWS)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od /Zi /MDd /MP -D_SCL_SECURE_NO_WARNINGS=1"
       CACHE STRING "C++ compiler debug options" FORCE)
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO 
-      "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /Od /Zi /MD /Ob0 /MP -D_SECURE_STL=0"
+      #<FS:LO> Change MSVC multi processor from a hardcoded 8 to no number to allow the compiler to spawn a number equal to the number of thread execution units the computer has.
+      #${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /Od /Zi /Zo /MD /MP8 /Ob0 -D_SECURE_STL=0"
+      "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /Od /Zi /Zo /MD /MP /Ob0 -D_SECURE_STL=0"
       CACHE STRING "C++ compiler release-with-debug options" FORCE)
   set(CMAKE_CXX_FLAGS_RELEASE
-      "${CMAKE_CXX_FLAGS_RELEASE} ${LL_CXX_FLAGS} /O2 /Zi /MD /MP /Ob2 /Oi /Ot /GF /Gy -D_SECURE_STL=0 -D_HAS_ITERATOR_DEBUGGING=0"
+      #<FS:LO> Change MSVC multi processor from a hardcoded 8 to no number to allow the compiler to spawn a number equal to the number of thread execution units the computer has.
+      #"${CMAKE_CXX_FLAGS_RELEASE} ${LL_CXX_FLAGS} /O2 /Zi /Zo /MD /MP8 /Ob2 -D_SECURE_STL=0 -D_HAS_ITERATOR_DEBUGGING=0"
+      "${CMAKE_CXX_FLAGS_RELEASE} ${LL_CXX_FLAGS} /O2 /Zi /Zo /MD /MP /Ob2 -D_SECURE_STL=0 -D_HAS_ITERATOR_DEBUGGING=0"
       CACHE STRING "C++ compiler release options" FORCE)
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LARGEADDRESSAWARE")
-
+  # zlib has assembly-language object files incompatible with SAFESEH
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LARGEADDRESSAWARE /SAFESEH:NO /NODEFAULTLIB:LIBCMT /IGNORE:4099")
 
   set(CMAKE_CXX_STANDARD_LIBRARIES "")
   set(CMAKE_C_STANDARD_LIBRARIES "")
@@ -80,7 +84,8 @@ if (WINDOWS)
   if (USE_AVX_OPTIMIZATION)
     add_definitions(
         /DLL_WINDOWS=1
-        /DDOM_DYNAMIC
+      /DNOMINMAX
+#      /DDOM_DYNAMIC            # For shared library colladadom
         /DUNICODE
         /D_UNICODE 
         /GS
@@ -98,7 +103,7 @@ if (WINDOWS)
     add_definitions(
         /DLL_WINDOWS=1
       /DNOMINMAX
-        /DDOM_DYNAMIC
+#        /DDOM_DYNAMIC
         /DUNICODE
         /D_UNICODE 
         /GS
@@ -109,9 +114,13 @@ if (WINDOWS)
         /nologo
         /Oy-
         /Zc:wchar_t-
-        /arch:SSE2
+#        /arch:SSE2
 #        /fp:fast
         )
+    if( NOT ND_BUILD64BIT_ARCH )
+      add_definitions( /arch:SSE2 )
+    endif( NOT ND_BUILD64BIT_ARCH )
+
   endif (USE_AVX_OPTIMIZATION)
 # </FS:Ansariel> [AVX Optimization]	
      
@@ -167,7 +176,7 @@ if (LINUX)
       OUTPUT_STRIP_TRAILING_WHITESPACE)
 
   #<FS:ND> Gentoo defines _FORTIFY_SOURCE by default
-  if (NOT ${GXX_VERSION} MATCHES "Gentoo 4.[78].*")
+  if (NOT ${GXX_VERSION} MATCHES "Gentoo 4.[789].*")
   #</FS:ND>
 
   if (${GXX_VERSION} STREQUAL ${CXX_VERSION})
@@ -179,7 +188,7 @@ if (LINUX)
   endif (${GXX_VERSION} STREQUAL ${CXX_VERSION})
 
   #<FS:ND> Gentoo defines _FORTIFY_SOURCE by default
-  endif (NOT ${GXX_VERSION} MATCHES "Gentoo 4.[78].*")
+  endif (NOT ${GXX_VERSION} MATCHES "Gentoo 4.[789].*")
   #</FS:ND>
 
   # Let's actually get a numerical version of gxx's version
@@ -234,8 +243,11 @@ if (LINUX)
       -msse2
       -mfpmath=sse
       -pthread
-#      -std=gnu++0x
       )
+
+  # <FS:ND> Enable C++11 support + gnu extensions
+  add_definitions(-std=gnu++11)
+  # </FS:ND>
 
   add_definitions(-DAPPID=secondlife)
   add_definitions(-fvisibility=hidden)
@@ -246,12 +258,12 @@ if (LINUX)
   endif (WORD_SIZE EQUAL 32)
   add_definitions(-mfpmath=sse)
   #add_definitions(-ftree-vectorize) # THIS CRASHES GCC 3.1-3.2
-  if (NOT STANDALONE)
+  if (NOT USESYSTEMLIBS)
     # this stops us requiring a really recent glibc at runtime
     add_definitions(-fno-stack-protector)
     # linking can be very memory-hungry, especially the final viewer link
-    set(CMAKE_CXX_LINK_FLAGS "-Wl,--no-keep-memory -Wl,--build-id -Wl,-rpath,'$ORIGIN:$ORIGIN/../lib'")
-  endif (NOT STANDALONE)
+    set(CMAKE_CXX_LINK_FLAGS "-Wl,--no-keep-memory -Wl,--build-id -Wl,-rpath,'$ORIGIN:$ORIGIN/../lib' -Wl,--exclude-libs,ALL")
+  endif (NOT USESYSTEMLIBS)
 
   # <FS:TS> Enable AVX optimizations if requested and at least GCC 4.6.
   if (USE_AVX_OPTIMIZATION)
@@ -270,7 +282,6 @@ if (LINUX)
     set(CMAKE_CXX_FLAGS_RELEASE "-fno-omit-frame-pointer ${CMAKE_CXX_FLAGS_RELEASE}")
   endif( NO_OMIT_FRAMEPOINTER )
   # </FS:ND>
-
 endif (LINUX)
 
 
@@ -300,10 +311,8 @@ if (DARWIN)
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -msse3 ${CMAKE_CXX_FLAGS_RELEASE}")
 	set(CMAKE_C_FLAGS_RELEASE "-O3 -msse3 ${CMAKE_C_FLAGS_RELEASE}")
   endif (USE_AVX_OPTIMIZATION)
-  if (XCODE_VERSION GREATER 4.2)
     set(ENABLE_SIGNING TRUE)
     set(SIGNING_IDENTITY "Developer ID Application: Linden Research, Inc.")
-  endif (XCODE_VERSION GREATER 4.2)
   # <FS:ND> Build without frame pointer if requested. Otherwise profiling might not work reliable. N.B. Win32 uses FP based calling by default.
   if( NO_OMIT_FRAMEPOINTER )
     set(CMAKE_CXX_FLAGS_RELEASE "-fno-omit-frame-pointer ${CMAKE_CXX_FLAGS_RELEASE}")
@@ -314,7 +323,15 @@ endif (DARWIN)
 
 
 if (LINUX OR DARWIN)
-  set(GCC_WARNINGS "-Wall -Wno-sign-compare -Wno-trigraphs")
+  if (CMAKE_CXX_COMPILER MATCHES ".*clang")
+    set(CMAKE_COMPILER_IS_CLANGXX 1)
+  endif (CMAKE_CXX_COMPILER MATCHES ".*clang")
+
+  if (CMAKE_COMPILER_IS_GNUCXX)
+    set(GCC_WARNINGS "-Wall -Wno-sign-compare -Wno-trigraphs")
+  elseif (CMAKE_COMPILER_IS_CLANGXX)
+    set(GCC_WARNINGS "-Wall -Wno-sign-compare -Wno-trigraphs")
+  endif()
 
   if (NOT GCC_DISABLE_FATAL_WARNINGS)
     set(GCC_WARNINGS "${GCC_WARNINGS} -Werror")
@@ -344,14 +361,14 @@ if (LINUX OR DARWIN)
 endif (LINUX OR DARWIN)
 
 
-if (STANDALONE)
-  add_definitions(-DLL_STANDALONE=1)
+if (USESYSTEMLIBS)
+  add_definitions(-DLL_USESYSTEMLIBS=1)
 
   if (LINUX AND ${ARCH} STREQUAL "i686")
     add_definitions(-march=pentiumpro)
   endif (LINUX AND ${ARCH} STREQUAL "i686")
 
-else (STANDALONE)
+else (USESYSTEMLIBS)
   set(${ARCH}_linux_INCLUDES
       atk-1.0
       cairo
@@ -361,6 +378,6 @@ else (STANDALONE)
       gtk-2.0
       pango-1.0
       )
-endif (STANDALONE)
+endif (USESYSTEMLIBS)
 
 endif(NOT DEFINED ${CMAKE_CURRENT_LIST_FILE}_INCLUDED)

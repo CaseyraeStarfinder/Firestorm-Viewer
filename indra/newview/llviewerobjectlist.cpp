@@ -68,7 +68,7 @@
 #include "u64.h"
 #include "llviewertexturelist.h"
 #include "lldatapacker.h"
-#ifdef LL_STANDALONE
+#ifdef LL_USESYSTEMLIBS
 #include <zlib.h>
 #else
 #include "zlib/zlib.h"
@@ -76,6 +76,7 @@
 #include "object_flags.h"
 
 #include "llappviewer.h"
+#include "llfloaterperms.h"
 #include "llvocache.h"
 #include "fswsassetblacklist.h"
 #include "fsfloaterimport.h"
@@ -102,6 +103,7 @@ std::map<U64, U32>		LLViewerObjectList::sIPAndPortToIndex;
 std::map<U64, LLUUID>	LLViewerObjectList::sIndexAndLocalIDToUUID;
 
 LLViewerObjectList::LLViewerObjectList()
+	: mNewObjectSignal() // <FS:Ansariel> FIRE-16647: Default object properties randomly aren't applied
 {
 	mCurLazyUpdateIndex = 0;
 	mCurBin = 0;
@@ -291,9 +293,9 @@ void LLViewerObjectList::processUpdateCore(LLViewerObject* objectp,
 		// <FS:Techwolf Lupindo> import support
 		bool import_handled = false;
 		bool own_full_perm = (objectp->permYouOwner() && objectp->permModify() && objectp->permTransfer() && objectp->permCopy());
-		if (own_full_perm)
+		if (own_full_perm && !mNewObjectSignal.empty())
 		{
-			import_handled = mNewObjectSignal(objectp);
+			import_handled = mNewObjectSignal(objectp).get();
 			mNewObjectSignal.disconnect_all_slots();
 		}
 		if (!import_handled)
@@ -503,13 +505,13 @@ void LLViewerObjectList::processObjectUpdate(LLMessageSystem *mesgsys,
 			{
 				U32 flags = 0;
 				mesgsys->getU32Fast(_PREHASH_ObjectData, _PREHASH_UpdateFlags, flags, i);
-			
+                
 				if(flags & FLAGS_TEMPORARY_ON_REZ)
 				{
-				compressed_dp.unpackUUID(fullid, "ID");
-				compressed_dp.unpackU32(local_id, "LocalID");
-				compressed_dp.unpackU8(pcode, "PCode");
-			}
+                    compressed_dp.unpackUUID(fullid, "ID");
+                    compressed_dp.unpackU32(local_id, "LocalID");
+                    compressed_dp.unpackU8(pcode, "PCode");
+                }
 				else //send to object cache
 				{
 					regionp->cacheFullUpdate(compressed_dp, flags);
@@ -526,7 +528,7 @@ void LLViewerObjectList::processObjectUpdate(LLMessageSystem *mesgsys,
 								 gMessageSystem->getSenderPort());
 				if (fullid.isNull())
 				{
-					// LL_WARNS() << "update for unknown localid " << local_id << " host " << gMessageSystem->getSender() << ":" << gMessageSystem->getSenderPort() << LL_ENDL;
+					LL_DEBUGS() << "update for unknown localid " << local_id << " host " << gMessageSystem->getSender() << ":" << gMessageSystem->getSenderPort() << LL_ENDL;
 					mNumUnknownUpdates++;
 				}
 			}
@@ -838,6 +840,7 @@ void LLViewerObjectList::updateApparentAngles(LLAgent &agent)
 
 class LLObjectCostResponder : public LLCurl::Responder
 {
+	LOG_CLASS(LLObjectCostResponder);
 public:
 	LLObjectCostResponder(const LLSD& object_ids)
 		: mObjectIDs(object_ids)
@@ -858,20 +861,19 @@ public:
 		}
 	}
 
-	void errorWithContent(U32 statusNum, const std::string& reason, const LLSD& content)
+private:
+	/* virtual */ void httpFailure()
 	{
-		LL_WARNS()
-			<< "Transport error requesting object cost "
-			<< "[status: " << statusNum << "]: "
-			<< content << LL_ENDL;
+		LL_WARNS() << dumpResponse() << LL_ENDL;
 
 		// TODO*: Error message to user
 		// For now just clear the request from the pending list
 		clear_object_list_pending_requests();
 	}
 
-	void result(const LLSD& content)
+	/* virtual */ void httpSuccess()
 	{
+		const LLSD& content = getContent();
 		if ( !content.isMap() || content.has("error") )
 		{
 			// Improper response or the request had an error,
@@ -936,6 +938,7 @@ private:
 
 class LLPhysicsFlagsResponder : public LLCurl::Responder
 {
+	LOG_CLASS(LLPhysicsFlagsResponder);
 public:
 	LLPhysicsFlagsResponder(const LLSD& object_ids)
 		: mObjectIDs(object_ids)
@@ -956,20 +959,19 @@ public:
 		}
 	}
 
-	void errorWithContent(U32 statusNum, const std::string& reason, const LLSD& content)
+private:
+	/* virtual */ void httpFailure()
 	{
-		LL_WARNS()
-			<< "Transport error requesting object physics flags "
-			<< "[status: " << statusNum << "]: "
-			<< content << LL_ENDL;
+		LL_WARNS() << dumpResponse() << LL_ENDL;
 
 		// TODO*: Error message to user
 		// For now just clear the request from the pending list
 		clear_object_list_pending_requests();
 	}
 
-	void result(const LLSD& content)
+	/* virtual void */ void httpSuccess()
 	{
+		const LLSD& content = getContent();
 		if ( !content.isMap() || content.has("error") )
 		{
 			// Improper response or the request had an error,

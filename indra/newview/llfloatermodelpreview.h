@@ -200,11 +200,11 @@ public:
 	/*virtual*/ void onPermissionsReceived(const LLSD& result);
 
 	// called when error occurs during permissions request
-	/*virtual*/ void setPermissonsErrorStatus(U32 status, const std::string& reason);
+	/*virtual*/ void setPermissonsErrorStatus(S32 status, const std::string& reason);
 
 	/*virtual*/ void onModelPhysicsFeeReceived(const LLSD& result, std::string upload_url);
 				void handleModelPhysicsFeeReceived();
-	/*virtual*/ void setModelPhysicsFeeErrorStatus(U32 status, const std::string& reason);
+	/*virtual*/ void setModelPhysicsFeeErrorStatus(S32 status, const std::string& reason);
 
 	/*virtual*/ void onModelUploadSuccess();
 
@@ -346,6 +346,7 @@ public:
 	void loadModelCallback(S32 lod);
 	void genLODs(S32 which_lod = -1, U32 decimation = 3, bool enforce_tri_limit = false);
 	void generateNormals();
+	void restoreNormals();
 	U32 calcResourceCost();
 	void rebuildUploadData();
 	void saveUploadData(bool save_skinweights, bool save_joint_poisitions);
@@ -449,6 +450,12 @@ private:
 
 	LLModelLoader::model_list mModel[LLModel::NUM_LODS];
 	LLModelLoader::model_list mBaseModel;
+
+	typedef std::vector<LLVolumeFace>		v_LLVolumeFace_t;
+	typedef std::vector<v_LLVolumeFace_t>	vv_LLVolumeFace_t;
+	
+	vv_LLVolumeFace_t mModelFacesCopy[LLModel::NUM_LODS];
+	vv_LLVolumeFace_t mBaseModelFacesCopy;
 
 	U32 mGroup;
 	std::map<LLPointer<LLModel>, U32> mObject;

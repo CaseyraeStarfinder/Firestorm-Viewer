@@ -40,8 +40,10 @@
 #include "lltextbox.h"
 #include "lllineeditor.h"
 #include "llmutelist.h"
+#include "llnotificationsutil.h"
 #include "llfloaterreporter.h"
 #include "llslurl.h"
+#include "llstatusbar.h"
 #include "llviewerobject.h"
 #include "llviewerobjectlist.h"
 #include "llviewerregion.h"
@@ -50,6 +52,8 @@
 #include "llselectmgr.h"
 #include "lltransactiontypes.h"
 #include "lluictrlfactory.h"
+
+#include "llviewercontrol.h"
 
 ///----------------------------------------------------------------------------
 /// Local function declarations, constants, enums, and typedefs
@@ -90,6 +94,9 @@ public:
 	static void payDirectly(money_callback callback,
 							const LLUUID& target_id,
 							bool is_group);
+	static bool payConfirmationCallback(const LLSD& notification,
+										const LLSD& response,
+										LLGiveMoneyInfo* info);
 
 private:
 	static void onCancel(void* data);
@@ -112,13 +119,15 @@ protected:
 
 	LLSafeHandle<LLObjectSelection> mObjectSelection;
 
+	// <FS:Ansariel> FIRE-16812: Remember last amount paid
 	static S32 sLastAmount;
 };
 
-
+// <FS:Ansariel> FIRE-16812: Remember last amount paid
 S32 LLFloaterPay::sLastAmount = 0;
-const S32 MAX_AMOUNT_LENGTH = 10;
 const S32 FASTPAY_BUTTON_WIDTH = 80;
+// <FS:Ansariel> FIRE-16092: Make payment confirmation customizable
+//const S32 PAY_AMOUNT_NOTIFICATION = 200;
 
 LLFloaterPay::LLFloaterPay(const LLSD& key)
 	: LLFloater(key),
@@ -188,18 +197,18 @@ BOOL LLFloaterPay::postBuild()
 
 
 	getChildView("amount text")->setVisible(FALSE);	
-
-	std::string last_amount;
-	if(sLastAmount > 0)
-	{
-		last_amount = llformat("%d", sLastAmount);
-	}
-
 	getChildView("amount")->setVisible(FALSE);
 
 	getChild<LLLineEditor>("amount")->setKeystrokeCallback(&LLFloaterPay::onKeystroke, this);
-	getChild<LLUICtrl>("amount")->setValue(last_amount);
 	getChild<LLLineEditor>("amount")->setPrevalidate(LLTextValidate::validateNonNegativeS32);
+	// <FS:Ansariel> FIRE-16812: Remember last amount paid
+	std::string last_amount;
+	if (sLastAmount > 0)
+	{
+		last_amount = llformat("%d", sLastAmount);
+	}
+	getChild<LLUICtrl>("amount")->setValue(last_amount);
+	// </FS:Ansariel>
 
 	info = new LLGiveMoneyInfo(this, 0);
 	mCallbackData.push_back(info);
@@ -207,7 +216,10 @@ BOOL LLFloaterPay::postBuild()
 	childSetAction("pay btn",&LLFloaterPay::onGive,info);
 	setDefaultBtn("pay btn");
 	getChildView("pay btn")->setVisible(FALSE);
+	// <FS:Ansariel> FIRE-16812: Remember last amount paid
+	//getChildView("pay btn")->setEnabled(FALSE);
 	getChildView("pay btn")->setEnabled((sLastAmount > 0));
+	// </FS:Ansariel>
 
 	childSetAction("cancel btn",&LLFloaterPay::onCancel,this);
 
@@ -284,7 +296,8 @@ void LLFloaterPay::processPayPriceReply(LLMessageSystem* msg, void **userdata)
 				self->mQuickPayButton[i]->setLabelUnselected(button_str);
 				self->mQuickPayButton[i]->setVisible(TRUE);
 				self->mQuickPayInfo[i]->mAmount = pay_button;
-				self->getChildView("fastpay text")->setVisible(TRUE);
+				// <FS:Ansariel> Control doesn't exist as of 2015-01-27
+				//self->getChildView("fastpay text")->setVisible(TRUE);
 
 				if ( pay_button > max_pay_amount )
 				{
@@ -373,7 +386,8 @@ void LLFloaterPay::payViaObject(money_callback callback, LLSafeHandle<LLObjectSe
 	LLSelectNode* node = selection->getFirstRootNode();
 	if (!node) 
 	{
-		//FIXME: notify user object no longer exists
+		// object no longer exists
+		LLNotificationsUtil::add("PayObjectFailed");
 		floater->closeFloater();
 		return;
 	}
@@ -413,7 +427,7 @@ void LLFloaterPay::payDirectly(money_callback callback,
 	floater->getChildView("payment_message_label")->setVisible(TRUE);
 	floater->getChildView("payment_message")->setVisible(TRUE);
 
-	// Ansariel: Control doesn't exist as of 2011-12-12
+	// <FS:Ansariel> Control doesn't exist as of 2015-01-27
 	//floater->getChildView("fastpay text")->setVisible(TRUE);
 	for(S32 i=0;i<MAX_PAY_BUTTONS;++i)
 	{
@@ -422,7 +436,24 @@ void LLFloaterPay::payDirectly(money_callback callback,
 	
 	floater->finishPayUI(target_id, is_group);
 }
-	
+
+bool LLFloaterPay::payConfirmationCallback(const LLSD& notification, const LLSD& response, LLGiveMoneyInfo* info)
+{
+	if (!info || !info->mFloater)
+	{
+		return false;
+	}
+
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+	if (option == 0)
+	{
+		info->mFloater->give(info->mAmount);
+		info->mFloater->closeFloater();
+	}
+
+	return false;
+}
+
 void LLFloaterPay::finishPayUI(const LLUUID& target_id, BOOL is_group)
 {
 	std::string slurl;
@@ -473,10 +504,53 @@ void LLFloaterPay::onKeystroke(LLLineEditor*, void* data)
 void LLFloaterPay::onGive(void* data)
 {
 	LLGiveMoneyInfo* info = reinterpret_cast<LLGiveMoneyInfo*>(data);
-	if(info && info->mFloater)
+	LLFloaterPay* floater = info->mFloater;
+	if(info && floater)
 	{
-		info->mFloater->give(info->mAmount);
-		info->mFloater->closeFloater();
+		S32 amount = info->mAmount;
+		if(amount == 0)
+		{
+			amount = atoi(floater->getChild<LLUICtrl>("amount")->getValue().asString().c_str());
+		}
+		// <FS:Ansariel> FIRE-16092: Make payment confirmation customizable
+		//if (amount > PAY_AMOUNT_NOTIFICATION && gStatusBar && gStatusBar->getBalance() > amount)
+		if (gSavedSettings.getBOOL("FSConfirmPayments") && amount > gSavedSettings.getS32("FSPaymentConfirmationThreshold") && gStatusBar && gStatusBar->getBalance() > amount)
+		// </FS:Ansariel>
+		{
+			LLUUID payee_id = LLUUID::null;
+			BOOL is_group = false;
+			if (floater->mObjectSelection.notNull())
+			{
+				LLSelectNode* node = floater->mObjectSelection->getFirstRootNode();
+				if (node)
+				{
+					node->mPermissions->getOwnership(payee_id, is_group);
+				}
+				else
+				{
+					// object no longer exists
+					LLNotificationsUtil::add("PayObjectFailed");
+					floater->closeFloater();
+					return;
+				}
+			}
+			else
+			{
+				is_group = floater->mTargetIsGroup;
+				payee_id = floater->mTargetUUID;
+			}
+
+			LLSD args;
+			args["TARGET"] = LLSLURL( is_group ? "group" : "agent", payee_id, "completename").getSLURLString();
+			args["AMOUNT"] = amount;
+
+			LLNotificationsUtil::add("PayConfirmation", args, LLSD(), boost::bind(&LLFloaterPay::payConfirmationCallback, _1, _2, info));
+		}
+		else
+		{
+			floater->give(amount);
+			floater->closeFloater();
+		}
 	}
 }
 
@@ -490,6 +564,7 @@ void LLFloaterPay::give(S32 amount)
 		{
 			amount = atoi(getChild<LLUICtrl>("amount")->getValue().asString().c_str());
 		}
+		// <FS:Ansariel> FIRE-16812: Remember last amount paid
 		sLastAmount = amount;
 
 		// Try to pay an object.
@@ -524,6 +599,10 @@ void LLFloaterPay::give(S32 amount)
 					msg->addUUIDFast(_PREHASH_ObjectID, 	mTargetUUID);
 					msg->sendReliable( region->getHost() );
 				}
+			}
+			else
+			{
+				LLNotificationsUtil::add("PayObjectFailed");
 			}
 		}
 		else

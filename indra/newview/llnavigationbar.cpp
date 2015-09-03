@@ -29,6 +29,7 @@
 #include "llnavigationbar.h"
 
 #include "v2math.h"
+
 #include "llregionhandle.h"
 
 #include "llfloaterreg.h"
@@ -300,19 +301,19 @@ void LLNavigationBar::setupPanel()
 	// mBtnHome	= getChild<LLButton>("home_btn");
 
 	// mCmbLocation= getChild<LLLocationInputCtrl>("location_combo"); 
-	// mSearchComboBox	= getChild<LLSearchComboBox>("search_combo_box");
 
-	mView=LLUI::getRootView()->getChild<LLView>("navigation_bar");
+	mView = LLUI::getRootView()->getChild<LLView>("navigation_bar");
 
 	mBtnBack	= mView->getChild<LLPullButton>("back_btn");
 	mBtnForward	= mView->getChild<LLPullButton>("forward_btn");
 	mBtnHome	= mView->getChild<LLButton>("home_btn");
 
-	mCmbLocation= mView->getChild<LLLocationInputCtrl>("location_combo"); 
-	mSearchComboBox	= mView->getChild<LLSearchComboBox>("search_combo_box");
+	mCmbLocation = mView->getChild<LLLocationInputCtrl>("location_combo"); 
+	mSearchComboBox = mView->getChild<LLSearchComboBox>("search_combo_box");
 
 	mView->getChild<LLUICtrl>("navigation_bar_context_menu_panel")->
 		setRightMouseDownCallback(boost::bind(&LLNavigationBar::onRightMouseDown, this, _2, _3, _4));
+
 	mView->getChild<LLButton>("Sky")->setCommitCallback(boost::bind(&LLNavigationBar::onClickedSkyBtn, this)); // <FS:CR> FIRE-11847
 	// </FS:Zi>
 
@@ -792,6 +793,14 @@ void LLNavigationBar::handleLoginComplete()
 	gStatusBar->handleLoginComplete();
 	mCmbLocation->handleLoginComplete();
 }
+
+// [RLVa:KB] - Checked: 2014-03-23 (RLVa-1.4.10)
+void LLNavigationBar::refreshLocationCtrl()
+{
+	if (mCmbLocation)
+		mCmbLocation->refresh();
+}
+// [/RLVa:KB]
 
 void LLNavigationBar::invokeSearch(std::string search_text)
 {

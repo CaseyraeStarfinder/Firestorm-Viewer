@@ -70,6 +70,7 @@ public:
 	{
 		Optional<bool>						allow_text_entry,
 											show_text_as_tentative,
+											force_disable_fulltext_search, // <FS:Ansariel> Allow fulltext search in comboboxes
 											allow_new_values;
 		Optional<S32>						max_chars;
 		Optional<commit_callback_t> 		prearrange_callback,
@@ -159,6 +160,9 @@ public:
 
 	void			createLineEditor(const Params&);
 
+	// <FS:Ansariel> For setting the focus to the LLLineEditor
+	void			focusEditor();
+
 	//========================================================================
 	LLCtrlSelectionInterface* getSelectionInterface()	{ return (LLCtrlSelectionInterface*)this; };
 	LLCtrlListInterface* getListInterface()				{ return (LLCtrlListInterface*)this; };
@@ -199,6 +203,11 @@ public:
 	void			setTextEntryCallback( commit_callback_t cb ) { mTextEntryCallback = cb; }
 	void			setTextChangedCallback( commit_callback_t cb ) { mTextChangedCallback = cb; }
 
+	/**
+	* Connects callback to signal called when Return key is pressed.
+	*/
+	boost::signals2::connection setReturnCallback( const commit_signal_t::slot_type& cb ) { return mOnReturnSignal.connect(cb); }
+
 	void			setButtonVisible(BOOL visible);
 
 	void			onButtonMouseDown();
@@ -231,7 +240,9 @@ private:
 	commit_callback_t	mTextChangedCallback;
 	commit_callback_t	mSelectionCallback;
 	boost::signals2::connection mTopLostSignalConnection;
+	commit_signal_t		mOnReturnSignal;
 	S32                 mLastSelectedIndex;
+	bool				mForceDisableFulltextSearch; // <FS:Ansariel> Allow fulltext search in comboboxes
 };
 
 // A combo box with icons for the list of items.

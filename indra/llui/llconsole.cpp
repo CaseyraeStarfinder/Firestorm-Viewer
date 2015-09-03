@@ -53,7 +53,6 @@ extern void AddNewDebugConsoleToLCD(const LLWString &newLine);
 LLConsole* gConsole = NULL;  // Created and destroyed in LLViewerWindow.
 
 const F32 FADE_DURATION = 2.f;
-const S32 MIN_CONSOLE_WIDTH = 200;
  
 static LLDefaultChildRegistry::Register<LLConsole> r("console");
 
@@ -598,8 +597,18 @@ LLConsole::Paragraph::Paragraph (LLWString str, const LLColor4 &color, F32 add_t
 
 		while (LLUrlRegistry::instance().findUrl(workLine, urlMatch, boost::bind(&LLConsole::onUrlLabelCallback, console, mID, _1, _2)) && !urlMatch.getUrl().empty())
 		{
-			LLWStringUtil::replaceString(mParagraphText, utf8str_to_wstring(urlMatch.getUrl()), utf8str_to_wstring(urlMatch.getLabel()));
-			mUrlLabels[urlMatch.getUrl()] = urlMatch.getLabel();
+			// Special case for LLUrlEntryHTTP, LLUrlEntryHTTPNoProtocol and
+			// LLUrlEntrySecondlifeURL: getLabel() only returns host part, but
+			// we also want the query part
+			std::string label = urlMatch.getLabel();
+			std::string query = urlMatch.getQuery();
+			if (!query.empty())
+			{
+				label += query;
+			}
+
+			LLWStringUtil::replaceString(mParagraphText, utf8str_to_wstring(urlMatch.getUrl()), utf8str_to_wstring(label));
+			mUrlLabels[urlMatch.getUrl()] = label;
 
 			// Remove the URL from the work line so we don't end in a loop in case of regular URLs!
 			// findUrl will always return the very first URL in a string

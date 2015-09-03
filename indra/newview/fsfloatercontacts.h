@@ -34,7 +34,7 @@
 #include "llscrolllistcolumn.h"
 #include "rlvhandler.h"
 
-class FSContactsFriendsCtrl;
+class FSScrollListCtrl;
 class LLAvatarList;
 class LLAvatarTracker;
 class LLFriendObserver;
@@ -70,7 +70,7 @@ public:
 	void					onDisplayNameChanged();
 
 	LLPanel*				mFriendsTab;
-	FSContactsFriendsCtrl*	mFriendsList;
+	FSScrollListCtrl*		mFriendsList;
 	LLPanel*				mGroupsTab;
 	LLGroupList*			mGroupList;
 
@@ -120,6 +120,11 @@ private:
 	// misc callbacks
 	static void				onAvatarPicked(const uuid_vec_t& ids, const std::vector<LLAvatarName> names);
 	void					onColumnDisplayModeChanged(const std::string& settings_name = "");
+	BOOL					handleFriendsListDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
+															EDragAndDropType cargo_type,
+															void* cargo_data,
+															EAcceptance* accept,
+															std::string& tooltip_msg);
 
 	// friend buttons
 	void					onViewProfileButtonClicked();
@@ -145,8 +150,9 @@ private:
 	LLTabContainer*			mTabContainer;
 
 	LLFriendObserver*		mObserver;
-	BOOL					mAllowRightsChange;
+	bool					mAllowRightsChange;
 	S32						mNumRightsChanged;
+	bool					mRightsChangeNotificationTriggered;
 
 	std::string				mFriendListFontName;
 

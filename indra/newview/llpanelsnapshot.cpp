@@ -37,6 +37,19 @@
 #include "llsidetraypanelcontainer.h"
 #include "llviewercontrol.h" // gSavedSettings
 
+const S32 MAX_TEXTURE_SIZE = 512 ; //max upload texture size 512 * 512
+
+S32 power_of_two(S32 sz, S32 upper)
+{
+	S32 res = upper;
+	while( upper >= sz)
+	{
+		res = upper;
+		upper >>= 1;
+	}
+	return res;
+}
+
 // virtual
 BOOL LLPanelSnapshot::postBuild()
 {
@@ -44,7 +57,6 @@ BOOL LLPanelSnapshot::postBuild()
 	getChild<LLUICtrl>(getWidthSpinnerName())->setCommitCallback(boost::bind(&LLPanelSnapshot::onCustomResolutionCommit, this));
 	getChild<LLUICtrl>(getHeightSpinnerName())->setCommitCallback(boost::bind(&LLPanelSnapshot::onCustomResolutionCommit, this));
 	getChild<LLUICtrl>(getAspectRatioCBName())->setCommitCallback(boost::bind(&LLPanelSnapshot::onKeepAspectRatioCommit, this, _1));
-	getChild<LLUICtrl>(getTempUploadCBName())->setCommitCallback(boost::bind(&LLPanelSnapshot::onTempUploadCommit, this, _1)); //FS:LO Fire-6268 [Regression] Temp upload for snapshots missing after FUI merge.
 
 	updateControls(LLSD());
 	return TRUE;
@@ -66,11 +78,6 @@ void LLPanelSnapshot::onOpen(const LLSD& key)
 	{
 		LLFloaterSnapshot::getInstance()->notify(LLSD().with("image-format-change", true));
 	}
-
-	// <FS:Zi> Save all settings
-	// updateCustomResControls();
-	onCustomResolutionCommit();
-	// </FS:Zi>
 }
 
 LLFloaterSnapshot::ESnapshotFormat LLPanelSnapshot::getImageFormat() const
@@ -81,11 +88,6 @@ LLFloaterSnapshot::ESnapshotFormat LLPanelSnapshot::getImageFormat() const
 void LLPanelSnapshot::enableControls(BOOL enable)
 {
 	setCtrlsEnabled(enable);
-	if (enable)
-	{
-		// Make sure only relevant controls are enabled/shown.
-		updateCustomResControls();
-	}
 }
 
 LLSpinCtrl* LLPanelSnapshot::getWidthSpinner()
@@ -97,6 +99,13 @@ LLSpinCtrl* LLPanelSnapshot::getHeightSpinner()
 {
 	return getChild<LLSpinCtrl>(getHeightSpinnerName());
 }
+
+// <FS:Ansariel> Store settings at logout
+LLComboBox* LLPanelSnapshot::getImageSizeComboBox()
+{
+	return getChild<LLComboBox>(getImageSizeComboName());
+}
+// </FS:Ansariel>
 
 S32 LLPanelSnapshot::getTypedPreviewWidth() const
 {
@@ -123,22 +132,6 @@ LLSideTrayPanelContainer* LLPanelSnapshot::getParentContainer()
 	}
 
 	return parent;
-}
-
-// virtual
-void LLPanelSnapshot::updateCustomResControls()
-{
-	// Only show width/height spinners and the aspect ratio checkbox
-	// when a custom resolution is chosen.
-	LLComboBox* combo = getChild<LLComboBox>(getImageSizeComboName());
-	const bool show = combo->getFirstSelectedIndex() == (combo->getItemCount() - 1);
-	// <FS:Zi> Save all settings
-	// getChild<LLUICtrl>(getImageSizePanelName())->setVisible(show);
-	getChild<LLUICtrl>(getImageSizePanelName())->setEnabled(show);
-	getChild<LLUICtrl>(getWidthSpinnerName())->setEnabled(show);
-	getChild<LLUICtrl>(getHeightSpinnerName())->setEnabled(show);
-	getChild<LLUICtrl>(getAspectRatioCBName())->setEnabled(show);
-	// </FS:Zi>
 }
 
 void LLPanelSnapshot::updateImageQualityLevel()
@@ -169,7 +162,14 @@ void LLPanelSnapshot::updateImageQualityLevel()
 		quality_lvl = LLTrans::getString("snapshot_quality_very_high");
 	}
 
-	getChild<LLTextBox>("image_quality_level")->setTextArg("[QLVL]", quality_lvl);
+	// <FS:Ansariel> Only update if it really exists
+	//getChild<LLTextBox>("image_quality_level")->setTextArg("[QLVL]", quality_lvl);
+	LLTextBox* image_quality_level_textbox = findChild<LLTextBox>("image_quality_level");
+	if (image_quality_level_textbox)
+	{
+		image_quality_level_textbox->setTextArg("[QLVL]", quality_lvl);
+	}
+	// </FS:Ansariel>
 }
 
 void LLPanelSnapshot::goBack()
@@ -191,15 +191,31 @@ void LLPanelSnapshot::cancel()
 void LLPanelSnapshot::onCustomResolutionCommit()
 {
 	LLSD info;
-	info["w"] = getChild<LLUICtrl>(getWidthSpinnerName())->getValue().asInteger();
-	info["h"] = getChild<LLUICtrl>(getHeightSpinnerName())->getValue().asInteger();
+	LLSpinCtrl *widthSpinner = getChild<LLSpinCtrl>(getWidthSpinnerName());
+	LLSpinCtrl *heightSpinner = getChild<LLSpinCtrl>(getHeightSpinnerName());
+	if (getName() == "panel_snapshot_inventory")
+	{
+		S32 width = widthSpinner->getValue().asInteger();
+		width = power_of_two(width, MAX_TEXTURE_SIZE);
+		info["w"] = width;
+		widthSpinner->setIncrement(width >> 1);
+		widthSpinner->forceSetValue(width);
+		S32 height =  heightSpinner->getValue().asInteger();
+		height = power_of_two(height, MAX_TEXTURE_SIZE);
+		heightSpinner->setIncrement(height >> 1);
+		heightSpinner->forceSetValue(height);
+		info["h"] = height;
+	}
+	else
+	{
+		info["w"] = widthSpinner->getValue().asInteger();
+		info["h"] = heightSpinner->getValue().asInteger();
+	}
 	LLFloaterSnapshot::getInstance()->notify(LLSD().with("custom-res-change", info));
 }
 
 void LLPanelSnapshot::onResolutionComboCommit(LLUICtrl* ctrl)
 {
-	updateCustomResControls();
-
 	LLSD info;
 	info["combo-res-change"]["control-name"] = ctrl->getName();
 	LLFloaterSnapshot::getInstance()->notify(info);
@@ -208,10 +224,4 @@ void LLPanelSnapshot::onResolutionComboCommit(LLUICtrl* ctrl)
 void LLPanelSnapshot::onKeepAspectRatioCommit(LLUICtrl* ctrl)
 {
 	LLFloaterSnapshot::getInstance()->notify(LLSD().with("keep-aspect-change", ctrl->getValue().asBoolean()));
-}
-
-//FS:LO Fire-6268 [Regression] Temp upload for snapshots missing after FUI merge.
-void LLPanelSnapshot::onTempUploadCommit(LLUICtrl* ctrl)
-{
-	LLFloaterSnapshot::getInstance()->notify(LLSD().with("temp-upload-change", ctrl->getValue().asBoolean()));
 }

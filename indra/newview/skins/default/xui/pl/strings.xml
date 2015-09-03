@@ -57,12 +57,14 @@ Wersja serwera głosu (Voice Server): [VOICE_VERSION]
 	<string name="AboutSettings">
 Tryb ustawień (Settings Mode): [MODE]
 Skórka i schemat (Skin): [SKIN] ([THEME])
-Czcionka (Font): [FONT] ([FONT_SCREEN_DPI])
-Pole widzenia (Draw Distance): [DRAW_DISTANCE]
-Przepustowość (Bandwidth): [BANDWIDTH]
+Czcionka (Font): [FONT] ([FONT_SCREEN_DPI] dpi)
+Dostrojenie rozmiaru czcionki: [FONT_SIZE] pt
+Skalowanie interfejsu (UI Scaling): [UI_SCALE_FACTOR]
+Pole widzenia (Draw Distance): [DRAW_DISTANCE] m
+Przepustowość (Bandwidth): [BANDWIDTH] kbit/s
 Mnożnik poziomu detali (LOD Factor): [LOD]
 Jakość wyświetlania (Render quality): [RENDERQUALITY]
-Zaawansowane oświetlenie (Advanced Lightning Model): [ALMSTATUS]
+Zaawansowane oświetlenie (Advanced Lighting Model): [ALMSTATUS]
 Pamięć tekstur (Texture memory): [TEXTUREMEMORY] MB ([TEXTUREMEMORYMULTIPLIER])
 Czas utworzenia VFS (cache) w UTC: [VFS_DATE]
 	</string>
@@ -170,6 +172,12 @@ Czas utworzenia VFS (cache) w UTC: [VFS_DATE]
 	</string>
 	<string name="Quit">
 		Wyłącz
+	</string>
+	<string name="AgniGridLabel">
+		Second Life: siatka główna (Agni)
+	</string>
+	<string name="AditiGridLabel">
+		Second Life Beta: siatka testowa (Aditi)
 	</string>
 	<string name="LoginFailedViewerNotPermitted">
 		Przeglądarka używana przez Ciebie nie ma już dostępu do Second Life. Proszę przejść na poniższą stronę i pobrać nową:
@@ -323,7 +331,7 @@ Spróbuj zalogować się ponownie za minutę.
 		Region jest niedostępny.
 	</string>
 	<string name="TestingDisconnect">
-		Nastąpiło rozłączenie testowania klienta
+		Testowanie rozłączenia klienta
 	</string>
 	<string name="SocialFacebookConnecting">
 		Łączenie z Facebookiem...
@@ -342,6 +350,126 @@ Spróbuj zalogować się ponownie za minutę.
 	</string>
 	<string name="SocialFacebookErrorDisconnecting">
 		Problem z rozłączaniem z Facebookiem
+	</string>
+	<string name="SocialFlickrConnecting">
+		Łączenie z Flickr...
+	</string>
+	<string name="SocialFlickrPosting">
+		Wysyłanie...
+	</string>
+	<string name="SocialFlickrDisconnecting">
+		Rozłączanie z Flickr...
+	</string>
+	<string name="SocialFlickrErrorConnecting">
+		Problem z łączeniem z Flickr
+	</string>
+	<string name="SocialFlickrErrorPosting">
+		Problem z wysyłaniem na Flickr
+	</string>
+	<string name="SocialFlickrErrorDisconnecting">
+		Problem z rozłączaniem z Flickr
+	</string>
+	<string name="SocialTwitterConnecting">
+		Łączenie z Twitterem...
+	</string>
+	<string name="SocialTwitterPosting">
+		Wysyłanie...
+	</string>
+	<string name="SocialTwitterDisconnecting">
+		Rozłączanie z Twitterem...
+	</string>
+	<string name="SocialTwitterErrorConnecting">
+		Problem z łączeniem z Twitterem
+	</string>
+	<string name="SocialTwitterErrorPosting">
+		Problem z wysyłaniem na Twittera
+	</string>
+	<string name="SocialTwitterErrorDisconnecting">
+		Problem z rozłączaniem z Twittera
+	</string>
+	<string name="BlackAndWhite">
+		Czerń i biel
+	</string>
+	<string name="Colors1970">
+		Kolory lat 1970
+	</string>
+	<string name="Intense">
+		Intensywne
+	</string>
+	<string name="Newspaper">
+		Papier gazetowy
+	</string>
+	<string name="Spotlight">
+		Reflektor
+	</string>
+	<string name="Video">
+		Wideo
+	</string>
+	<string name="Autocontrast">
+		Autokontrast
+	</string>
+	<string name="LensFlare">
+		Flara
+	</string>
+	<string name="Miniature">
+		Miniatura (tilt-shift)
+	</string>
+	<string name="Toycamera">
+		Zabawkowy aparat
+	</string>
+	<string name="Antique">
+		Antyk
+	</string>
+	<string name="Badtrip">
+		Zła podróż
+	</string>
+	<string name="Blownhighlights">
+		Wzmocnione podświetlenia
+	</string>
+	<string name="Softfocus">
+		Lekkie skupienie
+	</string>
+	<string name="Brighten">
+		Rozjaśnienie
+	</string>
+	<string name="Cartoon">
+		Kreskówka
+	</string>
+	<string name="Darken">
+		Przyciemnienie
+	</string>
+	<string name="Edges">
+		Błyszczące krawędzie
+	</string>
+	<string name="Focus">
+		Mocne skupienie
+	</string>
+	<string name="Heatwave">
+		Upał
+	</string>
+	<string name="Julesverne">
+		Juliusz Verne
+	</string>
+	<string name="Lightleak">
+		Wyciek światła
+	</string>
+	<string name="Linearize">
+		Zlinearyzowanie
+	</string>
+	<string name="Negative">
+		Negatyw
+	</string>
+	<string name="Overcast">
+		Pochmurnie
+	</string>
+	<string name="Posterize">
+		Plakat
+	</string>
+	<string name="Rotatecolors180">
+		Przemieszczenie barw
+	</string>
+	<string name="Sharpen">
+		Wyostrzenie
 	</string>
 	<string name="TooltipPerson">
 		Osoba
@@ -388,7 +516,10 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="TooltipMustSingleDrop">
 		Tylko pojedynczy obiekt może być tutaj przeciągnięty
 	</string>
-	<string name="TooltipPrice" value="[AMOUNT]L$:"/>
+	<string name="TooltipTooManyWearables">
+		Nie możesz założyć folderu, który zawiera więcej niż [AMOUNT] przedmiotów. Możesz zmienić ten limit w Zaawansowane &gt; Pokaż ustawienia debugowania &gt; WearFolderLimit.
+	</string>
+	<string name="TooltipPrice" value="[AMOUNT]L$: "/>
 	<string name="TooltipFlagScript">
 		Skrypt
 	</string>
@@ -426,28 +557,46 @@ Spróbuj zalogować się ponownie za minutę.
 		Pozycja: [POSITION]
 	</string>
 	<string name="TooltipOutboxDragToWorld">
-		Nie możesz rezzować obiektów w skrzynce nadawczej kupca
-	</string>
-	<string name="TooltipOutboxNoTransfer">
-		Jeden lub kilka z tych obiektów nie może zostać sprzedany / przetransferowany.
-	</string>
-	<string name="TooltipOutboxNotInInventory">
-		Twoja skrzynka nadawcza kupca akceptuje tylko przedmioty bezpośrednio z Twojej Szafy.
+		Nie możesz rezzować obiektów z folderu rzeczy na Marketplace
 	</string>
 	<string name="TooltipOutboxWorn">
-		Nie możesz umieszczać w skrzynce nadawczej kupca przedmiotów, które masz na sobie założone
-	</string>
-	<string name="TooltipOutboxCallingCard">
-		Nie możesz umieszczać wizytówek w skrzynce nadawczej kupca
+		Nie możesz umieszczać na Marketplace przedmiotów, które masz na sobie założone
 	</string>
 	<string name="TooltipOutboxFolderLevels">
-		Głębokość zagnieżdżonych folderów przekracza 3
+		Głębokość zagnieżdżonych folderów przekracza [AMOUNT]. Zmniejsz ilość zagdzieżdżeń; Spakuj przedmioty w pudełka, jeśli to pomoże.
 	</string>
 	<string name="TooltipOutboxTooManyFolders">
-		Ilość podfolderów w folderze najwyższego poziomu przekracza 20
+		Ilość podfolderów przekracza [AMOUNT]. Zmniejsz ilość folderów; Spakuj przedmioty w pudełka, jeśli to pomoże.
 	</string>
 	<string name="TooltipOutboxTooManyObjects">
-		Ilość pozycji w folderze najwyższego poziomu przekracza 200
+		Ilość rzeczy przekracza [AMOUNT]. Jeśli chcesz sprzedać więcej, niż [AMOUNT] rzeczy jako jedną pozycję, to musisz je spakować w pudełka.
+	</string>
+	<string name="TooltipOutboxTooManyStockItems">
+		Ilość przedmiotów w folderze Magazynowym przekracza [AMOUNT].
+	</string>
+	<string name="TooltipOutboxCannotDropOnRoot">
+		Możesz przenosić foldery lub przedmioty wyłącznie do kart WSZYSTKO lub NIEPRZYPISANE. Wybierz teraz jedną z tych kart i spróbuj ponownie.
+	</string>
+	<string name="TooltipOutboxNoTransfer">
+		Jeden lub kilka z tych obiektów nie może zostać sprzedany / przetransferowany
+	</string>
+	<string name="TooltipOutboxNotInInventory">
+		Marketplace akceptuje tylko przedmioty bezpośrednio z Twojej Szafy.
+	</string>
+	<string name="TooltipOutboxLinked">
+		Nie możesz sprzedać zlinkowanych folderów lub przedmiotów na Marketplace
+	</string>
+	<string name="TooltipOutboxCallingCard">
+		Nie możesz umieszczać wizytówek na Marketplace
+	</string>
+	<string name="TooltipOutboxDragActive">
+		Nie można przenieść wylistowanej rzeczy
+	</string>
+	<string name="TooltipOutboxCannotMoveRoot">
+		Nie możesz przenieść folderu głównego rzeczy na Marketplace
+	</string>
+	<string name="TooltipOutboxMixedStock">
+		Wszystkie rzeczy w folderze Magazynowym muszą mieć ten sam typ i zezwolenia
 	</string>
 	<string name="TooltipDragOntoOwnChild">
 		Nie możesz przenieść folderu do jego obiektu podrzędnego
@@ -522,9 +671,6 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="SLappAgentUnmute">
 		Odblokuj
 	</string>
-	<string name="SLappAgentIM">
-		IM
-	</string>
 	<string name="SLappAgentPay">
 		Zapłać
 	</string>
@@ -561,6 +707,9 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="BUTTON_HELP">
 		Pokaż Pomoc
 	</string>
+	<string name="BUTTON_SNOOZE">
+		Tymczasowo wycisz
+	</string>
 	<string name="Searching">
 		Wyszukiwanie...
 	</string>
@@ -583,7 +732,7 @@ Spróbuj zalogować się ponownie za minutę.
 		(brak danych)
 	</string>
 	<string name="AvatarNameWaiting">
-		(ładowanie)
+		(Wczytywanie...)
 	</string>
 	<string name="AvatarNameMultiple">
 		(kilka)
@@ -696,9 +845,6 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="favorite">
 		ulubione
 	</string>
-	<string name="symbolic link">
-		link
-	</string>
 	<string name="symbolic folder link">
 		link folderu
 	</string>
@@ -712,10 +858,13 @@ Spróbuj zalogować się ponownie za minutę.
 		Śpi
 	</string>
 	<string name="AvatarDoNotDisturb">
-		Zajęty
+		Zajęty/a
 	</string>
 	<string name="AvatarMuted">
 		Wyciszony
+	</string>
+	<string name="AvatarAutoResponse">
+		Autoodpowiedź
 	</string>
 	<string name="anim_express_afraid">
 		Strach
@@ -930,6 +1079,12 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="use_texture">
 		Użyj tekstury
 	</string>
+	<string name="manip_hint1">
+		Przesuń kursor nad linijkę
+	</string>
+	<string name="manip_hint2">
+		by przyciągać do siatki
+	</string>
 	<string name="texture_loading">
 		Ładowanie...
 	</string>
@@ -950,9 +1105,6 @@ Spróbuj zalogować się ponownie za minutę.
 	</string>
 	<string name="minimap_no_focus">
 		Kamera nie może skupić się na użytkowniku, ponieważ jest poza polem widzenia.
-	</string>
-	<string name="Ok">
-		OK
 	</string>
 	<string name="Premature end of file">
 		Przedwczesny koniec pliku
@@ -1044,9 +1196,6 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="SnapshotSavedToDisk">
 		Zdjęcie zapisane: [FILENAME]
 	</string>
-	<string name="JoinAnExperience">
-		Rozpocznij przygodę
-	</string>
 	<string name="SilentlyManageEstateAccess">
 		Wyciszyć powiadomienia o zmianach zezwoleń Majątku
 	</string>
@@ -1065,15 +1214,6 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="UnknownScriptPermission">
 		(nieznane)!
 	</string>
-	<string name="SIM_ACCESS_PG">
-		General
-	</string>
-	<string name="SIM_ACCESS_MATURE">
-		Moderate
-	</string>
-	<string name="SIM_ACCESS_ADULT">
-		Adult
-	</string>
 	<string name="SIM_ACCESS_DOWN">
 		Niedostępny
 	</string>
@@ -1088,9 +1228,6 @@ Spróbuj zalogować się ponownie za minutę.
 	</string>
 	<string name="Estate / Homestead">
 		Majątek / Homestead
-	</string>
-	<string name="Mainland / Homestead">
-		Mainland / Homestead
 	</string>
 	<string name="Mainland / Full Region">
 		Mainland / Pełny Region
@@ -1161,6 +1298,9 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="csv_files">
 		Wartości oddzielone przecinkami
 	</string>
+	<string name="recompile_script_verb">
+		Rekompiluj
+	</string>
 	<string name="shape">
 		Kształt
 	</string>
@@ -1199,9 +1339,6 @@ Spróbuj zalogować się ponownie za minutę.
 	</string>
 	<string name="skirt">
 		Spódnica
-	</string>
-	<string name="alpha">
-		Alpha
 	</string>
 	<string name="tattoo">
 		Tatuaż
@@ -1243,7 +1380,7 @@ Spróbuj zalogować się ponownie za minutę.
 		Spódnica nie jest założona
 	</string>
 	<string name="alpha_not_worn">
-		Alpha nie jest założone
+		Alpha nie jest założona
 	</string>
 	<string name="tattoo_not_worn">
 		Tatuaż nie jest założony
@@ -1310,9 +1447,6 @@ Spróbuj zalogować się ponownie za minutę.
 	</string>
 	<string name="next">
 		Dalej
-	</string>
-	<string name="ok">
-		OK
 	</string>
 	<string name="GroupNotifyGroupNotice">
 		Ogłoszenie grupowe
@@ -1386,6 +1520,9 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="FavoritesNoMatchingItems">
 		Przeciągnij landmark tutaj aby dodać go do swoich ulubionych.
 	</string>
+	<string name="MarketplaceNoMatchingItems">
+		Niczego nie znaleziono. Sprawdź pisownię i spróbuj ponownie.
+	</string>
 	<string name="InventoryNoTexture">
 		Nie posiadasz kopii tej tekstury w swojej Szafie.
 	</string>
@@ -1407,6 +1544,9 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="InventoryOutboxNoItemsTitle">
 		Twoja skrzynka nadawcza kupca jest pusta.
 	</string>
+	<string name="InventoryOutboxNoItems">
+		Przeciągnij foldery do tego obszaru i kliknij "Wyślij na Marketplace", aby dodać je na listę sprzedaży w [[MARKETPLACE_DASHBOARD_URL] Marketplace].
+	</string>
 	<string name="InventoryOutboxInitializingTitle">
 		Inicjalizacja Marketplace.
 	</string>
@@ -1419,35 +1559,95 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="InventoryOutboxError">
 		[[MARKETPLACE_CREATE_STORE_URL] Sklep na Marketplace] zwraca błędy.
 	</string>
-	<string name="InventoryOutboxNoItemsTooltip">
-		Umieść tutaj przedmioty, aby przygotować je do wysyłki na Marketplace.
+	<string name="InventoryMarketplaceError">
+		Ta funkcjonalność jest obecnie w fazie Beta. Dodaj proszę swoje imię do tego [http://goo.gl/forms/FCQ7UXkakz formularza Google] (w języku angielskim), jeśli chcesz wziąć udział w programie Beta i pomóc.
 	</string>
-	<string name="InventoryOutboxNoItems">
-		Przeciągnij foldery do tego obszaru i kliknij "Wyślij na Marketplace", aby dodać je na listę sprzedaży w [[MARKETPLACE_DASHBOARD_URL] Marketplace].
+	<string name="InventoryMarketplaceListingsNoItemsTitle">
+		Twój folder rzeczy na Marketplace jest pusty.
+	</string>
+	<string name="InventoryMarketplaceListingsNoItems">
+		Przeciągnij foldery do tego obszaru, aby dodać je na listę sprzedaży w [[MARKETPLACE_DASHBOARD_URL] Marketplace].
+	</string>
+	<string name="Marketplace Validation Warning Stock">
+		folder Magazynowy musi być zawarty w folderze wersji
+	</string>
+	<string name="Marketplace Validation Error Mixed Stock">
+		: Błąd: wszystkie przedmioty w folderze Magazynowym muszą mieć ten sam typ i być niekopiowalne
+	</string>
+	<string name="Marketplace Validation Error Subfolder In Stock">
+		: Błąd: folder Magazynowy nie może zawierać podfolderów
+	</string>
+	<string name="Marketplace Validation Warning Empty">
+		: Uwaga: folder jest pusty
+	</string>
+	<string name="Marketplace Validation Warning Create Stock">
+		: Uwaga: tworzę folder Magazynowy
+	</string>
+	<string name="Marketplace Validation Warning Create Version">
+		: Uwaga: tworzę folder wersji
+	</string>
+	<string name="Marketplace Validation Warning Move">
+		: Uwaga: przenoszę przedmioty
+	</string>
+	<string name="Marketplace Validation Warning Delete">
+		: Uwaga: zawartość folderu przeniesiona do folderu Magazynowego, usuwam pusty katalog
+	</string>
+	<string name="Marketplace Validation Error Stock Item">
+		: Błąd: przedmioty bez praw kopiowania muszą się znajdować w folderze Magazynowym
+	</string>
+	<string name="Marketplace Validation Warning Unwrapped Item">
+		: Uwaga: przedmioty muszą się znajdować w folderze wersji
+	</string>
+	<string name="Marketplace Validation Error">
+		: Błąd:
+	</string>
+	<string name="Marketplace Validation Warning">
+		: Uwaga:
+	</string>
+	<string name="Marketplace Validation Error Empty Version">
+		: Uwaga: folder wersji musi zawierać przynajmniej jedną pozycję
+	</string>
+	<string name="Marketplace Validation Error Empty Stock">
+		: Uwaga: folder Magazynowy musi zawierać przynajmniej jedną pozycję
+	</string>
+	<string name="Marketplace Validation No Error">
+		Brak błędów lub ostrzeżeń
 	</string>
 	<string name="Marketplace Error None">
 		Brak błędów
 	</string>
+	<string name="Marketplace Error Prefix">
+		Błąd:
+	</string>
 	<string name="Marketplace Error Not Merchant">
-		Błąd: Przed wysłaniem przedmiotów na Marketplace musisz zostać kupcem (darmowe).
+		Przed wysłaniem przedmiotów na Marketplace musisz zostać kupcem (darmowe).
 	</string>
-	<string name="Marketplace Error Empty Folder">
-		Błąd: Ten folder nie ma zawartości.
-	</string>
-	<string name="Marketplace Error Unassociated Products">
-		Błąd: Ta pozycja nie może zostać załadowana, ponieważ Twoje konto kupca ma zbyt wiele nieprzypisanych przedmiotów. Aby naprawić ten błąd zaloguj się na stronę Marketplace i zmniejsz ilość nieprzypisanych (unassociated) przedmiotów.
-	</string>
-	<string name="Marketplace Error Object Limit">
-		Błąd: Ta pozycja zawiera zbyt wiele elementów. Umieść przedmioty razem w pudełkach, aby zmniejszyć ich całkowitą liczbę do mniej niż 200.
-	</string>
-	<string name="Marketplace Error Folder Depth">
-		Błąd: Ta pozycja zawiera zbyt wiele zagnieżdżonych folderów. Zreorganizuj wszystko tak, aby były obecne maksymalnie 3 poziomy zagnieżdżonych folderów.
+	<string name="Marketplace Error Not Accepted">
+		Nie można przenieść tego przedmiotu.
 	</string>
 	<string name="Marketplace Error Unsellable Item">
-		Błąd: Ta pozycja nie może być sprzedana na Marketplace.
+		Ta pozycja nie może być sprzedana na Marketplace.
 	</string>
-	<string name="Marketplace Error Internal Import">
-		Błąd: Wystąpił problem z tą pozycją. Spróbuj ponownie później.
+	<string name="MarketplaceNoID">
+		Brak Mkt ID
+	</string>
+	<string name="MarketplaceLive">
+		na liście
+	</string>
+	<string name="MarketplaceActive">
+		aktywne
+	</string>
+	<string name="MarketplaceMax">
+		maks
+	</string>
+	<string name="MarketplaceStock">
+		magazyn
+	</string>
+	<string name="MarketplaceNoStock">
+		brak w Magazynie
+	</string>
+	<string name="MarketplaceUpdating">
+		aktualizacja...
 	</string>
 	<string name="Open landmarks">
 		Otwórz landmarki
@@ -1456,7 +1656,6 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="no_modify" value=" (bez modyfikowania)"/>
 	<string name="no_copy" value=" (bez kopiowania)"/>
 	<string name="worn" value=" (założone)"/>
-	<string name="link" value=" (link)"/>
 	<string name="broken_link" value=" (zepsuty_link)"/>
 	<string name="LoadingContents">
 		Ładowanie zawartości...
@@ -1551,6 +1750,9 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="InvFolder Gestures">
 		Gesty
 	</string>
+	<string name="InvFolder Favorite">
+		Ulubione
+	</string>
 	<string name="InvFolder Favorites">
 		Ulubione
 	</string>
@@ -1602,9 +1804,6 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="Stone">
 		Kamień
 	</string>
-	<string name="Metal">
-		Metal
-	</string>
 	<string name="Glass">
 		Szkło
 	</string>
@@ -1622,12 +1821,6 @@ Spróbuj zalogować się ponownie za minutę.
 	</string>
 	<string name="Light">
 		Jasny
-	</string>
-	<string name="KBShift">
-		Shift
-	</string>
-	<string name="KBCtrl">
-		Ctrl
 	</string>
 	<string name="Chest">
 		Klatka piersiowa
@@ -1719,9 +1912,6 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="Right Pec">
 		Prawa pierś
 	</string>
-	<string name="Bridge">
-		Most Przeglądarki
-	</string>
 	<string name="Neck">
 		Szyja
 	</string>
@@ -1730,6 +1920,15 @@ Spróbuj zalogować się ponownie za minutę.
 	</string>
 	<string name="Invalid Attachment">
 		Nieprawidłowy punkt dodatku
+	</string>
+	<string name="ATTACHMENT_MISSING_ITEM">
+		Błąd: brakujący przedmiot
+	</string>
+	<string name="ATTACHMENT_MISSING_BASE_ITEM">
+		Błąd: brakująca baza przedmiotu
+	</string>
+	<string name="ATTACHMENT_NOT_ATTACHED">
+		Błąd: obiekt jest w obecnym stroju, ale nie jest założony
 	</string>
 	<string name="YearsOld">
 		[AGEYEARS]
@@ -1863,6 +2062,9 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="CompileQueueUnknownFailure">
 		Nieznany błąd podczas pobierania
 	</string>
+	<string name="CompileNoExperiencePerm">
+		Pomijanie skryptu [SCRIPT] z Przygodą [EXPERIENCE].
+	</string>
 	<string name="CompileQueueTitle">
 		Postęp rekompilacji
 	</string>
@@ -1905,6 +2107,9 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="SaveComplete">
 		Zapisywanie zakończone.
 	</string>
+	<string name="UploadFailed">
+		Ładowanie nieudane: [REASON]
+	</string>
 	<string name="ObjectOutOfRange">
 		Skrypt (obiekt poza zasięgiem)
 	</string>
@@ -1942,9 +2147,6 @@ Spróbuj zalogować się ponownie za minutę.
 	</string>
 	<string name="IMParentEstate">
 		majątek rodziców
-	</string>
-	<string name="IMMainland">
-		mainland
 	</string>
 	<string name="IMTeen">
 		dla niepełnoletnich
@@ -2141,9 +2343,6 @@ Spróbuj zalogować się ponownie za minutę.
 	<string name="ATTACH_AVATAR_CENTER">
 		Środek awatara
 	</string>
-	<string name="ATTACH_BRIDGE">
-		Most
-	</string>
 	<string name="CursorPos">
 		Linia [LINE], Kolumna [COLUMN]
 	</string>
@@ -2196,7 +2395,7 @@ Spróbuj zalogować się ponownie za minutę.
 		Brak umowy dla tego majątku.
 	</string>
 	<string name="RegionNoCovenantOtherOwner">
-		Brak umowy dla tego majątku. Działka w tym majątku została sprzedana przez właściciela majątku, a nie przez Linden Lab. Skontaktuj się z właścicielem majątku w celu uzyskania szczegółów sprzedaży.
+		Brak umowy dla tego majątku. Działka w tym majątku została sprzedana przez właściciela majątku. Skontaktuj się z właścicielem majątku w celu uzyskania szczegółów sprzedaży.
 	</string>
 	<string name="covenant_last_modified" value="Ostatnia modyfikacja: "/>
 	<string name="none_text" value=" (brak) "/>
@@ -2340,44 +2539,11 @@ Oczekiwane .wav, .tga, .bmp, .jpg, .jpeg, lub .bvh
 	<string name="EditLandmarkNavBarMenu">
 		Edytuj Landmarka...
 	</string>
-	<string name="accel-mac-control">
-		&#8963;
-	</string>
-	<string name="accel-mac-command">
-		&#8984;
-	</string>
-	<string name="accel-mac-option">
-		&#8997;
-	</string>
-	<string name="accel-mac-shift">
-		&#8679;
-	</string>
-	<string name="accel-win-control">
-		Ctrl+
-	</string>
-	<string name="accel-win-alt">
-		Alt+
-	</string>
-	<string name="accel-win-shift">
-		Shift+
-	</string>
 	<string name="FileSaved">
 		Plik zapisany
 	</string>
 	<string name="Receiving">
 		Odbieranie
-	</string>
-	<string name="AM">
-		AM
-	</string>
-	<string name="PM">
-		PM
-	</string>
-	<string name="PST">
-		PST
-	</string>
-	<string name="PDT">
-		PDT
 	</string>
 	<string name="Direction_Forward">
 		Do przodu
@@ -2444,9 +2610,6 @@ Oczekiwane .wav, .tga, .bmp, .jpg, .jpeg, lub .bvh
 	</string>
 	<string name="Linden Location">
 		Lokalizacja Lindenów
-	</string>
-	<string name="Adult">
-		Adult
 	</string>
 	<!-- FS:Ansariel: Fixed to match PARCEL_CATEGORY_UI_STRING array -->
 	<string name="Arts and Culture">
@@ -2683,7 +2846,7 @@ Jeżeli nadal otrzymujesz ten komunikat, skontaktuj się z [SUPPORT_SITE].
 		Detale ciała
 	</string>
 	<string name="Body Fat">
-		Zawartość tkanki tłuszczowej
+		Puszystość
 	</string>
 	<string name="Body Freckles">
 		Piegi
@@ -2858,9 +3021,6 @@ Jeżeli nadal otrzymujesz ten komunikat, skontaktuj się z [SUPPORT_SITE].
 	</string>
 	<string name="more bustle">
 		Bardziej unoś
-	</string>
-	<string name="Chaplin">
-		Chaplin
 	</string>
 	<string name="Cheek Bones">
 		Kości policzkowe
@@ -4063,7 +4223,7 @@ Jeżeli nadal otrzymujesz ten komunikat, skontaktuj się z [SUPPORT_SITE].
 		Region Moderate
 	</string>
 	<string name="LocationCtrlGeneralIconTooltip">
-		Region ogólny
+		Region General
 	</string>
 	<string name="LocationCtrlSeeAVsTooltip">
 		Awatary wewnątrz tej działki nie mogą być widziane lub słyszane przez awatary, które są poza nią
@@ -4202,6 +4362,12 @@ Jeżeli nadal otrzymujesz ten komunikat, skontaktuj się z [SUPPORT_SITE].
 	</string>
 	<string name="facebook_post_success">
 		Wysłałeś/aś post na Facebooka.
+	</string>
+	<string name="flickr_post_success">
+		Wysłałeś/aś post na Flickr.
+	</string>
+	<string name="twitter_post_success">
+		Wysłałeś/aś post na Twittera.
 	</string>
 	<string name="no_session_message">
 		(Sesja IM wygasła)
@@ -4565,7 +4731,7 @@ Jeśli problemy będą występowały nadal, proszę sprawdź sieć i ustawienia 
 		Sty:Lut:Mar:Kwi:Maj:Cze:Lip:Sie:Wrz:Paź:Lis:Gru
 	</string>
 	<string name="LocalEstimateUSD">
-		US$ [AMOUNT]
+		[AMOUNT] US$
 	</string>
 	<string name="free">
 		darmowe
@@ -4681,7 +4847,7 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 		Wygląd
 	</string>
 	<string name="Command_Avatar_Label">
-		Awatar
+		Biblioteka awatarów
 	</string>
 	<string name="Command_Build_Label">
 		Buduj
@@ -4709,9 +4875,6 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	</string>
 	<string name="Command_Map_Label">
 		Mapa
-	</string>
-	<string name="Command_Marketplace_Label">
-		Marketplace
 	</string>
 	<string name="Command_MiniMap_Label">
 		Minimapa
@@ -4742,9 +4905,6 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	</string>
 	<string name="Command_Snapshot_Label">
 		Zdjęcie
-	</string>
-	<string name="Command_Social_Label">
-		Facebook
 	</string>
 	<string name="Command_Speak_Label">
 		Głos
@@ -4830,6 +4990,12 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	<string name="Command_ResyncAnimations_Label">
 		Synchronizuj animacje
 	</string>
+	<string name="Command_RegionTracker_Label">
+		Śledzenie Regionów
+	</string>
+	<string name="Command_Group_Titles_Label">
+		Tytuły grup
+	</string>
 	<string name="Command_AboutLand_Tooltip">
 		Informacje o miejscu, które odwiedzasz
 	</string>
@@ -4854,6 +5020,12 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	<string name="Command_Destinations_Tooltip">
 		Punkty, jakie mogą być interesujące
 	</string>
+	<string name="Command_Facebook_Tooltip">
+		Wyślij na Facebooka
+	</string>
+	<string name="Command_Flickr_Tooltip">
+		Wyślij na Flickr
+	</string>
 	<string name="Command_Gestures_Tooltip">
 		Gesty Twojego awatara (CTRL+G)
 	</string>
@@ -4868,6 +5040,9 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	</string>
 	<string name="Command_Marketplace_Tooltip">
 		Idź na zakupy
+	</string>
+	<string name="Command_MarketplaceListings_Tooltip">
+		Sprzedawaj owoce swojej kreatywności
 	</string>
 	<string name="Command_MiniMap_Tooltip">
 		Pokaż ludzi w pobliżu (CTRL+SHIFT+M)
@@ -4898,9 +5073,6 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	</string>
 	<string name="Command_Snapshot_Tooltip">
 		Zrób zdjęcie (CTRL+SHIFT+S)
-	</string>
-	<string name="Command_Social_Tooltip">
-		Wyślij post na Facebooka
 	</string>
 	<string name="Command_Speak_Tooltip">
 		Rozmawiaj z ludźmi w pobliżu używając mikrofonu
@@ -4983,6 +5155,12 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	<string name="Command_ResyncAnimations_Tooltip">
 		Synchronizuj animacje awatarów (CTRL+S)
 	</string>
+	<string name="Command_RegionTracker_Tooltip">
+		Śledź statusy różnych regionów
+	</string>
+	<string name="Command_Group_Titles_Tooltip">
+		Zmień aktywny tag grupy
+	</string>
 	<string name="Toolbar_Bottom_Tooltip">
 		obecnie na Twoim dolnym pasku
 	</string>
@@ -5058,17 +5236,17 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	<string name="SanityCheckGreaterThan">
 		Ustawienie &quot;[CONTROL_NAME]&quot; powinno być większe niż [VALUE_1]
 	</string>
+	<string name="SanityCheckLessThanEquals">
+		Ustawienie &quot;[CONTROL_NAME]&quot; powinno być mniejsze niż lub równe [VALUE_1].
+	</string>
+	<string name="SanityCheckGreaterThanEquals">
+		Ustawienie &quot;[CONTROL_NAME]&quot; powinno być większe niż lub równe [VALUE_1].
+	</string>
 	<string name="SanityCheckBetween">
 		Ustawienie &quot;[CONTROL_NAME]&quot; powinno mieć wartość pomiędzy [VALUE_1] i [VALUE_2]
 	</string>
 	<string name="SanityCheckNotBetween">
 		Ustawienie &quot;[CONTROL_NAME]&quot; nie powinno mieć wartości pomiędzy [VALUE_1] i [VALUE_2]
-	</string>
-	<string name="RlvEnabled">
-		Wsparcie dla RestrainedLove zostanie włączone po restarcie
-	</string>
-	<string name="RlvDisabled">
-		Wsparcie dla RestrainedLove zostanie wyłączone po restarcie
 	</string>
 	<string name="MediaFilterActionAllow">
 		Zezwól
@@ -5145,9 +5323,6 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	<string name="UnknownPosition">
 		(nieznana pozycja)
 	</string>
-	<string name="FSCmdLineRSP">
-		Maks. przepustowość ustawiona na: [VALUE] kbps.
-	</string>
 	<string name="NetMapDoubleClickShowWorldMapToolTipMsg">
 		[AGENT][REGION](Kliknij dwa razy by otworzyć Mapę, przeciągaj z shiftem by zmienić skalę)
 	</string>
@@ -5190,6 +5365,93 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	<string name="TeleportMaturityExceeded">
 		Rezydent nie może odwiedzić tego regionu.
 	</string>
+	<string name="UserDictionary">
+		[Użytkownika]
+	</string>
+	<string name="experience_tools_experience">
+		Przygoda
+	</string>
+	<string name="ExperienceNameNull">
+		(bez przygody)
+	</string>
+	<string name="ExperienceNameUntitled">
+		(przygoda bez nazwy)
+	</string>
+	<string name="Land-Scope">
+		Zakres: Ziemia
+	</string>
+	<string name="Grid-Scope">
+		Zakres: Cała siatka
+	</string>
+	<string name="Allowed_Experiences_Tab">
+		Zezwalam
+	</string>
+	<string name="Blocked_Experiences_Tab">
+		Blokuję
+	</string>
+	<string name="Contrib_Experiences_Tab">
+		Tworzę
+	</string>
+	<string name="Admin_Experiences_Tab">
+		Zarządzam
+	</string>
+	<string name="Recent_Experiences_Tab">
+		Ostatnie
+	</string>
+	<string name="Owned_Experiences_Tab">
+		Moje
+	</string>
+	<string name="ExperiencesCounter">
+		([EXPERIENCES], maks. [MAXEXPERIENCES])
+	</string>
+	<string name="ExperiencePermission1">
+		kontrolować klawisze
+	</string>
+	<string name="ExperiencePermission3">
+		animować Twojego awatara
+	</string>
+	<string name="ExperiencePermission4">
+		dołączać do Twojego awatara
+	</string>
+	<string name="ExperiencePermission9">
+		śledzić Twoją kamerę
+	</string>
+	<string name="ExperiencePermission10">
+		kontrolować Twoją kamerę
+	</string>
+	<string name="ExperiencePermission11">
+		teleportować Cię
+	</string>
+	<string name="ExperiencePermission12">
+		automatycznie akceptować uprawnienia przygody
+	</string>
+	<string name="ExperiencePermissionShortUnknown">
+		wykonać nieznaną operację: [Permission]
+	</string>
+	<string name="ExperiencePermissionShort1">
+		Kontrola klawiszy
+	</string>
+	<string name="ExperiencePermissionShort3">
+		Rozpoczynanie animacji
+	</string>
+	<string name="ExperiencePermissionShort4">
+		Dołączanie
+	</string>
+	<string name="ExperiencePermissionShort9">
+		Śledzenie kamery
+	</string>
+	<string name="ExperiencePermissionShort10">
+		Kontrola kamery
+	</string>
+	<string name="ExperiencePermissionShort11">
+		Teleportacja
+	</string>
+	<string name="ExperiencePermissionShort12">
+		Uprawnienia
+	</string>
+	<string name="ExperiencePermissionShortUnknown">
+		Nieznane: [Permission]
+	</string>
 	<string name="logging_calls_disabled_log_empty">
 		Rozmowy nie są zapisywane do dziennika. Jeśli chcesz zacząć je logować wybierz "Zapisywanie: tylko dziennik" lub "Zapisywanie: dziennik i logi rozmów" w Preferencje > Prywatność.
 	</string>
@@ -5202,6 +5464,15 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	<string name="loading_chat_logs">
 		Wczytywanie...
 	</string>
+	<string name="Mav_Details_MAV_FOUND_DEGENERATE_TRIANGLES">
+		Kształt fizyczny zawiera trójkąty, które są zbyt małe. Spróbuj uprościć model fizyczny.
+	</string>
+	<string name="Mav_Details_MAV_CONFIRMATION_DATA_MISMATCH">
+		Kształt fizyczny zawiera uszkodzone dane. Spróbuj poprawić model fizyczny.
+	</string>
+	<string name="Mav_Details_MAV_UNKNOWN_VERSION">
+		Kształt fizyczny zawiera niepoprawną wersję. Ustaw poprawną wersję dla modelu fizycznego.
+	</string>
 	<string name="LoadCameraPositionNoneSaved">
 		Żadne ustawienie kamery nie zostało jeszcze zapisane.
 	</string>
@@ -5211,11 +5482,11 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	<string name="DrawDistanceSteppingGestureObsolete">
 		Ze względu na zmiany w kodzie używanie tego gestu nie jest już potrzebne. Stopniowe powiększanie pola widzenia zostało włączone.
 	</string>
-	<string name="FSCmdLineDrawDistanceSet">
-		Pole widzenia zostało ustawione na [DISTANCE]m.
-	</string>
 	<string name="FSCameraPositionCopied">
 		Pozycja kamery [POS] została skopiowana do schowka.
+	</string>
+	<string name="FSCmdLineDrawDistanceSet">
+		Pole widzenia zostało ustawione na [DISTANCE]m.
 	</string>
 	<string name="FSCmdLineRollDiceTotal">
 		Wynik całkowity dla [DICE]d[FACES][MODIFIER]: [RESULT].
@@ -5244,6 +5515,12 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	<string name="FSCmdLineCalcRandError">
 		'[RAND]' nie jest poprawnym wyrażeniem dla RAND(min,max). MAX musi być większe niż MIN, oba w zakresie od -10000 do 10000.
 	</string>
+	<string name="FSCmdLineRSP">
+		Maks. przepustowość ustawiona na: [VALUE] kbps.
+	</string>
+	<string name="FSCmdLineTpOffered">
+		Zaproponowano teleportację [NAME].
+	</string>	
 	<string name="FSWithHavok">
 		ze wsparciem dla Havoka
 	</string>
@@ -5475,6 +5752,87 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	<string name="preproc_toggle_warning">
 		Przełączenie trybu preprocesora odniesie pełny skutek dopiero po zamknięciu i ponownym otwarciu tego edytora.
 	</string>
+	<string name="fs_preprocessor_starting">
+		Inicjalizacja preprocesora przeglądarki [APP_NAME]...
+	</string>
+	<string name="fs_preprocessor_not_supported">
+		Uwaga: Preprocesor nie jest wspierany. ([WHERE])
+	</string>
+	<string name="fs_preprocessor_disabled_by_script_marker">
+		Preprocesor przeglądarki [APP_NAME] został wyłączony przez dyrektywę w linii [LINENUMBER].
+	</string>
+	<string name="fs_preprocessor_settings_list_prefix">
+		Ustawienia:
+	</string>
+	<string name="fs_preprocessor_exception">
+		[ERR_NAME] ([LINENUMBER]): wyjątek: [ERR_DESC]
+	</string>
+	<string name="fs_preprocessor_error">
+		[ERR_NAME] ([LINENUMBER]): wystąpił nieoczekiwany wyjątek.
+	</string>
+	<string name="fs_preprocessor_optimizer_start">
+		Optymalizacja funkcji i zmiennych globalnych zdefiniowanych przez użytkownika.
+	</string>
+	<string name="fs_preprocessor_optimizer_regex_err">
+		Nieprawidłowe wyrażenie regularne: '[WHAT]'; Optymalizacja LSL pominięta.
+	</string>
+	<string name="fs_preprocessor_optimizer_exception">
+		Wystąpił nieoczekiwany wyjątek: '[WHAT]'; Optymalizacja LSL pominięta.
+	</string>
+	<string name="fs_preprocessor_optimizer_unexpected_exception">
+		Wystąpił nieoczekiwany wyjątek podczas optymalizacji LSL; Nie zaaplikowano.
+	</string>
+	<string name="fs_preprocessor_compress_start">
+		Kompresja skryptu poprzez wyeliminowanie niepotrzebnych miejsc.
+	</string>
+	<string name="fs_preprocessor_compress_regex_err">
+		Nieprawidłowe wyrażenie regularne: '[WHAT]'; Kompresja LSL pominięta.
+	</string>
+	<string name="fs_preprocessor_compress_exception">
+		Wystąpił nieoczekiwany wyjątek: '[WHAT]'; Kompresja LSL pominięta.
+	</string>
+	<string name="fs_preprocessor_compress_unexpected_exception">
+		Wystąpił nieoczekiwany wyjątek podczas kompresji LSL; Nie zaaplikowano.
+	</string>
+	<string name="fs_preprocessor_lazylist_start">
+		Stosowanie konwersji wolnych list (lazy lists).
+	</string>
+	<string name="fs_preprocessor_lazylist_regex_err">
+		Nieprawidłowe wyrażenie regularne: '[WHAT]'; Konwersja pominięta.
+	</string>
+	<string name="fs_preprocessor_lazylist_exception">
+		Wystąpił nieoczekiwany wyjątek: '[WHAT]'; Konwersja pominięta.
+	</string>
+	<string name="fs_preprocessor_lazylist_unexpected_exception">
+		Wystąpił nieoczekiwany wyjątek podczas konwersji wolnych list; Nie zaaplikowano.
+	</string>
+	<string name="fs_preprocessor_switchstatement_start">
+		Stosowanie konwersji instrukcji switch.
+	</string>
+	<string name="fs_preprocessor_switchstatement_regex_err">
+		Nieprawidłowe wyrażenie regularne: '[WHAT]'; Konwersja instrukcji switch pominięta.
+	</string>
+	<string name="fs_preprocessor_switchstatement_exception">
+		Wystąpił nieoczekiwany wyjątek: '[WHAT]'; Konwersja instrukcji switch pominięta.
+	</string>
+	<string name="fs_preprocessor_switchstatement_unexpected_exception">
+		Wystąpił nieoczekiwany wyjątek podczas konwersji instrukcji switch; Nie zaaplikowano.
+	</string>
+	<string name="fs_preprocessor_cache_miss">
+		Buforowanie dołączonego pliku: '[FILENAME]'
+	</string>
+	<string name="fs_preprocessor_cache_invalidated">
+		Dołączony plik '[FILENAME]' uległ zmianie, buforowanie ponowne.
+	</string>
+	<string name="fs_preprocessor_cache_completed">
+		Buforowanie zakończone dla '[FILENAME]'
+	</string>
+	<string name="fs_preprocessor_cache_unsafe">
+		Błąd: skopiowanie skryptu '[FILENAME]' do systemu plików nie jest bezpieczne. To dołączenie nie powiedzie się.
+	</string>
+	<string name="fs_preprocessor_caching_err">
+		Błąd podczas buforowania pliku '[FILENAME]'
+	</string>
 	<string name="skin_defaults_starlight_location">
 		Pokazywanie Twojej obecnej lokalizacji w pasku menu zostało wyłączone, to domyślne zachowanie dla skórek linii StarLight.
 	</string>
@@ -5512,7 +5870,7 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 		Błąd strony SL Grid Status: Upłynął limit czasu żądania.
 	</string>
 	<string name="SLGridStatusOtherError">
-		Błąd strony SL Grid Status: [STATUS] (https://pl.wikipedia.org/wiki/Kod_odpowiedzi_HTTP).
+		Błąd strony SL Grid Status: [STATUS] ( https://pl.wikipedia.org/wiki/Kod_odpowiedzi_HTTP ).
 	</string>
 	<string name="DoubleClickTeleportEnabled">
 		Włączono teleport po dwukliku.
@@ -5522,5 +5880,26 @@ Spróbuj załączyć ścieżkę do edytora w cytowaniu.
 	</string>
 	<string name="FSRegionRestartInLocalChat">
 		Region, w którym teraz jesteś zostanie za chwilę zrestartowany. Jeśli w nim zostaniesz, to symulator Cię wyloguje.
+	</string>
+	<string name="Mute_Add">
+		Dodano '[NAME]' do listy zablokowanych.
+	</string>
+	<string name="Mute_Remove">
+		Usunięto '[NAME]' z listy zablokowanych.
+	</string>
+	<string name="Reqsysinfo_Chat_NoReason">
+		Wysyłam prośbę o udzielenie informacji o Twojej konfiguracji systemu.
+	</string>
+	<string name="Reqsysinfo_Chat_Reason">
+		Wysyłam prośbę o udzielenie informacji o Twojej konfiguracji systemu z powodu: [REASON]
+	</string>
+	<string name="Reqsysinfo_Chat_Information_sent">
+		Informacje wysłane: [DATA]
+	</string>
+	<string name="Reqsysinfo_Chat_Request_Denied">
+		Prośba odrzucona.
+	</string>
+	<string name="Reqsysinfo_Reason">
+		Podany powód: [REASON]
 	</string>
 </strings>

@@ -138,11 +138,14 @@ with the same filename but different name
   <texture name="Command_Chat_Icon"         file_name="toolbar_icons/chat.png"         preload="true" />
   <texture name="Command_Compass_Icon"      file_name="toolbar_icons/land.png"         preload="true" />
   <texture name="Command_Destinations_Icon" file_name="toolbar_icons/destinations.png" preload="true" />
+  <texture name="Command_Facebook_Icon"     file_name="toolbar_icons/facebook.png"     preload="true" />
+  <texture name="Command_Flickr_Icon"       file_name="toolbar_icons/flickr.png"       preload="true" />
   <texture name="Command_Gestures_Icon"     file_name="toolbar_icons/gestures.png"     preload="true" />
   <texture name="Command_HowTo_Icon"        file_name="toolbar_icons/howto.png"        preload="true" />
   <texture name="Command_Inventory_Icon"    file_name="toolbar_icons/inventory.png"    preload="true" />
   <texture name="Command_Map_Icon"          file_name="toolbar_icons/map.png"          preload="true" />
   <texture name="Command_Marketplace_Icon"  file_name="toolbar_icons/marketplace.png"  preload="true" />
+  <texture name="Command_MktListings_Icon"  file_name="toolbar_icons/mktlistings.png"  preload="true" />
   <texture name="Command_MiniCart_Icon"     file_name="toolbar_icons/mini_cart.png"    preload="true" />
   <texture name="Command_MiniMap_Icon"      file_name="toolbar_icons/mini_map.png"     preload="true" />
   <texture name="Command_Move_Icon"         file_name="toolbar_icons/move.png"         preload="true" />
@@ -153,11 +156,12 @@ with the same filename but different name
   <texture name="Command_Preferences_Icon"  file_name="toolbar_icons/preferences.png"  preload="true" />
   <texture name="Command_Profile_Icon"      file_name="toolbar_icons/profile.png"      preload="true" />
   <texture name="Command_Search_Icon"       file_name="toolbar_icons/search.png"       preload="true" />
-  <texture name="Command_Social_Icon"       file_name="toolbar_icons/facebook.png"     preload="true" />
   <texture name="Command_Snapshot_Icon"     file_name="toolbar_icons/snapshot.png"     preload="true" />
   <texture name="Command_Speak_Icon"        file_name="toolbar_icons/speak.png"        preload="true" />
+  <texture name="Command_Twitter_Icon"      file_name="toolbar_icons/twitter.png"      preload="true" />
   <texture name="Command_View_Icon"         file_name="toolbar_icons/view.png"         preload="true" />
   <texture name="Command_Voice_Icon"        file_name="toolbar_icons/nearbyvoice.png"  preload="true" />
+  <texture name="Command_RegionTracker_Icon" file_name="toolbar_icons/regiontracker.png"       preload="true" />
   <texture name="Caret_Bottom_Icon"         file_name="toolbar_icons/caret_bottom.png" preload="true" scale.left="1" scale.top="23" scale.right="15" scale.bottom="1" />
   <texture name="Caret_Right_Icon"          file_name="toolbar_icons/caret_right.png"  preload="true" scale.left="5" scale.top="15" scale.right="28" scale.bottom="1" />
   <texture name="Caret_Left_Icon"           file_name="toolbar_icons/caret_left.png"   preload="true" scale.left="1" scale.top="15" scale.right="23" scale.bottom="1" />
@@ -227,6 +231,7 @@ with the same filename but different name
   <texture name="ForwardArrow_Off" file_name="icons/ForwardArrow_Off.png" preload="false" />
   <texture name="ForwardArrow_Press" file_name="icons/ForwardArrow_Press.png" preload="false" />
 
+  <texture name="Generic_Experience" file_name="Blank.png" preload="false" />
   <texture name="Generic_Group" file_name="icons/Generic_Group.png" preload="false" />
   <texture name="Generic_Group_Large" file_name="icons/Generic_Group_Large.png" preload="false" />
   <texture name="icon_group.tga" file_name="icons/Generic_Group.png" preload="false" />
@@ -234,6 +239,8 @@ with the same filename but different name
   <texture name="Generic_Person" file_name="icons/Generic_Person.png" preload="false" />
   <texture name="Generic_Person_Large" file_name="icons/Generic_Person_Large.png" preload="false" />
 
+  <texture name="Hand" file_name="icons/hand.png" preload="false" />
+  
   <texture name="Help_Press" file_name="navbar/Help_Press.png" preload="false" />
 
   <texture name="Hierarchy_View_Disabled" file_name="icons/Hierarchy_View_Disabled.png" preload="false" />
@@ -264,6 +271,9 @@ with the same filename but different name
 
   <texture name="Icon_Restore_Foreground" file_name="windows/Icon_Restore_Foreground.png" preload="false" />
   <texture name="Icon_Restore_Press" file_name="windows/Icon_Restore_Press.png" preload="false" />
+
+  <texture name="Icon_Snooze_Foreground" file_name="windows/Icon_Snooze_Foreground.png" preload="false" />
+  <texture name="Icon_Snooze_Press" file_name="windows/Icon_Snooze_Press.png" preload="false" />
 
   <texture name="Info" file_name="icons/Info.png" preload="false" />
   <texture name="Info_Small" file_name="icons/Info_Small.png" preload="false" />
@@ -310,6 +320,8 @@ with the same filename but different name
   <texture name="Inv_Snapshot" file_name="icons/Inv_Snapshot.png" preload="false" />
   <texture name="Inv_Socks" file_name="icons/Inv_Socks.png" preload="false" />
   <texture name="Inv_Sound" file_name="icons/Inv_Sound.png" preload="false" />
+  <texture name="Inv_StockFolderClosed" file_name="icons/Inv_StockFolderClosed.png" preload="false" />
+  <texture name="Inv_StockFolderOpen" file_name="icons/Inv_StockFolderOpen.png" preload="false" />
   <texture name="Inv_SysClosed" file_name="icons/Inv_SysClosed.png" preload="false" />
   <texture name="Inv_SysOpen" file_name="icons/Inv_SysOpen.png" preload="false" />
   <texture name="Inv_Tattoo" file_name="icons/Inv_Tattoo.png" preload="false" />
@@ -321,6 +333,8 @@ with the same filename but different name
   <texture name="Inv_Undershirt" file_name="icons/Inv_Undershirt.png" preload="false" />
   <texture name="Inv_Link" file_name="icons/Inv_Link.png" preload="false" />
   <texture name="Inv_Invalid" file_name="icons/Inv_Invalid.png" preload="false" />
+  <texture name="Inv_VersionFolderClosed" file_name="icons/Inv_VersionFolderClosed.png" preload="false" />
+  <texture name="Inv_VersionFolderOpen" file_name="icons/Inv_VersionFolderOpen.png" preload="false" />
   
  <!-- Firstorm specific individual system folder icons -->
   <texture name="Inv_TexturesOpen"		file_name="icons/Inv_SysOpen.png" />
@@ -380,6 +394,7 @@ with the same filename but different name
 
   <texture name="Map_Placeholder_Icon" file_name="icons/map_placeholder.png" preload="true" />
     
+  <texture name="Marketplace_Dropzone_Background" file_name="widgets/Marketplace_Dropzone_Background.png" preload="true" />
   <texture name="MarketplaceBtn_Off" file_name="widgets/MarketplaceBtn_Off.png" preload="true" scale.left="30" scale.top="19" scale.right="35" scale.bottom="4" />
   <texture name="MarketplaceBtn_Selected" file_name="widgets/MarketplaceBtn_Selected.png" preload="true" scale.left="30" scale.top="19" scale.right="35" scale.bottom="4" />
 
@@ -391,12 +406,12 @@ with the same filename but different name
 
   <texture name="menu_separator" file_name="navbar/FileMenu_Divider.png" scale.left="4" scale.top="166" scale.right="0" scale.bottom="0" />
 
-  <texture name="Mouselook_View_Off" file_name="bottomtray/Mouselook_View_Off.png" preload="false" />
-  <texture name="Mouselook_View_On" file_name="bottomtray/Mouselook_View_On.png" preload="false" />
   <texture name="ModelImport_Status_Good" file_name="green_checkmark.png" preload="false"/>
   <texture name="ModelImport_Status_Warning" file_name="lag_status_warning.tga" preload="false"/>
   <texture name="ModelImport_Status_Error" file_name="red_x.png" preload="false"/>
   
+  <texture name="MouseLook_View_Off" file_name="bottomtray/Mouselook_View_Off.png" preload="false" />
+  <texture name="MouseLook_View_On" file_name="bottomtray/Mouselook_View_On.png" preload="false" />
   <texture name="Move_Fly_Off" file_name="bottomtray/Move_Fly_Off.png" preload="false" />
   <texture name="Move_Run_Off" file_name="bottomtray/Move_Run_Off.png" preload="false" />
   <texture name="Move_Walk_Off" file_name="bottomtray/Move_Walk_Off.png" preload="false" />
@@ -562,6 +577,11 @@ with the same filename but different name
   <texture name="PushButton_Selected_Press" file_name="widgets/PushButton_Selected_Press.png" preload="true" scale.left="4" scale.top="19" scale.right="28" scale.bottom="4" />
   <texture name="PushButton_Selected_Disabled" file_name="widgets/PushButton_Selected_Disabled.png" preload="true" scale.left="4" scale.top="19" scale.right="28" scale.bottom="4" />
 
+  <texture name="PushButton_Login" file_name="widgets/PushButton_Login.png" preload="true" scale.left="4" scale.top="19" scale.right="28" scale.bottom="4" />
+  <texture name="PushButton_Login_Over" file_name="widgets/PushButton_Login_Over.png" preload="true" scale.left="4" scale.top="19" scale.right="28" scale.bottom="4" />
+  <texture name="PushButton_Login_Pressed" file_name="widgets/PushButton_Login_Pressed.png" preload="true" scale.left="4" scale.top="19" scale.right="28" scale.bottom="4" />
+
+
   <texture name="RadioButton_Press" file_name="widgets/RadioButton_Press.png" preload="true" />
   <texture name="RadioButton_On_Press" file_name="widgets/RadioButton_On_Press.png" preload="true" />
   <texture name="RadioButton_Off" file_name="widgets/RadioButton_Off.png" preload="true" />
@@ -647,11 +667,13 @@ with the same filename but different name
   <texture name="Snapshot_Inventory" file_name="toolbar_icons/inventory.png" preload="false" />
   <texture name="Snapshot_Profile" file_name="toolbar_icons/profile.png" preload="false" />
   <texture name="Snapshot_Facebook" file_name="toolbar_icons/facebook.png" preload="false" />
-  <!-- <exodus> -->
-  <texture name="Snapshot_Exodus_Flickr" file_name="snapshot_flickr.png" preload="false" />
-  <!-- </exodus> -->
 
   <texture name="startup_logo"  file_name="windows/startup_logo.png" preload="true" />
+
+  <texture name="login_sl_logo"  file_name="windows/login_sl_logo.png" preload="true" />
+  <texture name="login_sl_logo_small"  file_name="windows/login_sl_logo_small.png" preload="true" />
+  <texture name="first_login_image_left"  file_name="windows/first_login_image_left.png" preload="true" />
+  <texture name="first_login_image_right"  file_name="windows/first_login_image_right.png" preload="true" />
 
   <texture name="Stepper_Down_Off" file_name="widgets/Stepper_Down_Off.png" preload="false" />
   <texture name="Stepper_Down_Press" file_name="widgets/Stepper_Down_Press.png" preload="false" />
@@ -758,6 +780,7 @@ with the same filename but different name
   <texture name="move_lock" file_name="toolbar_icons/movelock.png" preload="true" />
   <texture name="block_list" file_name="toolbar_icons/blocklist.png" preload="true" />
   <texture name="resync_animations" file_name="toolbar_icons/resync_animations.png" preload="true" />
+  <texture name="Group_Titles_Icon" file_name="toolbar_icons/group_titles.png" preload="true" />
   
   <texture name="skin ansastorm blood" file_name="skinspreview/ansa_blood.jpg" preload="true" />
   <texture name="skin ansastorm bright blue" file_name="skinspreview/ansa_blue.jpg" preload="true" />
@@ -1004,6 +1027,10 @@ with the same filename but different name
 <texture name="Script_Editor" file_name="icons/script_editor.png" preload="false" />
 <texture name="Script_Config" file_name="icons/script_config.png" preload="false" />
 
+<texture name="Script_Running" file_name="icons/green_square.png" preload="false" />
+<texture name="Script_NotRunning" file_name="icons/yellow_square.png" preload="false" />
+<texture name="Script_Error" file_name="icons/red_square.png" preload="false" />
+
 <texture name="Payment_Info_Filled" file_name="legacy/payment_info_filled.tga" preload="false" />
 <texture name="Payment_Info_Used" file_name="legacy/payment_info_used.tga" preload="false" />
 	
@@ -1013,4 +1040,8 @@ with the same filename but different name
 <texture name="TrashItem_Menu" file_name="icons/TrashItem_Menu.png" preload="false" />
 
 <texture name="Active_Voice_Tab" file_name="legacy/active_voice_tab.tga" preload="false" />
+
+<texture name="LagStatus_Good" file_name="icons/green_square.png" preload="false" />
+<texture name="LagStatus_Warning" file_name="icons/yellow_square.png" preload="false" />
+<texture name="LagStatus_Critical" file_name="icons/red_square.png" preload="false" />
 </textures>

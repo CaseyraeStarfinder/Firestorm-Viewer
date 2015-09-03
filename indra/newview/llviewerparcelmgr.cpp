@@ -118,6 +118,7 @@ LLViewerParcelMgr::LLViewerParcelMgr()
 	mHoverRequestResult(0),
 	mHoverWestSouth(),
 	mHoverEastNorth(),
+	mTeleportInProgressPosition(),
 	mRenderCollision(FALSE),
 	mRenderSelection(TRUE),
 	mCollisionBanned(0),
@@ -235,8 +236,8 @@ void LLViewerParcelMgr::dump()
 	mCurrentParcel->dump();
 	LL_INFOS() << "banning " << mCurrentParcel->mBanList.size() << LL_ENDL;
 	
-	access_map_const_iterator cit = mCurrentParcel->mBanList.begin();
-	access_map_const_iterator end = mCurrentParcel->mBanList.end();
+	LLAccessEntry::map::const_iterator cit = mCurrentParcel->mBanList.begin();
+	LLAccessEntry::map::const_iterator end = mCurrentParcel->mBanList.end();
 	for ( ; cit != end; ++cit)
 	{
 		LL_INFOS() << "ban id " << (*cit).first << LL_ENDL;
@@ -311,7 +312,7 @@ S32 LLViewerParcelMgr::getSelectedArea() const
 		F64 width = mEastNorth.mdV[VX] - mWestSouth.mdV[VX];
 		F64 height = mEastNorth.mdV[VY] - mWestSouth.mdV[VY];
 		F32 area = (F32)(width * height);
-		rv = llround(area);
+		rv = ll_round(area);
 	}
 	return rv;
 }
@@ -331,10 +332,10 @@ void LLViewerParcelMgr::writeHighlightSegments(F32 west, F32 south, F32 east,
 											   F32 north)
 {
 	S32 x, y;
-	S32 min_x = llround( west / PARCEL_GRID_STEP_METERS );
-	S32 max_x = llround( east / PARCEL_GRID_STEP_METERS );
-	S32 min_y = llround( south / PARCEL_GRID_STEP_METERS );
-	S32 max_y = llround( north / PARCEL_GRID_STEP_METERS );
+	S32 min_x = ll_round( west / PARCEL_GRID_STEP_METERS );
+	S32 max_x = ll_round( east / PARCEL_GRID_STEP_METERS );
+	S32 min_y = ll_round( south / PARCEL_GRID_STEP_METERS );
+	S32 max_y = ll_round( north / PARCEL_GRID_STEP_METERS );
 
 	const S32 STRIDE = mParcelsPerEdge+1;
 
@@ -446,12 +447,12 @@ LLParcelSelectionHandle LLViewerParcelMgr::selectParcelAt(const LLVector3d& pos_
 	LLVector3d northeast = pos_global;
 
 	southwest -= LLVector3d( PARCEL_GRID_STEP_METERS/2, PARCEL_GRID_STEP_METERS/2, 0 );
-	southwest.mdV[VX] = llround( southwest.mdV[VX], (F64)PARCEL_GRID_STEP_METERS );
-	southwest.mdV[VY] = llround( southwest.mdV[VY], (F64)PARCEL_GRID_STEP_METERS );
+	southwest.mdV[VX] = ll_round( southwest.mdV[VX], (F64)PARCEL_GRID_STEP_METERS );
+	southwest.mdV[VY] = ll_round( southwest.mdV[VY], (F64)PARCEL_GRID_STEP_METERS );
 
 	northeast += LLVector3d( PARCEL_GRID_STEP_METERS/2, PARCEL_GRID_STEP_METERS/2, 0 );
-	northeast.mdV[VX] = llround( northeast.mdV[VX], (F64)PARCEL_GRID_STEP_METERS );
-	northeast.mdV[VY] = llround( northeast.mdV[VY], (F64)PARCEL_GRID_STEP_METERS );
+	northeast.mdV[VX] = ll_round( northeast.mdV[VX], (F64)PARCEL_GRID_STEP_METERS );
+	northeast.mdV[VY] = ll_round( northeast.mdV[VY], (F64)PARCEL_GRID_STEP_METERS );
 
 	// Snap to parcel
 	return selectLand( southwest, northeast, TRUE );
@@ -753,7 +754,8 @@ bool LLViewerParcelMgr::allowAgentScripts(const LLViewerRegion* region, const LL
 bool LLViewerParcelMgr::allowAgentDamage(const LLViewerRegion* region, const LLParcel* parcel) const
 {
 	return (region && region->getAllowDamage())
-		|| (parcel && parcel->getAllowDamage());
+		//&& (parcel && parcel->getAllowDamage());
+		|| (parcel && parcel->getAllowDamage());  // <FS:LO> FIRE-16112 fix
 }
 
 BOOL LLViewerParcelMgr::isOwnedAt(const LLVector3d& pos_global) const
@@ -940,7 +942,7 @@ void LLViewerParcelMgr::sendParcelAccessListRequest(U32 flags)
 	if (!region) return;
 
 	LLMessageSystem *msg = gMessageSystem;
-	
+
 
 	if (flags & AL_BAN) 
 	{
@@ -949,6 +951,14 @@ void LLViewerParcelMgr::sendParcelAccessListRequest(U32 flags)
 	if (flags & AL_ACCESS) 
 	{
 		mCurrentParcel->mAccessList.clear();
+	}		
+	if (flags & AL_ALLOW_EXPERIENCE) 
+	{
+		mCurrentParcel->clearExperienceKeysByType(EXPERIENCE_KEY_TYPE_ALLOWED);
+	}
+	if (flags & AL_BLOCK_EXPERIENCE) 
+	{
+		mCurrentParcel->clearExperienceKeysByType(EXPERIENCE_KEY_TYPE_BLOCKED);
 	}		
 
 	// Only the headers differ
@@ -1369,12 +1379,6 @@ void LLViewerParcelMgr::setHoverParcel(const LLVector3d& pos)
 	static U32 last_west, last_south;
 
 
-	// only request parcel info when tooltip is shown
-	if (!gSavedSettings.getBOOL("ShowLandHoverTip"))
-	{
-		return;
-	}
-
 	// only request parcel info if position has changed outside of the
 	// last parcel grid step
 	U32 west_parcel_step = (U32) floor( pos.mdV[VX] / PARCEL_GRID_STEP_METERS );
@@ -1628,6 +1632,7 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
 
 		if (parcel == parcel_mgr.mAgentParcel)
 		{
+			// new agent parcel
 			S32 bitmap_size =	parcel_mgr.mParcelsPerEdge
 								* parcel_mgr.mParcelsPerEdge
 								/ 8;
@@ -1646,11 +1651,30 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
 			if (instance->mTeleportInProgress)
 			{
 				instance->mTeleportInProgress = FALSE;
-				instance->mTeleportFinishedSignal(gAgent.getPositionGlobal(), false);
+				if(instance->mTeleportInProgressPosition.isNull())
+				{
+					//initial update
+					instance->mTeleportFinishedSignal(gAgent.getPositionGlobal(), false);
+				}
+				else
+				{
+					instance->mTeleportFinishedSignal(instance->mTeleportInProgressPosition, false);
+				}
 			}
 
 			//KC: check for parcel changes for WL settings
 			KCWindlightInterface::instance().ParcelChange();
+		}
+		else if (local_id == parcel_mgr.mAgentParcel->getLocalID())
+		{
+			// Parcels in different regions can have same ids.
+			LLViewerRegion* parcel_region = LLWorld::getInstance()->getRegion( msg->getSender() );
+			LLViewerRegion* agent_region = gAgent.getRegion();
+			if (parcel_region && agent_region && parcel_region->getRegionID() == agent_region->getRegionID())
+			{
+				// updated agent parcel
+				parcel_mgr.mAgentParcel->unpackMessage(msg);
+			}
 		}
 	}
 
@@ -1720,7 +1744,7 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
 			}
 
 			// Request access list information for this land
-			parcel_mgr.sendParcelAccessListRequest(AL_ACCESS | AL_BAN);
+			parcel_mgr.sendParcelAccessListRequest(AL_ACCESS | AL_BAN | AL_ALLOW_EXPERIENCE | AL_BLOCK_EXPERIENCE);
 
 			// Request dwell for this land, if it's not public land.
 			parcel_mgr.mSelectedDwell = DWELL_NAN;
@@ -1910,6 +1934,14 @@ void LLViewerParcelMgr::processParcelAccessListReply(LLMessageSystem *msg, void 
 	{
 		parcel->unpackAccessEntries(msg, &(parcel->mBanList) );
 	}
+	else if (message_flags & AL_ALLOW_EXPERIENCE)
+	{
+		parcel->unpackExperienceEntries(msg, EXPERIENCE_KEY_TYPE_ALLOWED);
+	}
+	else if (message_flags & AL_BLOCK_EXPERIENCE)
+	{
+		parcel->unpackExperienceEntries(msg, EXPERIENCE_KEY_TYPE_BLOCKED);
+	}
 	/*else if (message_flags & AL_RENTER)
 	{
 		parcel->unpackAccessEntries(msg, &(parcel->mRenterList) );
@@ -1944,10 +1976,6 @@ void LLViewerParcelMgr::processParcelDwellReply(LLMessageSystem* msg, void**)
 
 void LLViewerParcelMgr::sendParcelAccessListUpdate(U32 which)
 {
-
-	LLUUID transactionUUID;
-	transactionUUID.generate();
-
 	if (!mSelected)
 	{
 		return;
@@ -1956,124 +1984,91 @@ void LLViewerParcelMgr::sendParcelAccessListUpdate(U32 which)
 	LLViewerRegion* region = LLWorld::getInstance()->getRegionFromPosGlobal( mWestSouth );
 	if (!region) return;
 
-	LLMessageSystem* msg = gMessageSystem;
-
 	LLParcel* parcel = mCurrentParcel;
 	if (!parcel) return;
 
 	if (which & AL_ACCESS)
 	{	
-		S32 count = parcel->mAccessList.size();
-		S32 num_sections = (S32) ceil(count/PARCEL_MAX_ENTRIES_PER_PACKET);
-		S32 sequence_id = 1;
-		BOOL start_message = TRUE;
-		BOOL initial = TRUE;
-
-		access_map_const_iterator cit = parcel->mAccessList.begin();
-		access_map_const_iterator end = parcel->mAccessList.end();
-		while ( (cit != end) || initial ) 
-		{	
-			if (start_message) 
-			{
-				msg->newMessageFast(_PREHASH_ParcelAccessListUpdate);
-				msg->nextBlockFast(_PREHASH_AgentData);
-				msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID() );
-				msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID() );
-				msg->nextBlockFast(_PREHASH_Data);
-				msg->addU32Fast(_PREHASH_Flags, AL_ACCESS);
-				msg->addS32(_PREHASH_LocalID, parcel->getLocalID() );
-				msg->addUUIDFast(_PREHASH_TransactionID, transactionUUID);
-				msg->addS32Fast(_PREHASH_SequenceID, sequence_id);
-				msg->addS32Fast(_PREHASH_Sections, num_sections);
-				start_message = FALSE;
-
-				if (initial && (cit == end))
-				{
-					// pack an empty block if there will be no data
-					msg->nextBlockFast(_PREHASH_List);
-					msg->addUUIDFast(_PREHASH_ID,  LLUUID::null );
-					msg->addS32Fast(_PREHASH_Time, 0 );
-					msg->addU32Fast(_PREHASH_Flags,	0 );
-				}
-
-				initial = FALSE;
-				sequence_id++;
-
-			}
-			
-			while ( (cit != end) && (msg->getCurrentSendTotal() < MTUBYTES)) 
-			{
-
-				const LLAccessEntry& entry = (*cit).second;
-				
-				msg->nextBlockFast(_PREHASH_List);
-				msg->addUUIDFast(_PREHASH_ID,  entry.mID );
-				msg->addS32Fast(_PREHASH_Time, entry.mTime );
-				msg->addU32Fast(_PREHASH_Flags,	entry.mFlags );
-				++cit;
-			}
-
-			start_message = TRUE;
-			msg->sendReliable( region->getHost() );
-		}
+		sendParcelAccessListUpdate(AL_ACCESS, parcel->mAccessList, region, parcel->getLocalID());
 	}
 
 	if (which & AL_BAN)
 	{	
-		S32 count = parcel->mBanList.size();
-		S32 num_sections = (S32) ceil(count/PARCEL_MAX_ENTRIES_PER_PACKET);
-		S32 sequence_id = 1;
-		BOOL start_message = TRUE;
-		BOOL initial = TRUE;
+		sendParcelAccessListUpdate(AL_BAN, parcel->mBanList, region, parcel->getLocalID());
+	}
 
-		access_map_const_iterator cit = parcel->mBanList.begin();
-		access_map_const_iterator end = parcel->mBanList.end();
-		while ( (cit != end) || initial ) 
-		{
-			if (start_message) 
-			{
-				msg->newMessageFast(_PREHASH_ParcelAccessListUpdate);
-				msg->nextBlockFast(_PREHASH_AgentData);
-				msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID() );
-				msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID() );
-				msg->nextBlockFast(_PREHASH_Data);
-				msg->addU32Fast(_PREHASH_Flags, AL_BAN);
-				msg->addS32(_PREHASH_LocalID, parcel->getLocalID() );
-				msg->addUUIDFast(_PREHASH_TransactionID, transactionUUID);
-				msg->addS32Fast(_PREHASH_SequenceID, sequence_id);
-				msg->addS32Fast(_PREHASH_Sections, num_sections);
-				start_message = FALSE;
-
-				if (initial && (cit == end))
-				{
-					// pack an empty block if there will be no data
-					msg->nextBlockFast(_PREHASH_List);
-					msg->addUUIDFast(_PREHASH_ID,  LLUUID::null );
-					msg->addS32Fast(_PREHASH_Time, 0 );
-					msg->addU32Fast(_PREHASH_Flags,	0 );
-				}
-
-				initial = FALSE;
-				sequence_id++;
-
-			}
-			
-			while ( (cit != end) && (msg->getCurrentSendTotal() < MTUBYTES)) 
-			{
-				const LLAccessEntry& entry = (*cit).second;
-				
-				msg->nextBlockFast(_PREHASH_List);
-				msg->addUUIDFast(_PREHASH_ID,  entry.mID );
-				msg->addS32Fast(_PREHASH_Time, entry.mTime );
-				msg->addU32Fast(_PREHASH_Flags,	entry.mFlags );
-				++cit;
-			}
-
-			start_message = TRUE;
-			msg->sendReliable( region->getHost() );
-		}
+	if(which & AL_ALLOW_EXPERIENCE)
+	{
+		sendParcelAccessListUpdate(AL_ALLOW_EXPERIENCE, parcel->getExperienceKeysByType(EXPERIENCE_KEY_TYPE_ALLOWED), region, parcel->getLocalID());
+	}
+	if(which & AL_BLOCK_EXPERIENCE)
+	{
+		sendParcelAccessListUpdate(AL_BLOCK_EXPERIENCE, parcel->getExperienceKeysByType(EXPERIENCE_KEY_TYPE_BLOCKED), region, parcel->getLocalID());
 	}
 }
+
+void LLViewerParcelMgr::sendParcelAccessListUpdate(U32 flags, const LLAccessEntry::map& entries, LLViewerRegion* region, S32 parcel_local_id)
+{
+	S32 count = entries.size();
+	S32 num_sections = (S32) ceil(count/PARCEL_MAX_ENTRIES_PER_PACKET);
+	S32 sequence_id = 1;
+	BOOL start_message = TRUE;
+	BOOL initial = TRUE;
+
+	LLUUID transactionUUID;
+	transactionUUID.generate();
+
+
+	LLMessageSystem* msg = gMessageSystem;
+
+	LLAccessEntry::map::const_iterator cit = entries.begin();
+	LLAccessEntry::map::const_iterator  end = entries.end();
+	while ( (cit != end) || initial ) 
+	{
+		if (start_message) 
+		{
+			msg->newMessageFast(_PREHASH_ParcelAccessListUpdate);
+			msg->nextBlockFast(_PREHASH_AgentData);
+			msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID() );
+			msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID() );
+			msg->nextBlockFast(_PREHASH_Data);
+			msg->addU32Fast(_PREHASH_Flags, flags);
+			msg->addS32(_PREHASH_LocalID,  parcel_local_id);
+			msg->addUUIDFast(_PREHASH_TransactionID, transactionUUID);
+			msg->addS32Fast(_PREHASH_SequenceID, sequence_id);
+			msg->addS32Fast(_PREHASH_Sections, num_sections);
+			start_message = FALSE;
+
+			if (initial && (cit == end))
+			{
+				// pack an empty block if there will be no data
+				msg->nextBlockFast(_PREHASH_List);
+				msg->addUUIDFast(_PREHASH_ID,  LLUUID::null );
+				msg->addS32Fast(_PREHASH_Time, 0 );
+				msg->addU32Fast(_PREHASH_Flags,	0 );
+			}
+
+			initial = FALSE;
+			sequence_id++;
+
+		}
+
+		while ( (cit != end) && (msg->getCurrentSendTotal() < MTUBYTES)) 
+		{
+			const LLAccessEntry& entry = (*cit).second;
+
+			msg->nextBlockFast(_PREHASH_List);
+			msg->addUUIDFast(_PREHASH_ID,  entry.mID );
+			msg->addS32Fast(_PREHASH_Time, entry.mTime );
+			msg->addU32Fast(_PREHASH_Flags,	entry.mFlags );
+			++cit;
+		}
+
+		start_message = TRUE;
+		msg->sendReliable( region->getHost() );
+	}
+}
+
 
 void LLViewerParcelMgr::deedLandToGroup()
 {
@@ -2583,6 +2578,7 @@ void LLViewerParcelMgr::onTeleportFinished(bool local, const LLVector3d& new_pos
 		// Non-local teleport (inter-region or between different parcels of the same region).
 		// The agent parcel data has not been updated yet.
 		// Let's wait for the update and then emit the signal.
+		mTeleportInProgressPosition = new_pos;
 		mTeleportInProgress = TRUE;
 	}
 }

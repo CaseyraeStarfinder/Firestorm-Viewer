@@ -29,7 +29,6 @@
         <check_box name="FSAdvancedTooltips" label="Mostra informazioni estese in hovertips (stile Phoenix)"/>
         <check_box name="FSShowGroupTitleInTooltip" label="Mostra il titolo del gruppo in hovertips"/>
         <check_box label="Usa Menu a torta (pie menu)" name="UsePieMenu" tool_tip="Utilizza il menu circolare (a torta) come quello del Viewer 1.x invece dei menu contestuali rettangolari del Viewer 2/3" />
-        <check_box name="ShowNetStats" label="Mostra l'indicatore lag" width="140" tool_tip="Mostra l'indicatore della lagg nella barra di stato (Vicino l'orario di SL)" />
         <text name="ScriptDialogsPerObjectLabel" width="180">
             Quanti menu Script per oggetto:
         </text>
@@ -46,6 +45,19 @@
         <checkbox name="ButtonFlashing" label="Flash dei pulsanti" />
         <slider label="Numero delle volte che lampeggiano:" tool_tip="Quante volte deve lampeggiare un pulsante" name="ButtonsFlashCount" />
         <slider label="Intensità:" tool_tip="Con che velocità devono lampeggiare. Viene usata per le notifiche delle IM" name="ButtonFlashRate" />
+    </panel>
+	<panel name="UI-interface-top-bars">
+        <check_box name="ShowNetStats" label="Mostra l'indicatore lag" tool_tip="Mostra l'indicatore della lagg nella barra di stato (Vicino l'orario di SL)" />
+		<check_box label="Mostra luogo nel Menu in alto" name="ShowMenuBarLocation" />
+        <check_box label="Mostra la barra dei Preferiti" name="ShowNavbarFavoritesPanel" />
+        <check_box label="Mostra navigazione e barra dei Preferiti" name="ShowNavbarNavigationPanel" />
+        <check_box label="Mostra barra della ricerca" name="ShowSearchTopBar" />
+	</panel>
+    <panel name="UI-interface-windows-tab">
+        <check_box name="FSUseWebProfiles" label="Usa i profili web" tool_tip="Se NON spuntata verranno visualizzati i profili come quelli del viewer 1.x"/>
+        <check_box label="Nascondi le cartelle di sistema vuote dall'inventario" name="DebugHideEmptySystemFolders" tool_tip="Se attiva nascondera le cartelle vuote di sistema come Landmarks, Preferiti, Notecard ecc..."/>
+		<check_box label="Mostra la cartella Recived Items nell'inventario normalmente" name="FSShowInboxFolder" tool_tip="Se attiva, la finestra dell'inventario non presentera la cartella Recived Items sotto l'inventario ma verra visualizzata come una normale cartella di sistema"/>
+        <check_box label="Abilita ricerca separata per ogni tab dell'inventario" name="FSSplitInventorySearchOverTabs" tool_tip="Se abilitato, per ogni scheda dell'inventario (Tutti gli elementi, Elementi recenti, Indossati) si potra effettuare una ricerca diversa."/>
     </panel>
     <panel label="Notifiche Toasts" name="UI-toasts-tab">
         <text name="ToastSettings" width="360">
@@ -114,7 +126,7 @@ linee della chat:
         </text>
         <text name="tooltip_textbox4">
           Pixel (Richiesto riavvio)
-V2/3 Default 0. V1 Default 2.
+V3 Default 0. V1 Default 2.
         </text>
         <text name="Label_FolderItemViewHeight">
            Distanza massima 
@@ -122,7 +134,7 @@ cartelle inventario:
         </text>
         <text name="Label_FolderItemViewHeight_Scale">
           Pixel (Richiesto riavvio)
-V2/3 Default 20. V1 Default 18.
+V3 Default 20. V1 Default 18.
         </text>
     </panel>
 </tab_container>

@@ -36,6 +36,7 @@
 #include "llmanip.h"
 #include "llmenugl.h"
 #include "llselectmgr.h"
+#include "llviewermediafocus.h"
 #include "lltoolmgr.h"
 #include "llfloaterscriptdebug.h"
 #include "llviewercamera.h"
@@ -67,7 +68,7 @@ BOOL LLToolSelect::handleMouseDown(S32 x, S32 y, MASK mask)
 {
 	// do immediate pick query
 // [SL:KB] - Patch: UI-PickRiggedAttachment | Checked: 2012-07-12 (Catznip-3.3)
-	mPick = gViewerWindow->pickImmediate(x, y, TRUE, FALSE);
+	mPick = gViewerWindow->pickImmediate(x, y, TRUE, FALSE, FALSE);
 // [/SL:KB]
 //	mPick = gViewerWindow->pickImmediate(x, y, TRUE);
 
@@ -95,7 +96,7 @@ LLObjectSelectionHandle LLToolSelect::handleObjectSelection(const LLPickInfo& pi
 			if (!temp_select)
 				return LLSelectMgr::getInstance()->getSelection();
 			else if (LLToolMgr::instance().inBuildMode())
-				LLToolMgr::instance().toggleBuildMode();
+				LLToolMgr::instance().toggleBuildMode(LLSD("toggleonly"));
 		}
 		
 		if ( (gRlvHandler.hasBehaviour(RLV_BHVR_FARTOUCH)) && ((!object->isAttachment()) || (!object->permYouOwner())) &&
@@ -110,19 +111,23 @@ LLObjectSelectionHandle LLToolSelect::handleObjectSelection(const LLPickInfo& pi
 				return LLSelectMgr::getInstance()->getSelection();
 			}
 			else if (LLToolMgr::instance().inBuildMode())
-				LLToolMgr::instance().toggleBuildMode();
+				LLToolMgr::instance().toggleBuildMode(LLSD("toggleonly"));
 		}
 	}
 // [/RLVa:KB]
 
 	BOOL select_owned = gSavedSettings.getBOOL("SelectOwnedOnly");
 	BOOL select_movable = gSavedSettings.getBOOL("SelectMovableOnly");
+	// <FS:Ansariel> FIRE-14593: Option to select only copyable objects
+	BOOL select_copyable = gSavedSettings.getBOOL("FSSelectCopyableOnly");
 	
 	// *NOTE: These settings must be cleaned up at bottom of function.
 	if (temp_select || LLSelectMgr::getInstance()->mAllowSelectAvatar)
 	{
 		gSavedSettings.setBOOL("SelectOwnedOnly", FALSE);
 		gSavedSettings.setBOOL("SelectMovableOnly", FALSE);
+		// <FS:Ansariel> FIRE-14593: Option to select only copyable objects
+		gSavedSettings.setBOOL("FSSelectCopyableOnly", FALSE);
 		LLSelectMgr::getInstance()->setForceSelection(TRUE);
 	}
 
@@ -145,6 +150,21 @@ LLObjectSelectionHandle LLToolSelect::handleObjectSelection(const LLPickInfo& pi
 	else
 	{
 		BOOL already_selected = object->isSelected();
+
+		if (already_selected &&
+			object->getNumTEs() > 0 &&
+			!LLSelectMgr::getInstance()->getSelection()->contains(object,SELECT_ALL_TES))
+		{
+			const LLTextureEntry* tep = object->getTE(pick.mObjectFace);
+			if (tep && !tep->isSelected() && !LLViewerMediaFocus::getInstance()->getFocusedObjectID().isNull())
+			{
+				// we were interacting with media and clicked on non selected face, drop media focus
+				LLViewerMediaFocus::getInstance()->clearFocus();
+				// selection was removed and zoom preserved by clearFocus(), continue with regular selection
+				already_selected = false;
+				extend_select = true;
+			}
+		}
 
 		if ( extend_select )
 		{
@@ -257,6 +277,8 @@ LLObjectSelectionHandle LLToolSelect::handleObjectSelection(const LLPickInfo& pi
 	{
 		gSavedSettings.setBOOL("SelectOwnedOnly", select_owned);
 		gSavedSettings.setBOOL("SelectMovableOnly", select_movable);
+		// <FS:Ansariel> FIRE-14593: Option to select only copyable objects
+		gSavedSettings.setBOOL("FSSelectCopyableOnly", select_copyable);
 		LLSelectMgr::getInstance()->setForceSelection(FALSE);
 	}
 

@@ -223,7 +223,7 @@ BOOL LLFastTimerView::handleHover(S32 x, S32 y, MASK mask)
 	if (hasMouseCapture())
 	{
 		F32 lerp = llclamp(1.f - (F32) (x - mGraphRect.mLeft) / (F32) mGraphRect.getWidth(), 0.f, 1.f);
-		mScrollIndex = llround( lerp * (F32)(mRecording.getNumRecordedPeriods() - MAX_VISIBLE_HISTORY));
+		mScrollIndex = ll_round( lerp * (F32)(mRecording.getNumRecordedPeriods() - MAX_VISIBLE_HISTORY));
 		mScrollIndex = llclamp(	mScrollIndex, 0, (S32)mRecording.getNumRecordedPeriods());
 		return TRUE;
 	}
@@ -248,6 +248,13 @@ BOOL LLFastTimerView::handleHover(S32 x, S32 y, MASK mask)
 			mHoverBarIndex = 0;
 		}
 
+		// <FS:Ansariel> Check for index out of range
+		if (mHoverBarIndex != 0 && ((mScrollIndex + mHoverBarIndex - 1) >= (S32)mTimerBarRows.size() || (mScrollIndex + mHoverBarIndex - 1) < 0))
+		{
+			return TRUE;
+		}
+		// </FS:Ansariel>
+
 		TimerBarRow& row = mHoverBarIndex == 0 ? mAverageTimerRow : mTimerBarRows[mScrollIndex + mHoverBarIndex - 1];
 
 		TimerBar* hover_bar = NULL;
@@ -256,12 +263,23 @@ BOOL LLFastTimerView::handleHover(S32 x, S32 y, MASK mask)
 			bar_index < end_index; 
 			++bar_index)
 		{
+			// <FS:Ansariel> FIRE-14600: mBars might be null here
+			if (!row.mBars)
+			{
+				LL_WARNS() << "Skipping null row bars" << LL_ENDL;
+				continue;
+			}
+			// </FS:Ansariel>
+
 			TimerBar& bar = row.mBars[bar_index];
 			if (bar.mSelfStart > mouse_time_offset)
 			{
 				break;
 			}
-			if (bar.mSelfEnd > mouse_time_offset)
+			// <FS:Ansariel> FIRE-15356: mTimeBlock might be null
+			//if (bar.mSelfEnd > mouse_time_offset)
+			if (bar.mSelfEnd > mouse_time_offset && bar.mTimeBlock)
+			// </FS:Ansariel>
 			{
 				hover_bar = &bar;
 				if (bar.mTimeBlock->getTreeNode().mCollapsed)
@@ -393,7 +411,6 @@ BOOL LLFastTimerView::handleScrollWheel(S32 x, S32 y, S32 clicks)
 
 static BlockTimerStatHandle FTM_RENDER_TIMER("Timers");
 static const S32 MARGIN = 10;
-static const S32 LEGEND_WIDTH = 220;
 
 static std::vector<LLColor4> sTimerColors;
 
@@ -404,15 +421,6 @@ void LLFastTimerView::draw()
 	if (!mPauseHistory)
 	{
 		mRecording.appendRecording(LLTrace::get_frame_recording().getLastRecording());
-		
-		// <FS:ND> Clean up memory. Would be clever if ~TimerBarRow existed and did that, but nope. So do it by hand.
-		if( mTimerBarRows.size() )
-		{
-			delete[] mTimerBarRows[ mTimerBarRows.size()-1 ].mBars;
-			mTimerBarRows[ mTimerBarRows.size()-1 ].mBars = 0; // Might look nonsensical, but in case someone adds a dtor later, make sure we're not double freeing.
-		}
-		// </FS:ND>
-
 		mTimerBarRows.pop_back();
 		mTimerBarRows.push_front(TimerBarRow());
 	}
@@ -461,18 +469,24 @@ void LLFastTimerView::onOpen(const LLSD& key)
 	setPauseState(false);
 	mRecording.reset();
 	mRecording.appendPeriodicRecording(LLTrace::get_frame_recording());
-	for(std::deque<TimerBarRow>::iterator it = mTimerBarRows.begin(), end_it = mTimerBarRows.end();
-		it != end_it; 
-		++it)
-	{
-		delete []it->mBars;
-		it->mBars = NULL;
-	}
+	// <FS:Ansariel> Use Drake Arconis' memory fix
+	//for(std::deque<TimerBarRow>::iterator it = mTimerBarRows.begin(), end_it = mTimerBarRows.end();
+	//	it != end_it; 
+	//	++it)
+	//{
+	//	delete []it->mBars;
+	//	it->mBars = NULL;
+	//}
+	// </FS:Ansariel>
 }
 										
 void LLFastTimerView::onClose(bool app_quitting)
 {
 	setVisible(FALSE);
+	// <FS:Ansariel> Use Drake Arconis' memory fix
+	mTimerBarRows.clear();
+	mTimerBarRows.resize(NUM_FRAMES_HISTORY);
+	// </FS:Ansariel>
 }
 
 void saveChart(const std::string& label, const char* suffix, LLImageRaw* scratch)
@@ -1177,7 +1191,7 @@ void LLFastTimerView::drawLineGraph()
 		max_time = llmax(F32Microseconds(1.f), F32Microseconds(cur_max));
 	}
 
-	max_calls = llround(lerp((F32)max_calls, (F32) cur_max_calls, LLSmoothInterpolation::getInterpolant(0.1f)));
+	max_calls = ll_round(lerp((F32)max_calls, (F32) cur_max_calls, LLSmoothInterpolation::getInterpolant(0.1f)));
 	if (llabs((S32)(max_calls - cur_max_calls)) <= 1)
 	{
 		max_calls = cur_max_calls;
@@ -1525,7 +1539,7 @@ void LLFastTimerView::drawBars()
 		LLRect frame_bar_rect;
 		frame_bar_rect.setLeftTopAndSize(mBarRect.mLeft, 
 										bars_top, 
-										llround((mAverageTimerRow.mBars[0].mTotalTime / mTotalTimeDisplay) * mBarRect.getWidth()), 
+										ll_round((mAverageTimerRow.mBars[0].mTotalTime / mTotalTimeDisplay) * mBarRect.getWidth()), 
 										bar_height);
 		mAverageTimerRow.mTop = frame_bar_rect.mTop;
 		mAverageTimerRow.mBottom = frame_bar_rect.mBottom;
@@ -1539,7 +1553,7 @@ void LLFastTimerView::drawBars()
 			row.mTop = frame_bar_rect.mTop;
 			row.mBottom = frame_bar_rect.mBottom;
 			frame_bar_rect.mRight = frame_bar_rect.mLeft 
-									+ llround((row.mBars[0].mTotalTime / mTotalTimeDisplay) * mBarRect.getWidth());
+									+ ll_round((row.mBars[0].mTotalTime / mTotalTimeDisplay) * mBarRect.getWidth());
  			drawBar(frame_bar_rect, row, image_width, image_height);
 
 			frame_bar_rect.translate(0, -(bar_height + vpad));
@@ -1670,8 +1684,8 @@ S32 LLFastTimerView::drawBar(LLRect bar_rect, TimerBarRow& row, S32 image_width,
 	}
 
 	LLRect children_rect;
-	children_rect.mLeft  = llround(timer_bar.mChildrenStart / mTotalTimeDisplay * (F32)mBarRect.getWidth()) + mBarRect.mLeft;
-	children_rect.mRight = llround(timer_bar.mChildrenEnd   / mTotalTimeDisplay * (F32)mBarRect.getWidth()) + mBarRect.mLeft;
+	children_rect.mLeft  = ll_round(timer_bar.mChildrenStart / mTotalTimeDisplay * (F32)mBarRect.getWidth()) + mBarRect.mLeft;
+	children_rect.mRight = ll_round(timer_bar.mChildrenEnd   / mTotalTimeDisplay * (F32)mBarRect.getWidth()) + mBarRect.mLeft;
 
 	if (bar_rect.getHeight() > MIN_BAR_HEIGHT)
 	{
@@ -1702,3 +1716,14 @@ S32 LLFastTimerView::drawBar(LLRect bar_rect, TimerBarRow& row, S32 image_width,
 
 	return bar_index;
 }
+
+// <FS:Ansariel> Use Drake Arconis' memory fix
+LLFastTimerView::TimerBarRow::~TimerBarRow()
+{
+	if (mBars != NULL)
+	{
+		delete[] mBars;
+		mBars = NULL;
+	}
+}
+// </FS:Ansariel>

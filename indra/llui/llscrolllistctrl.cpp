@@ -268,6 +268,9 @@ LLScrollListCtrl::LLScrollListCtrl(const LLScrollListCtrl::Params& p)
 	text_p.wrap(true);
 	// set up label text color for empty lists in a way it's always readable -Zi
 	text_p.text_color = mFgUnselectedColor;
+	// show scroll bar when applicable -Sei
+	text_p.allow_scroll(true);
+	text_p.track_end(true);
 	addChild(LLUICtrlFactory::create<LLTextBox>(text_p));
 	// </FS:Ansariel>
 
@@ -701,7 +704,7 @@ bool LLScrollListCtrl::updateColumnWidths()
 		S32 new_width = 0;
 		if (column->mRelWidth >= 0)
 		{
-			new_width = (S32)llround(column->mRelWidth*mItemListRect.getWidth());
+			new_width = (S32)ll_round(column->mRelWidth*mItemListRect.getWidth());
 		}
 		else if (column->mDynamicWidth)
 		{
@@ -1240,7 +1243,8 @@ void LLScrollListCtrl::setCommentText(const std::string& comment_text)
 // <FS:Ansariel> Allow appending of comment text
 void LLScrollListCtrl::addCommentText(const std::string& comment_text)
 {
-	getChild<LLTextBox>("comment_text")->appendText(comment_text, true);
+	LLTextBox *ctrl = getChild<LLTextBox>("comment_text");
+	ctrl->appendText(comment_text, !ctrl->getText().empty()); // don't prepend newline if empty (Sei)
 }
 // </FS:Ansariel> Allow appending of comment text
 
@@ -1318,6 +1322,13 @@ BOOL LLScrollListCtrl::selectItemByPrefix(const std::string& target, BOOL case_s
 // Selects first enabled item that has a name where the name's first part matched the target string.
 // Returns false if item not found.
 BOOL LLScrollListCtrl::selectItemByPrefix(const LLWString& target, BOOL case_sensitive)
+// <FS:Ansariel> Allow selection by substring match
+{
+	return selectItemByStringMatch(target, true, case_sensitive);
+}
+
+BOOL LLScrollListCtrl::selectItemByStringMatch(const LLWString& target, bool prefix_match, BOOL case_sensitive)
+// </FS:Ansariel>
 {
 	BOOL found = FALSE;
 
@@ -1369,7 +1380,18 @@ BOOL LLScrollListCtrl::selectItemByPrefix(const LLWString& target, BOOL case_sen
 			LLWString trimmed_label = item_label;
 			LLWStringUtil::trim(trimmed_label);
 			
-			BOOL select = item->getEnabled() && trimmed_label.compare(0, target_trimmed.size(), target_trimmed) == 0;
+			// <FS:Ansariel> Allow selection by substring match
+			//BOOL select = item->getEnabled() && trimmed_label.compare(0, target_trimmed.size(), target_trimmed) == 0;
+			BOOL select;
+			if (prefix_match)
+			{
+				select = item->getEnabled() && trimmed_label.compare(0, target_trimmed.size(), target_trimmed) == 0;
+			}
+			else
+			{
+				select = item->getEnabled() && trimmed_label.find(target_trimmed) != std::string::npos;
+			}
+			// </FS:Ansariel>
 
 			if (select)
 			{
@@ -1390,6 +1412,19 @@ BOOL LLScrollListCtrl::selectItemByPrefix(const LLWString& target, BOOL case_sen
 
 	return found;
 }
+
+// <FS:Ansariel> Allow selection by substring match
+BOOL LLScrollListCtrl::selectItemBySubstring(const std::string& target, BOOL case_sensitive)
+{
+	return selectItemBySubstring(utf8str_to_wstring(target), case_sensitive);
+}
+
+// Returns false if item not found.
+BOOL LLScrollListCtrl::selectItemBySubstring(const LLWString& target, BOOL case_sensitive)
+{
+	return selectItemByStringMatch(target, false, case_sensitive);
+}
+// </FS:Ansariel>
 
 const std::string LLScrollListCtrl::getSelectedItemLabel(S32 column) const
 {
@@ -1682,6 +1717,13 @@ void LLScrollListCtrl::setEnabled(BOOL enabled)
 
 BOOL LLScrollListCtrl::handleScrollWheel(S32 x, S32 y, S32 clicks)
 {
+	// <FS> FIRE-10172: Let the LLTextbox handle the mouse scroll if it's visible
+	if (mCommentTextView && mCommentTextView->getVisible())
+	{
+		return mCommentTextView->handleScrollWheel(x, y, clicks);
+	}
+	// </FS>
+
 	BOOL handled = FALSE;
 	// Pretend the mouse is over the scrollbar
 	handled = mScrollbar->handleScrollWheel( 0, 0, clicks );
@@ -1936,6 +1978,8 @@ BOOL LLScrollListCtrl::handleRightMouseDown(S32 x, S32 y, MASK mask)
 			registrar.add("FS.RequestTeleport", boost::bind(&LLUrlAction::executeSLURL, "secondlife:///app/firestorm/" + id + "/requestteleport"));
 			registrar.add("FS.TrackAvatar", boost::bind(&LLUrlAction::executeSLURL, "secondlife:///app/firestorm/" + id + "/track"));
 			registrar.add("FS.AddToContactSet", boost::bind(&LLUrlAction::executeSLURL, "secondlife:///app/firestorm/" + id + "/addtocontactset"));	// [FS:CR]
+			registrar.add("FS.BlockAvatar", boost::bind(&LLUrlAction::executeSLURL, "secondlife:///app/firestorm/" + id + "/blockavatar"));
+			registrar.add("FS.ViewLog", boost::bind(&LLUrlAction::executeSLURL, "secondlife:///app/firestorm/" + id + "/viewlog"));
 			// </FS:Ansariel> Additional convenience options
 
 			// <FS:Ansariel> Add enable checks for menu items
@@ -1949,11 +1993,15 @@ BOOL LLScrollListCtrl::handleRightMouseDown(S32 x, S32 y, MASK mask)
 			enable_registrar.add("FS.EnableTrackAvatar", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, uuid, FS_RGSTR_ACT_TRACK_AVATAR));
 			enable_registrar.add("FS.EnableTeleportToTarget", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, uuid, FS_RGSTR_ACT_TELEPORT_TO));
 			enable_registrar.add("FS.EnableRequestTeleport", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, uuid, FS_RGSTR_ACT_REQUEST_TELEPORT));
+			enable_registrar.add("FS.CheckIsAgentBlocked", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, uuid, FS_RGSTR_CHK_AVATAR_BLOCKED));
+			enable_registrar.add("FS.EnableBlockAvatar", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, uuid, FS_RGSTR_CHK_IS_NOT_SELF));
+			enable_registrar.add("FS.EnableViewLog", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, uuid, FS_RGSTR_ACT_VIEW_TRANSCRIPT));
 			// </FS:Ansariel>
 
 			// create the context menu from the XUI file and display it
 			std::string menu_name = is_group ? "menu_url_group.xml" : "menu_url_agent.xml";
 			delete mPopupMenu;
+			llassert(LLMenuGL::sMenuContainer != NULL);
 			mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>(
 				menu_name, LLMenuGL::sMenuContainer, LLMenuHolderGL::child_registry_t::instance());
 			if (mPopupMenu)
@@ -1963,6 +2011,7 @@ BOOL LLScrollListCtrl::handleRightMouseDown(S32 x, S32 y, MASK mask)
 				return TRUE;
 			}
 		}
+		return LLUICtrl::handleRightMouseDown(x, y, mask);
 	}
 	return FALSE;
 }
@@ -2251,9 +2300,6 @@ BOOL LLScrollListCtrl::handleKeyHere(KEY key,MASK mask )
 	// not called from parent means we have keyboard focus or a child does
 	if (mCanSelect) 
 	{
-		// Ignore capslock
-		mask = mask;
-
 		if (mask == MASK_NONE)
 		{
 			switch(key)
@@ -2838,7 +2884,7 @@ void LLScrollListCtrl::addColumn(const LLScrollListColumn::Params& column_params
 			}
 			if (new_column->mRelWidth >= 0)
 			{
-				new_column->setWidth((S32)llround(new_column->mRelWidth*mItemListRect.getWidth()));
+				new_column->setWidth((S32)ll_round(new_column->mRelWidth*mItemListRect.getWidth()));
 			}
 			else if(new_column->mDynamicWidth)
 			{

@@ -34,6 +34,7 @@
 #include "llgltypes.h"
 #include "llrender.h"
 #include "llmetricperformancetester.h"
+#include "httpcommon.h"
 
 #include <map>
 #include <list>
@@ -41,6 +42,7 @@
 extern const S32Megabytes gMinVideoRam;
 extern const S32Megabytes gMaxVideoRam;
 
+class LLFace;
 class LLImageGL ;
 class LLImageRaw;
 class LLViewerObject;
@@ -97,6 +99,7 @@ public:
 		DYNAMIC_TEXTURE,
 		FETCHED_TEXTURE,
 		LOD_TEXTURE,
+		ATLAS_TEXTURE,
 		INVALID_TEXTURE_TYPE
 	};
 
@@ -118,7 +121,7 @@ public:
 	LLViewerTexture(const U32 width, const U32 height, const U8 components, BOOL usemipmaps) ;
 
 	virtual S8 getType() const;
-	virtual BOOL isMissingAsset()const ;
+	virtual BOOL isMissingAsset() const ;
 	virtual void dump();	// debug info to LL_INFOS()
 	
 	/*virtual*/ bool bindDefaultImage(const S32 stage = 0) ;
@@ -166,9 +169,13 @@ public:
 	/*virtual*/ void updateBindStatsForTester() ;
 protected:
 	void cleanup() ;
-	void init(bool firstinit) ;	
+	void init(bool firstinit) ;
 	void reorganizeFaceList() ;
 	void reorganizeVolumeList() ;
+
+	void notifyAboutMissingAsset();
+	void notifyAboutCreatingTexture();
+
 private:
 	friend class LLBumpImageList;
 	friend class LLUIImageList;
@@ -207,7 +214,7 @@ public:
 	static F32 sDesiredDiscardScale;
 	static S32Bytes sBoundTextureMemory;
 	static S32Bytes sTotalTextureMemory;
-	static S32Megabytes sMaxBoundTextureMem;
+	static S32Megabytes sMaxBoundTextureMemory;
 	static S32Megabytes sMaxTotalTextureMem;
 	static S32Bytes sMaxDesiredTextureMem ;
 	static S8  sCameraMovingDiscardBias;
@@ -243,6 +250,8 @@ enum FTType
 	FTT_MAP_TILE, // tiles are fetched from map server directly.
 	FTT_LOCAL_FILE // fetch directly from a local file.
 };
+
+const std::string& fttype_to_string(const FTType& fttype);
 
 //
 //textures are managed in gTextureList.
@@ -323,10 +332,11 @@ public:
 
 	void addToCreateTexture();
 
+
 	 // ONLY call from LLViewerTextureList
 	BOOL createTexture(S32 usename = 0);
-	void destroyTexture() ;	
-	
+	void destroyTexture() ;
+
 	virtual void processTextureStats() ;
 	F32  calcDecodePriority() ;
 
@@ -361,8 +371,8 @@ public:
 	// more data.
 	/*virtual*/ void setKnownDrawSize(S32 width, S32 height);
 
-	void setIsMissingAsset();
-	/*virtual*/ BOOL isMissingAsset()	const		{ return mIsMissingAsset; }
+	void setIsMissingAsset(BOOL is_missing = true);
+	/*virtual*/ BOOL isMissingAsset() const { return mIsMissingAsset; }
 
 	// returns dimensions of original image for local files (before power of two scaling)
 	// and returns 0 for all asset system images
@@ -404,6 +414,7 @@ public:
 	BOOL        isCachedRawImageReady() const {return mCachedRawImageReady ;}
 	BOOL        isRawImageValid()const { return mIsRawImageValid ; }	
 	void        forceToSaveRawImage(S32 desired_discard = 0, F32 kept_time = 0.f) ;
+	void        forceToRefetchTexture(S32 desired_discard = 0, F32 kept_time = 60.f);
 	/*virtual*/ void setCachedRawImage(S32 discard_level, LLImageRaw* imageraw) ;
 	void        destroySavedRawImage() ;
 	LLImageRaw* getSavedRawImage() ;
@@ -436,10 +447,16 @@ private:
 	void saveRawImage() ;
 	void setCachedRawImage() ;
 
+	//for atlas
+	void resetFaceAtlas() ;
+	void invalidateAtlas(BOOL rebuild_geom) ;
+	BOOL insertToAtlas() ;
+
 private:
 	BOOL  mFullyLoaded;
 	BOOL  mInDebug;
 	BOOL  mInFastCacheList;
+	BOOL  mForceCallbackFetch;
 
 protected:		
 	std::string mLocalFileName;
@@ -467,11 +484,13 @@ protected:
 	S8  mMinDesiredDiscardLevel;	// The minimum discard level we'd like to have
 
 	S8  mNeedsAux;					// We need to decode the auxiliary channels
+	S8  mHasAux;                    // We have aux channels
 	S8  mDecodingAux;				// Are we decoding high components
 	S8  mIsRawImageValid;
 	S8  mHasFetcher;				// We've made a fecth request
 	S8  mIsFetching;				// Fetch request is active
-	bool mCanUseHTTP ;              //This texture can be fetched through http if true.
+	bool mCanUseHTTP;              //This texture can be fetched through http if true.
+	LLCore::HttpStatus mLastHttpGetStatus; // Result of the most recently completed http request for this texture.
 
 	FTType mFTType; // What category of image is this - map tile, server bake, etc?
 	mutable S8 mIsMissingAsset;		// True if we know that there is no image asset with this image id in the database.		

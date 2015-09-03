@@ -1,27 +1,18 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <panel name="firestorm">
 <tab_container label="Ust. Firestorma" name="tabs">
-<!-- Gnerale -->
-    <panel label="Generale" name="tab-general">
-        <check_box name="checkMiscRLVa" label="Abilita Remote Scripted Viewer Controls  (RLVa)" />
+<!-- Extra -->
+    <panel label="Extra" name="tab-extras">
+        <check_box name="checkMiscRLVa" label="Abilita Remote Scripted Viewer Controls (RLVa)" />
         <text name="textMiscRLVaRestart">
             (Richiesto riavvio)
         </text>
-        <check_box label="Abilita doppio click teleport sulla Mappa del mondo" name="FSWorldMapDoubleclickTeleport" tool_tip="Abilita il doppio click per teleportarsi a destinazione sulla Mappa del mondo"/>
-        <check_box label="Disabilita schermata Teleport" name="tp_screen_toggle" tool_tip="Disabilita la schermata nera durante tutti i Teleport." />
-        <check_box label="Disabilita segnali Teleport" name="tp_beam_toggle" tool_tip="Disabilita tutti gli effetti del Teleport dopo essere arrivati a destinazione." />
+        <check_box label="Rezza sempre con il gruppo della land se è possibile" name="grouplandrez" tool_tip="Il viewer cercherà automaticamente di rezzare con il gruppo della land se ne fate parte." />
+		<check_box label="Disattivare il segnalatore quando l'avatar segnato viene raggiunto (&lt;= 3m)" name="FSDisableAvatarTrackerAtCloseIn" tool_tip="Se attivato, il segnalatore per indicare l'avatar si disattiva se la distanza è inferiore a 3m. (Default)"/>
         <check_box label="Disabilita schermata di Accesso" name="login_screen_toggle" tool_tip="Disabilita la schermata nera durante l'Accesso."/>
         <check_box label="Disabilita schermata di Uscita" name="logout_screen_toggle" tool_tip="Disabilita la schermata nera durante la Disconnessione" />
-        <check_box label="Rezza sempre con il gruppo della land se è possibile" name="grouplandrez" tool_tip="Il viewer cercherà automaticamente di rezzare con il gruppo della land se ne fate parte." />
-        <check_box label="Riordina la contact lists per username quando i Display Name sono attivi" name="sortcontactsbyun" tool_tip="Se questa opzione è spuntata, tutte liste dei contatti saranno sempre riordinate per username (Nome Originale es: Philipe Linden)" />
-        <check_box label="Gli avatar bloccati saranno visualizati come nuvole" name="ShowMutedAvatarsAsCloud" tool_tip="Gli avatar Bloccati saranno visualizati come nuvole di un colore speciale." />
-        <check_box label="Nascondi le cartelle di sistema vuote dall'inventario" name="DebugHideEmptySystemFolders" tool_tip="Se attiva nasconderà le cartelle vuote di sistema come Landmarks, Preferiti, Notecard ecc..."/>
-		<check_box label="Mostra la cartella Recived Items nell'inventario normalmente" name="FSShowInboxFolder" tool_tip="Se attiva, la finestra dell'inventario non presenterà la cartella Recived Items sotto l'inventario ma verrà visualizzata come una normale cartella di sistema"/>
-        <check_box label="Abilita ricerca separata per ogni tab dell'inventario" name="FSSplitInventorySearchOverTabs" tool_tip="Se abilitato, per ogni scheda dell'inventario (Tutti gli elementi, Elementi recenti, Indossati) si potrà effettuare una ricerca diversa."/>
-		<check_box label="Disattivare il segnalatore quando l'avatar segnato viene raggiunto (&lt;= 3m)" name="FSDisableAvatarTrackerAtCloseIn" tool_tip="Se attivato, il segnalatore per indicare l'avatar si disattiva se la distanza è inferiore a 3m. (Default)"/>
-		<check_box label="Dai permessi a tutti gli oggetti che hanno lo stesso owner dell'oggetto su cui ti sei seduto" name="PermissionsGrantToSitOwner" tool_tip="Se abilitato, se ti seiedi su un oggetto si concedono le autorizzazioni a qualsiasi altro oggetto con lo stesso proprietario automaticamente come se si sedeva sopra agli altri oggetti che richiedevano l'autorizzazione."/>
 		<check_box label="Abilita LSL-Client Bridge" name="UseLSLBridge" tool_tip="Permette al Viewer di utilizare lo script del Bridge per consentire caratteristiche avanzate" />
-        <check_box label="Volare oltre il Limite" name="UseLSLFlightAssist" tool_tip="Consente di volare oltre il limite tramite il Flight Assist (Piuma o altri HUD non più necessari)" />
+        <!-- <check_box label="Volare oltre il Limite" name="UseLSLFlightAssist" tool_tip="Consente di volare oltre il limite tramite il Flight Assist (Piuma o altri HUD non più necessari)" /> -->
     </panel>
 	<!--Protezione-->
     <panel label="Protezione" name="ProtectionTab">
@@ -58,9 +49,6 @@
         </text>
         <spinner name="_NACL_AntiSpamSoundPreloadMulti" tool_tip="[Quando arrivano molte richieste di precaricamento dei suoni contemporaneamente[Default: 4]" />
         <button name="AntiSpamUnblock" label="Sblocca tutte le fonti di Spam" />
-        <check_box label="Notifica quando gli oggetti arrivano troppo velocemente" name="FSNotifyIncomingObjectSpam" />
-        <check_box label="Notifica quando un'altro residente ti invia oggetti troppo velocemente" name="FSNotifyIncomingObjectSpamFrom" />
-        <slider name="FSOfferThrottleMaxCount" label="Limita soglia degli oggetti che arrivano:" tool_tip="Soglia massima di oggetti che devono arrivare in 10 secondi[Default 5]" />
 	</panel>
 	<!--Avatar-->
 	<panel label="Avatar" name="firestorm_avatar">
@@ -94,77 +82,6 @@
         <button name="refresh_beams" label="Aggiorna lista" tool_tip="Aggiorna la lista delle forme salvati" />
         <slider name="FSBeamShapeScale" label="Scala:" tool_tip="Cambia la grandezza dell'indicatore a forma della Fenice di Firestorm" />
     </panel>
-	<!--Comandi brevi-->
-    <panel label="CmdLine 1" name="tab-CmdLine1">
-        <check_box label="Abilita comandi dalla Chat" name="chat_cmd_toggle" />
-		<text name="FSCmdLineCalc_txt">
-           Calcolatrice (usa: cmd calcolo)
-        </text>
-        <text name="FSCmdLineAutocorrect_txt">
-           Aggiungi a dizionario (cmd list|bad|good)
-        </text>
-        <text name="FSCmdLineDrawDistance_txt">
-          Cambia Draw Distance (usa: cmd metri)
-        </text>
-		<text name="FSCmdLineBandWidth_txt">
-			Max. Bandwidth (usa: cmd kbps)
-		</text>
-        <text name="FSCmdLineRezPlatform_txt">
-         Rezza una piattaforma (usa: cmd n)
-        </text>
-        <slider name="FSCmdLinePlatformSize" label="Grandezza" tool_tip="Quanto vuoi che sia grande la piattaforma che apparirà?" />
-        <check_box label="Usa la posizione attuale" name="toggle" />
-        
-        <text name="FSCmdLineKeyToName_txt">
-          Trova il nome tramite Key(usa: cmd key)
-        </text>
-        <text name="FSCmdLineAO_txt">
-          AO on/off (usa: cmd on/off)
-        </text>
-        <text name="FSCmdLineClearChat_txt">
-          Cancellare la cronologia della chat (usa: cmd)
-        </text>
-        <line_editor tool_tip="Pulisce la chat per prevenire la lag dovuta allo spam." name="FSCmdLineClearChat" />
-        <text name="FSCmdLineMedia_txt">
-          Setta URL Video(usa: cmd url)
-        </text>
-        <line_editor tool_tip="Setta i Video della parcella e lì fa partire tramite l'url indicato" name="FSCmdLineMedia" />
-        <text name="FSCmdLineMusic_txt">
-          Setta URL Musica(usa: cmd url)
-        </text>
-      <line_editor tool_tip="Setta nella parcella e riproduce lo streaming audio da URL" name="FSCmdLineMusic" />
-    </panel>
-	<panel label="CmdLine 2" name="tab-CmdLine2">
-		<check_box label="Abilita comandi dalla Chat" name="chat_cmd_toggle2"/>
-        <text name="FSCmdLinePos_txt">
-         Teleport nella Sim (usa: cmd x y z)
-        </text>
-        <text name="FSCmdLineGround_txt">
-         Teleport al suolo (usa: cmd)
-        </text>
-        <text name="FSCmdLineHeight_txt">
-         Teleport ad altezza (usa: cmd z)
-        </text>
-		<text name="FSCmdLineMapTo_txt">
-           Teleport alla sim X (usa: cmd NomeSim)
-        </text>
-        <check_box label="Usa la posizione attuale" name="toggle" />
-		
-		<text name="FSCmdTeleportToCam_txt">
-          Teleport alla posizione della Cam (usa: cmd)
-        </text>
-		<text name="FSCmdLineOfferTp_txt">
-          Offri Teleport ad Avatar (usa: cmd key)
-        </text>
-		<text name="FSCmdLineTP2_txt">
-          Teleport ad avatar (usa: cmd nome)
-        </text>
-        <line_editor tool_tip="Potrete effettuare un Teleport per raggiungere un'altro avatar anche scrivendo parzialmente il nome della persona a cui arrivare. Funziona meglio se si ha il radar aperto." name="FSCmdLineTP2" />
-        <text name="FSCmdLineTeleportHome_txt">
-         Teleport a casa (usa: cmd)
-        </text>
-	</panel>
-	
 	<!-- Cielo e mare-->
     <panel label="Windlight" name="WindlightTab">
         <check_box label="Cambia automaticamente le impostazioni ambiente della Sim/Parcella" name="UseEnvironmentFromRegionAlways" />

@@ -30,7 +30,6 @@
 #include "fsfloaterimport.h"
 
 #include "llagent.h"
-#include "llagentcamera.h"
 #include "llappviewer.h"
 #include "llbuycurrencyhtml.h"
 #include "llcallbacklist.h"
@@ -38,13 +37,9 @@
 #include "lldatapacker.h"
 #include "lldir.h"
 #include "lleconomy.h"
-#include "llfilepicker.h"
 #include "llfloaterperms.h"
-#include "llfloaterreg.h"
 #include "llinventorydefines.h"
 #include "llinventoryfunctions.h"
-#include "lllineeditor.h"
-#include "llmaterialmgr.h"
 #include "llmultigesture.h"
 #include "llnotificationsutil.h"
 #include "llparcel.h"
@@ -65,10 +60,8 @@
 #include "llvfile.h"
 #include "llvfs.h"
 #include "llvolumemessage.h"
-#include "llviewerstats.h"
 #include "lltrace.h"
 #include "fsexportperms.h"
-#include "material_codes.h"
 #include <boost/algorithm/string_regex.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -214,7 +207,7 @@ void FSFloaterImport::loadFile()
 	mSoundsTotal = 0;
 
 	bool file_loaded = false;
-	llifstream filestream(mFileFullName, std::ios_base::in | std::ios_base::binary);
+	llifstream filestream(mFileFullName.c_str(), std::ios_base::in | std::ios_base::binary);
 	if(filestream.is_open())
 	{
 		filestream.seekg(0, std::ios::end);
@@ -382,6 +375,8 @@ void FSFloaterImport::processPrim(LLSD& prim)
 			if (!gesture->deserialize(dp))
 			{
 				LL_WARNS("export") << "Unable to load gesture " << asset_id << LL_ENDL;
+				delete gesture;
+				gesture = NULL;
 				break;
 			}
 
@@ -1993,9 +1988,9 @@ void FSAssetResponder::uploadComplete(const LLSD& content)
 	delete data;
 }
 
-void FSAssetResponder::error(U32 statusNum, const std::string& reason)
+void FSAssetResponder::httpFailure()
 {
-	LL_WARNS("import")  << "Error " << statusNum << " reason: " << reason << LL_ENDL;
+	LL_WARNS("import")  << "Error " << getStatus() << " reason: " << getReason() << LL_ENDL;
 	LLResourceData* data = (LLResourceData*)mData;
 	FSResourceData* fs_data = (FSResourceData*)data->mUserData;
 	FSFloaterImport* self = (FSFloaterImport*)fs_data->user_data;

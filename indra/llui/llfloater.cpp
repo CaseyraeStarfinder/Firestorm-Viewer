@@ -80,6 +80,9 @@ namespace LLInitParam
 std::string	LLFloater::sButtonNames[BUTTON_COUNT] = 
 {
 	"llfloater_close_btn",		//BUTTON_CLOSE
+	// <FS:Ansariel> FIRE-11724: Snooze group chat
+	"llfloater_snooze_btn",		//BUTTON_SNOOZE
+	// </FS:Ansariel>
 	"llfloater_restore_btn",	//BUTTON_RESTORE
 	"llfloater_minimize_btn",	//BUTTON_MINIMIZE
 	"llfloater_tear_off_btn",	//BUTTON_TEAR_OFF
@@ -96,6 +99,9 @@ std::string LLFloater::sButtonToolTipsIndex[BUTTON_COUNT]=
 #else
 	"BUTTON_CLOSE_WIN",		//"Close (Ctrl-W)",	//BUTTON_CLOSE
 #endif
+	// <FS:Ansariel> FIRE-11724: Snooze group chat
+	"BUTTON_SNOOZE",		//"Snooze",		//BOTTON_SNOOZE
+	// </FS:Ansariel>
 	"BUTTON_RESTORE",		//"Restore",	//BUTTON_RESTORE
 	"BUTTON_MINIMIZE",		//"Minimize",	//BUTTON_MINIMIZE
 	"BUTTON_TEAR_OFF",		//"Tear Off",	//BUTTON_TEAR_OFF
@@ -106,6 +112,9 @@ std::string LLFloater::sButtonToolTipsIndex[BUTTON_COUNT]=
 LLFloater::click_callback LLFloater::sButtonCallbacks[BUTTON_COUNT] =
 {
 	LLFloater::onClickClose,	//BUTTON_CLOSE
+	// <FS:Ansariel> FIRE-11724: Snooze group chat
+	LLFloater::onClickSnooze,	//BUTTON_SNOOZE
+	// </FS:Ansariel>
 	LLFloater::onClickMinimize, //BUTTON_RESTORE
 	LLFloater::onClickMinimize, //BUTTON_MINIMIZE
 	LLFloater::onClickTearOff,	//BUTTON_TEAR_OFF
@@ -172,6 +181,7 @@ LLFloater::Params::Params()
 	can_resize("can_resize", false),
 	can_minimize("can_minimize", true),
 	can_close("can_close", true),
+	can_snooze("can_snooze", false),		// <FS:Ansariel> FIRE-11724: Snooze group chat
 	can_drag_on_left("can_drag_on_left", false),
 	drop_shadow("drop_shadow",true),		// ## Zi: Optional Drop Shadows
 	label_v_padding("label_v_padding", -1),	// <FS:Zi> Make vertical label padding a per-skin option
@@ -185,12 +195,14 @@ LLFloater::Params::Params()
 	header_height("header_height", 0),
 	legacy_header_height("legacy_header_height", 0),
 	close_image("close_image"),
+	snooze_image("snooze_image"),		// <FS:Ansariel> FIRE-11724: Snooze group chat
 	restore_image("restore_image"),
 	minimize_image("minimize_image"),
 	tear_off_image("tear_off_image"),
 	dock_image("dock_image"),
 	help_image("help_image"),
 	close_pressed_image("close_pressed_image"),
+	snooze_pressed_image("snooze_pressed_image"),		// <FS:Ansariel> FIRE-11724: Snooze group chat
 	restore_pressed_image("restore_pressed_image"),
 	minimize_pressed_image("minimize_pressed_image"),
 	tear_off_pressed_image("tear_off_pressed_image"),
@@ -250,6 +262,7 @@ LLFloater::LLFloater(const LLSD& key, const LLFloater::Params& p)
 	mCanTearOff(p.can_tear_off),
 	mCanMinimize(p.can_minimize),
 	mCanClose(p.can_close),
+	mCanSnooze(p.can_snooze),		// <FS:Ansariel> FIRE-11724: Snooze group chat
 	mDragOnLeft(p.can_drag_on_left),
 	mResizable(p.can_resize),
 	mPositioning(p.positioning),
@@ -291,7 +304,7 @@ LLFloater::LLFloater(const LLSD& key, const LLFloater::Params& p)
 	// if no padding is set, use default from settings.xml
 	if (mLabelVPadding == -1)
 	{
-		mLabelVPadding = LLControlGroup::getInstance("Global")->getS32("UIFloaterTitleVPad");
+		mLabelVPadding = LLUI::sSettingGroups["config"]->getS32("UIFloaterTitleVPad");
 	}
 	// </FS:Zi>
 
@@ -328,6 +341,13 @@ void LLFloater::initFloater(const Params& p)
 	{
 		mButtonsEnabled[BUTTON_DOCK] = TRUE;
 	}
+
+	// <FS:Ansariel> FIRE-11724: Snooze group chat
+	if (mCanSnooze)
+	{
+		mButtonsEnabled[BUTTON_SNOOZE] = TRUE;
+	}
+	// </FS:Ansariel>
 
 	buildButtons(p);
 
@@ -930,7 +950,14 @@ LLMultiFloater* LLFloater::getHost()
 
 void LLFloater::applyControlsAndPosition(LLFloater* other)
 {
-//	if (!applyDockState()) // <FS:Zi> Don't apply dock state and forget about the undocked values
+	// <FS:Zi> Don't apply dock state and forget about the undocked values
+	// AH: Apply the dock state before applying the rect control. applyDockState
+	//     will call SetDocked with pop_on_undock = true and translate the floater
+	//     by 12px on the y-axis, so we have to apply the rect control after that
+	//     to have it in the right position.
+	//	if (!applyDockState())
+	applyDockState();
+	// </FS:Zi>
 	{
 		if (!applyRectControl())
 		{
@@ -943,7 +970,6 @@ void LLFloater::applyControlsAndPosition(LLFloater* other)
 			// </FS:Ansariel> Don't apply position to undocked IM floater (FIRE-5459)
 		}
 	}
-	applyDockState();	// <FS:Zi> Only now apply docked state so floaters don't forget their positions
 }
 
 bool LLFloater::applyRectControl()
@@ -1647,6 +1673,8 @@ BOOL LLFloater::handleMouseDown(S32 x, S32 y, MASK mask)
 		if(offerClickToButton(x, y, mask, BUTTON_RESTORE)) return TRUE;
 		if(offerClickToButton(x, y, mask, BUTTON_TEAR_OFF)) return TRUE;
 		if(offerClickToButton(x, y, mask, BUTTON_DOCK)) return TRUE;
+		// <FS:Ansariel> FIRE-11724: Snooze group chat
+		if(offerClickToButton(x, y, mask, BUTTON_SNOOZE)) return TRUE;
 
 		// Otherwise pass to drag handle for movement
 		return mDragHandle->handleMouseDown(x, y, mask);
@@ -1707,7 +1735,7 @@ void LLFloater::bringToFront( S32 x, S32 y )
 
 
 // virtual
-void LLFloater::setVisibleAndFrontmost(BOOL take_focus, const LLSD& key)
+void LLFloater::setVisibleAndFrontmost(BOOL take_focus,const LLSD& key)
 {
 	LLMultiFloater* hostp = getHost();
 	if (hostp)
@@ -1864,6 +1892,23 @@ void LLFloater::onClickHelp( LLFloater* self )
 		}
 	}
 }
+
+// <FS:Ansariel> FIRE-11724: Snooze group chat
+void LLFloater::setCanSnooze(BOOL can_snooze)
+{
+	mCanSnooze = can_snooze;
+	mButtonsEnabled[BUTTON_SNOOZE] = mCanSnooze;
+	updateTitleButtons();
+}
+
+void LLFloater::onClickSnooze(LLFloater* self)
+{
+	if (self)
+	{
+		self->onSnooze();
+	}
+}
+// </FS:Ansariel>
 
 void LLFloater::initRectControl()
 {
@@ -2040,7 +2085,7 @@ void	LLFloater::drawShadow(LLPanel* panel)
 	}
 	gl_drop_shadow(left, top, right, bottom, 
 		shadow_color % getCurrentTransparency(),
-		llround(shadow_offset));
+		ll_round(shadow_offset));
 }
 
 void LLFloater::updateTransparency(LLView* view, ETypeTransparency transparency_type)
@@ -2174,16 +2219,16 @@ void LLFloater::updateTitleButtons()
 				btn_rect.setLeftTopAndSize(
 					LLPANEL_BORDER_WIDTH,
 					getRect().getHeight() - close_box_from_top - (floater_close_box_size + 1) * button_count,
-					llround((F32)floater_close_box_size * mButtonScale),
-					llround((F32)floater_close_box_size * mButtonScale));
+					ll_round((F32)floater_close_box_size * mButtonScale),
+					ll_round((F32)floater_close_box_size * mButtonScale));
 			}
 			else
 			{
 				btn_rect.setLeftTopAndSize(
 					getRect().getWidth() - LLPANEL_BORDER_WIDTH - (floater_close_box_size + 1) * button_count,
 					getRect().getHeight() - close_box_from_top,
-					llround((F32)floater_close_box_size * mButtonScale),
-					llround((F32)floater_close_box_size * mButtonScale));
+					ll_round((F32)floater_close_box_size * mButtonScale),
+					ll_round((F32)floater_close_box_size * mButtonScale));
 			}
 
 			// first time here, init 'buttons_rect'
@@ -2249,16 +2294,16 @@ void LLFloater::buildButtons(const Params& floater_params)
 			btn_rect.setLeftTopAndSize(
 				LLPANEL_BORDER_WIDTH,
 				getRect().getHeight() - close_box_from_top - (floater_close_box_size + 1) * (i + 1),
-				llround(floater_close_box_size * mButtonScale),
-				llround(floater_close_box_size * mButtonScale));
+				ll_round(floater_close_box_size * mButtonScale),
+				ll_round(floater_close_box_size * mButtonScale));
 		}
 		else
 		{
 			btn_rect.setLeftTopAndSize(
 				getRect().getWidth() - LLPANEL_BORDER_WIDTH - (floater_close_box_size + 1) * (i + 1),
 				getRect().getHeight() - close_box_from_top,
-				llround(floater_close_box_size * mButtonScale),
-				llround(floater_close_box_size * mButtonScale));
+				ll_round(floater_close_box_size * mButtonScale),
+				ll_round(floater_close_box_size * mButtonScale));
 		}
 
 		LLButton::Params p;
@@ -2305,6 +2350,10 @@ LLUIImage* LLFloater::getButtonImage(const Params& p, EFloaterButton e)
 			return p.dock_image;
 		case BUTTON_HELP:
 			return p.help_image;
+		// <FS:Ansariel> FIRE-11724: Snooze group chat
+		case BUTTON_SNOOZE:
+			return p.snooze_image;
+		// </FS:Ansariel>
 	}
 }
 
@@ -2326,6 +2375,10 @@ LLUIImage* LLFloater::getButtonPressedImage(const Params& p, EFloaterButton e)
 			return p.dock_pressed_image;
 		case BUTTON_HELP:
 			return p.help_pressed_image;
+		// <FS:Ansariel> FIRE-11724: Snooze group chat
+		case BUTTON_SNOOZE:
+			return p.snooze_pressed_image;
+		// </FS:Ansariel>
 	}
 }
 
@@ -2742,16 +2795,17 @@ void LLFloaterView::getMinimizePosition(S32 *left, S32 *bottom)
 		col < snap_rect_local.getWidth() - minimized_width;
 		col += minimized_width)
 	{	
-		// AO: offset minimized windows to not obscure title bars. Yes, this is a quick and dirty hack.
+		// <FS:AO> offset minimized windows to not obscure title bars. Yes, this is a quick and dirty hack.
 		int offset = 0;
 		//LLFavoritesBarCtrl* fb = getChild<LLFavoritesBarCtrl>("favorite");
-		bool fbVisible = LLControlGroup::getInstance("Global")->getBOOL("ShowNavbarFavoritesPanel");
-		bool nbVisible = LLControlGroup::getInstance("Global")->getBOOL("ShowNavbarNavigationPanel");
+		bool fbVisible = LLUI::sSettingGroups["config"]->getBOOL("ShowNavbarFavoritesPanel");
+		bool nbVisible = LLUI::sSettingGroups["config"]->getBOOL("ShowNavbarNavigationPanel");
 		// TODO: Make this introspect controls to get the dynamic size.
 		if (fbVisible)
 			offset += 20;
 		if (nbVisible)
 			offset += 30;
+		// </FS:AO>
 		
 		for(S32 row = snap_rect_local.mTop - (floater_header_size + offset);
 		row > floater_header_size;
@@ -3702,28 +3756,28 @@ LLCoordCommon LL_COORD_FLOATER::convertToCommon() const
 	LLCoordCommon out;
 	if (self.mX < -0.5f)
 	{
-		out.mX = llround(rescale(self.mX, -1.f, -0.5f, snap_rect.mLeft - (floater_width - FLOATER_MIN_VISIBLE_PIXELS), snap_rect.mLeft));
+		out.mX = ll_round(rescale(self.mX, -1.f, -0.5f, snap_rect.mLeft - (floater_width - FLOATER_MIN_VISIBLE_PIXELS), snap_rect.mLeft));
 	}
 	else if (self.mX > 0.5f)
 	{
-		out.mX = llround(rescale(self.mX, 0.5f, 1.f, snap_rect.mRight - floater_width, snap_rect.mRight - FLOATER_MIN_VISIBLE_PIXELS));
+		out.mX = ll_round(rescale(self.mX, 0.5f, 1.f, snap_rect.mRight - floater_width, snap_rect.mRight - FLOATER_MIN_VISIBLE_PIXELS));
 	}
 	else
 	{
-		out.mX = llround(rescale(self.mX, -0.5f, 0.5f, snap_rect.mLeft, snap_rect.mRight - floater_width));
+		out.mX = ll_round(rescale(self.mX, -0.5f, 0.5f, snap_rect.mLeft, snap_rect.mRight - floater_width));
 	}
 
 	if (self.mY < -0.5f)
 	{
-		out.mY = llround(rescale(self.mY, -1.f, -0.5f, snap_rect.mBottom - (floater_height - FLOATER_MIN_VISIBLE_PIXELS), snap_rect.mBottom));
+		out.mY = ll_round(rescale(self.mY, -1.f, -0.5f, snap_rect.mBottom - (floater_height - FLOATER_MIN_VISIBLE_PIXELS), snap_rect.mBottom));
 	}
 	else if (self.mY > 0.5f)
 	{
-		out.mY = llround(rescale(self.mY, 0.5f, 1.f, snap_rect.mTop - floater_height, snap_rect.mTop - FLOATER_MIN_VISIBLE_PIXELS));
+		out.mY = ll_round(rescale(self.mY, 0.5f, 1.f, snap_rect.mTop - floater_height, snap_rect.mTop - FLOATER_MIN_VISIBLE_PIXELS));
 	}
 	else
 	{
-		out.mY = llround(rescale(self.mY, -0.5f, 0.5f, snap_rect.mBottom, snap_rect.mTop - floater_height));
+		out.mY = ll_round(rescale(self.mY, -0.5f, 0.5f, snap_rect.mBottom, snap_rect.mTop - floater_height));
 	}
 
 	// return center point instead of lower left

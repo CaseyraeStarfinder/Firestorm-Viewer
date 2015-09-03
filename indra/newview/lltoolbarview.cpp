@@ -47,6 +47,9 @@
 
 #include <boost/foreach.hpp>
 
+#include "fscommon.h"
+#include "quickprefs.h"
+
 LLToolBarView* gToolBarView = NULL;
 
 static LLDefaultChildRegistry::Register<LLToolBarView> r("toolbar_view");
@@ -83,8 +86,9 @@ LLToolBarView::LLToolBarView(const LLToolBarView::Params& p)
 	// <FS:Ansariel> Member variables needed for console chat bottom offset
 	//mBottomToolbarPanel(NULL)
 	mBottomToolbarPanel(NULL),
-	mBottomChatStack(NULL)
+	mBottomChatStack(NULL),
 	// </FS:Ansariel> Member variables needed for console chat bottom offset
+	mHideBottomOnEmpty(false) // <FS:Ansariel> Added to determine if toolbar gets hidden when empty
 {
 	for (S32 i = 0; i < LLToolBarEnums::TOOLBAR_COUNT; i++)
 	{
@@ -127,6 +131,9 @@ BOOL LLToolBarView::postBuild()
 	
 	// <FS:Ansariel> Member variable needed for console chat bottom offset
 	mBottomChatStack = findChild<LLView>("bottom_chat_stack");
+
+	// <FS:Ansariel> Added to determine if toolbar gets hidden when empty
+	mHideBottomOnEmpty = FSCommon::isLegacySkin();
 
 	return TRUE;
 }
@@ -532,12 +539,25 @@ void LLToolBarView::onToolBarButtonAdded(LLView* button)
 			}
 		}
 	}
+	// <FS:Ansariel> Do not remove in case they get removed by LL! We need this for standalone
+	//               IM floaters.
 	else if (button->getName() == "voice")
 	{
 		// Add the "Voice controls" button as a control view in LLTransientFloaterMgr
 		// to prevent hiding the transient IM floater upon pressing "Voice controls".
 		LLTransientFloaterMgr::getInstance()->addControlView(button);
 	}
+	// <FS:Ansariel> Dockable QuickPrefs floater
+	else if (button->getName() == "quickprefs" && !FSCommon::isLegacySkin())
+	{
+		LLTransientFloaterMgr::getInstance()->addControlView(button);
+		FloaterQuickPrefs* quickprefs_floater = LLFloaterReg::getTypedInstance<FloaterQuickPrefs>("quickprefs");
+		if (quickprefs_floater && quickprefs_floater->isShown())
+		{
+			quickprefs_floater->dockToToolbarButton();
+		}
+	}
+	// </FS:Ansariel>
 }
 
 void LLToolBarView::onToolBarButtonRemoved(LLView* button)
@@ -571,10 +591,27 @@ void LLToolBarView::onToolBarButtonRemoved(LLView* button)
 			dock_control->setDock(NULL);
 		}
 	}
+	// <FS:Ansariel> Do not remove in case they get removed by LL! We need this for standalone
+	//               IM floaters.
 	else if (button->getName() == "voice")
 	{
 		LLTransientFloaterMgr::getInstance()->removeControlView(button);
 	}
+	// <FS:Ansariel> Dockable QuickPrefs floater
+	else if (button->getName() == "quickprefs" && !FSCommon::isLegacySkin())
+	{
+		LLTransientFloaterMgr::getInstance()->removeControlView(button);
+		FloaterQuickPrefs* quickprefs_floater = LLFloaterReg::getTypedInstance<FloaterQuickPrefs>("quickprefs");
+		if (quickprefs_floater && quickprefs_floater->isShown())
+		{
+			quickprefs_floater->setUseTongue(false);
+			quickprefs_floater->setDocked(false, false);
+			quickprefs_floater->setCanDock(false);
+			LLDockControl* dock_control = quickprefs_floater->getDockControl();
+			dock_control->setDock(NULL);
+		}
+	}
+	// </FS:Ansariel>
 }
 
 void LLToolBarView::draw()
@@ -603,7 +640,10 @@ void LLToolBarView::draw()
 	for (S32 i = LLToolBarEnums::TOOLBAR_FIRST; i <= LLToolBarEnums::TOOLBAR_LAST; i++)
 	{
 		mToolbars[i]->getParent()->setVisible(mShowToolbars 
-											&& (mToolbars[i]->hasButtons() 
+											// <FS:Ansariel> FIRE-5141: Nearby chat floater can no longer be resized when all buttons are removed from bottom FUI panel
+											//&& (mToolbars[i]->hasButtons() 
+											&& (((i == LLToolBarEnums::TOOLBAR_BOTTOM && !mHideBottomOnEmpty) ? true : mToolbars[i]->hasButtons())
+											// </FS:Ansariel>
 											|| isToolDragged()));
 	}
 

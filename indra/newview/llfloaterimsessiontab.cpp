@@ -49,7 +49,7 @@
 const F32 REFRESH_INTERVAL = 1.0f;
 
 LLFloaterIMSessionTab::LLFloaterIMSessionTab(const LLSD& session_id)
-:	LLTransientDockableFloater(NULL, true, session_id),
+:	LLTransientDockableFloater(NULL, false, session_id),
 	mIsP2PChat(false),
 	mExpandCollapseBtn(NULL),
 	mTearOffBtn(NULL),
@@ -120,6 +120,7 @@ LLFloaterIMSessionTab* LLFloaterIMSessionTab::getConversation(const LLUUID& uuid
 	else
 	{
 		conv = LLFloaterReg::getTypedInstance<LLFloaterIMSessionTab>("impanel", LLSD(uuid));
+		conv->setOpenPositioning(LLFloaterEnums::POSITIONING_RELATIVE);
 	}
 
 	return conv;

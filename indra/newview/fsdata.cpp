@@ -48,6 +48,7 @@
 #include "llmutelist.h"
 #include "llnotifications.h"
 #include "llsdserialize.h"
+#include "lltrans.h"
 #include "llversioninfo.h"
 #include "llviewercontrol.h"
 #include "llviewermedia.h"
@@ -76,27 +77,24 @@ public:
 		mURL(url)
 	{}
 
-	void result(const LLSD& content)
+	void httpSuccess()
 	{
+		completedHeader();
+
 		// check for parse failure that can happen with [200] OK result.
-		if (mDeserializeError)
-		{
-			FSData::getInstance()->processResponder(content, mURL, false, mLastModified);
-		}
-		else
-		{
-			FSData::getInstance()->processResponder(content, mURL, true, mLastModified);
-		}
+		FSData::getInstance()->processResponder(getContent(), mURL, !mDeserializeError, mLastModified);
 	}
 	
-	void errorWithContent(U32 status, const std::string& reason, const LLSD& content)
+	void httpFailure()
 	{
-		FSData::getInstance()->processResponder(content, mURL, false, mLastModified);
+		completedHeader();
+		FSData::getInstance()->processResponder(getContent(), mURL, false, mLastModified);
 	}
 	
-	void completedHeader(U32 status, const std::string& reason, const LLSD& content)
+	void completedHeader()
 	{
-		LL_DEBUGS("fsdata") << "Status: [" << status << "]: " << "last-modified: " << content["last-modified"].asString() << LL_ENDL; //  Wed, 21 Mar 2012 17:41:14 GMT
+		LLSD content = getResponseHeaders();
+		LL_DEBUGS("fsdata") << "Status: [" << getStatus() << "]: " << "last-modified: " << content["last-modified"].asString() << LL_ENDL; //  Wed, 21 Mar 2012 17:41:14 GMT
 		if (content.has("last-modified"))
 		{
 			mLastModified.secondsSinceEpoch(FSCommon::secondsSinceEpochFromString("%a, %d %b %Y %H:%M:%S %ZP", content["last-modified"].asString()));
@@ -119,20 +117,20 @@ public:
 	{}
 
 	void completedRaw(
-		U32 status,
-		const std::string& reason,
 		const LLChannelDescriptors& channels,
 		const LLIOPipe::buffer_ptr_t& buffer)
 	{
-		if (!isGoodStatus(status))
+		completedHeader();
+
+		if (!isGoodStatus())
 		{
-			if (status == 304)
+			if (getStatus() == HTTP_NOT_MODIFIED)
 			{
 				LL_INFOS("fsdata") << "Got [304] not modified for " << mURL << LL_ENDL;
 			}
 			else
 			{
-				LL_WARNS("fsdata") << "Error fetching " << mURL << " Status: [" << status << "]" << LL_ENDL;
+				LL_WARNS("fsdata") << "Error fetching " << mURL << " Status: [" << getStatus() << "]" << LL_ENDL;
 			}
 			return;
 		}
@@ -140,12 +138,11 @@ public:
 		S32 data_size = buffer->countAfter(channels.in(), NULL);
 		if (data_size <= 0)
 		{
-			LL_WARNS("fsdata") << "Recieved zero data for " << mURL << LL_ENDL;
+			LL_WARNS("fsdata") << "Received zero data for " << mURL << LL_ENDL;
 			return;
 		}
 
-		U8* data = NULL;
-		data = new U8[data_size];
+		U8* data = new U8[data_size];
 		buffer->readAfter(channels.in(), NULL, data, data_size);
 
 		// basic check for valid data received
@@ -174,9 +171,10 @@ public:
 		data = NULL;
 	}
 
-	void completedHeader(U32 status, const std::string& reason, const LLSD& content)
+	void completedHeader()
 	{
-		LL_DEBUGS("fsdata") << "Status: [" << status << "]: " << "last-modified: " << content["last-modified"].asString() << LL_ENDL; //  Wed, 21 Mar 2012 17:41:14 GMT
+		LLSD content = getResponseHeaders();
+		LL_DEBUGS("fsdata") << "Status: [" << getStatus() << "]: " << "last-modified: " << content["last-modified"].asString() << LL_ENDL; //  Wed, 21 Mar 2012 17:41:14 GMT
 		if (content.has("last-modified"))
 		{
 			mLastModified.secondsSinceEpoch(FSCommon::secondsSinceEpochFromString("%a, %d %b %Y %H:%M:%S %ZP", content["last-modified"].asString()));
@@ -297,7 +295,7 @@ void FSData::processResponder(const LLSD& content, const std::string& url, bool 
 
 bool FSData::loadFromFile(LLSD& data, std::string filename)
 {
-	llifstream file(filename);
+	llifstream file(filename.c_str());
 	if(file.is_open())
 	{
 		if(LLSDSerialize::fromXML(data, file) != LLSDParser::PARSE_FAILURE)
@@ -347,10 +345,7 @@ void FSData::startDownload()
 	LLHTTPClient::getIfModified(mFSdataDefaultsUrl, new FSDownloader(mFSdataDefaultsUrl), last_modified, mHeaders, HTTP_TIMEOUT);
 
 #if OPENSIM
-	std::string filenames[] = {"scriptlibrary_lsl.xml", "scriptlibrary_ossl.xml", "scriptlibrary_aa.xml"};
-#else
-	std::string filenames[] = {"scriptlibrary_lsl.xml"};
-#endif
+	std::string filenames[] = {"scriptlibrary_ossl.xml", "scriptlibrary_aa.xml"};
 	BOOST_FOREACH(std::string script_name, filenames)
 	{
 		filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, script_name);
@@ -363,6 +358,7 @@ void FSData::startDownload()
 		LL_INFOS("fsdata") << "Downloading " << script_name << " from " << url << " with last modifed of " << last_modified << LL_ENDL;
 		LLHTTPClient::getIfModified(url, new FSDownloaderScript(filename, url), last_modified, mHeaders, HTTP_TIMEOUT);
 	}
+#endif
 }
 
 // call this _after_ the login screen to pick up grid data.
@@ -378,7 +374,7 @@ void FSData::downloadAgents()
 	if (!LLGridManager::getInstance()->isInSecondLife())
 	{
 		// TODO: Let the opensim devs and opensim group figure out the best way
-		// to add "agents.xml" URL to the gridinfo protucule.
+		// to add "agents.xml" URL to the gridinfo protocol.
 		//getAgentsURL();
 		
 		// there is no need for assets.xml URL for opensim grids as the grid owner can just delete
@@ -708,7 +704,7 @@ void FSData::saveLLSD(const LLSD& data, const std::string& filename, const LLDat
 {
 	LL_INFOS("fsdata") << "Saving " << filename << LL_ENDL;
 	llofstream file;
-	file.open(filename);
+	file.open(filename.c_str());
 	if(!file.is_open())
 	{
 		LL_WARNS("fsdata") << "Unable to open " << filename << LL_ENDL;
@@ -840,51 +836,51 @@ void FSData::addAgents()
 
 std::string FSData::processRequestForInfo(const LLUUID& requester, const std::string& message, const std::string& name, const LLUUID& sessionid)
 {
-	std::string detectstring = "/reqsysinfo";
-	if(!message.find(detectstring) == 0)
+	const std::string detectstring = "/reqsysinfo";
+	if (message.find(detectstring) != 0)
 	{
 		return message;
 	}
 
-	if(!(isSupport(requester)||isDeveloper(requester)))
+	if (!isSupport(requester) && !isDeveloper(requester))
 	{
 		return message;
 	}
 
-	std::string outmessage("I am requesting information about your system setup.");
+	std::string outmessage = LLTrans::getString("Reqsysinfo_Chat_NoReason");
 	std::string reason("");
-	if(message.length() > detectstring.length())
+	if (message.length() > detectstring.length())
 	{
-		reason = std::string(message.substr(detectstring.length()));
 		//there is more to it!
-		outmessage = std::string("I am requesting information about your system setup for this reason : " + reason);
-		reason = "The reason provided was : " + reason;
+		reason = message.substr(detectstring.length());
+		LLStringUtil::format_map_t reason_args;
+		reason_args["REASON"] = reason;
+		outmessage = LLTrans::getString("Reqsysinfo_Chat_Reason", reason_args);
+		reason = LLTrans::getString("Reqsysinfo_Reason", reason_args);
 	}
 	
 	LLSD args;
 	args["REASON"] = reason;
 	args["NAME"] = name;
-	args["FROMUUID"] = requester;
-	args["SESSIONID"] = sessionid;
-	LLNotifications::instance().add("FireStormReqInfo", args, LLSD(), callbackReqInfo);
+	LLNotifications::instance().add("FireStormReqInfo", args, LLSD().with("from_id", requester).with("session_id", sessionid), callbackReqInfo);
 
 	return outmessage;
 }
 
 //static
-void FSData::sendInfo(const LLUUID& destination, const LLUUID& sessionid, const std::string& myName, EInstantMessage dialog)
+void FSData::sendInfo(const LLUUID& destination, const LLUUID& sessionid, const std::string& my_name, EInstantMessage dialog)
 {
-	LLSD system_info = getSystemInfo();
-	std::string part1 = system_info["Part1"].asString();
-	std::string part2 = system_info["Part2"].asString();
+	const LLSD system_info = getSystemInfo();
+	const std::string part1 = system_info["Part1"].asString();
+	const std::string part2 = system_info["Part2"].asString();
 
 	pack_instant_message(
 		gMessageSystem,
-		gAgent.getID(),
+		gAgentID,
 		FALSE,
-		gAgent.getSessionID(),
+		gAgentSessionID,
 		destination,
-		myName,
+		my_name,
 		part1,
 		IM_ONLINE,
 		dialog,
@@ -893,11 +889,11 @@ void FSData::sendInfo(const LLUUID& destination, const LLUUID& sessionid, const 
 	gAgent.sendReliableMessage();
 	pack_instant_message(
 		gMessageSystem,
-		gAgent.getID(),
+		gAgentID,
 		FALSE,
-		gAgent.getSessionID(),
+		gAgentSessionID,
 		destination,
-		myName,
+		my_name,
 		part2,
 		IM_ONLINE,
 		dialog,
@@ -905,8 +901,10 @@ void FSData::sendInfo(const LLUUID& destination, const LLUUID& sessionid, const 
 		);
 	gAgent.sendReliableMessage();
 
-	gIMMgr->addMessage(gIMMgr->computeSessionID(dialog,destination),destination,myName,
-				"Information Sent: " + part1 + "\n" + part2);
+	LLStringUtil::format_map_t args;
+	args["DATA"] = part1 + "\n" + part2;
+	gIMMgr->addMessage(gIMMgr->computeSessionID(dialog, destination), destination, my_name,
+						LLTrans::getString("Reqsysinfo_Chat_Information_sent", args));
 }
 
 //static
@@ -914,40 +912,38 @@ void FSData::callbackReqInfo(const LLSD &notification, const LLSD &response)
 {
 	S32 option = LLNotification::getSelectedOption(notification, response);
 	std::string my_name;
-	LLSD subs = LLNotification(notification).getSubstitutions();
-	LLUUID uid = subs["FROMUUID"].asUUID();
-	LLUUID sessionid = subs["SESSIONID"].asUUID();
+	LLUUID from_id = notification["payload"]["from_id"].asUUID();
+	LLUUID session_id = notification["payload"]["session_id"].asUUID();
 
-	LL_INFOS() << "the uuid is " << uid.asString().c_str() << LL_ENDL;
 	LLAgentUI::buildFullname(my_name);
 
-	if ( option == 0 )//yes
+	if (option == 0) //yes
 	{
-		sendInfo(uid,sessionid,my_name,IM_NOTHING_SPECIAL);
+		sendInfo(from_id, session_id, my_name, IM_NOTHING_SPECIAL);
 	}
 	else
 	{
 		pack_instant_message(
 			gMessageSystem,
-			gAgent.getID(),
+			gAgentID,
 			FALSE,
-			gAgent.getSessionID(),
-			uid,
+			gAgentSessionID,
+			from_id,
 			my_name,
-			"Request Denied.",
+			"Request Denied.", // Left English intentionally as it gets sent to the support staff
 			IM_ONLINE,
 			IM_NOTHING_SPECIAL,
-			sessionid
+			session_id
 			);
 		gAgent.sendReliableMessage();
-		gIMMgr->addMessage(sessionid,uid,my_name,"Request Denied");
+		gIMMgr->addMessage(session_id, from_id, my_name, LLTrans::getString("Reqsysinfo_Chat_Request_Denied"));
 	}
 }
 
 //static
 LLSD FSData::getSystemInfo()
 {
-	LLSD info=LLAppViewer::instance()->getViewerInfo();
+	LLSD info = LLAppViewer::instance()->getViewerInfo();
 
 	std::string sysinfo1("\n");
 	sysinfo1 += llformat("%s %s (%d) %s %s (%s) %s\n\n", LLAppViewer::instance()->getSecondLifeTitle().c_str(), LLVersionInfo::getShortVersion().c_str(), LLVersionInfo::getBuild(), info["BUILD_DATE"].asString().c_str(), info["BUILD_TIME"].asString().c_str(), LLVersionInfo::getChannel().c_str(),
@@ -956,20 +952,20 @@ LLSD FSData::getSystemInfo()
 // </FS:CR>
 	sysinfo1 += llformat("Build with %s version %s\n\n", info["COMPILER"].asString().c_str(), info["COMPILER_VERSION"].asString().c_str());
 	sysinfo1 += llformat("I am in %s located at %s (%s)\n", info["REGION"].asString().c_str(), info["HOSTNAME"].asString().c_str(), info["HOSTIP"].asString().c_str());
-	sysinfo1 += llformat("%s\n", info["SERVER_VERSION"].asString().c_str());
+	sysinfo1 += llformat("%s\n\n", info["SERVER_VERSION"].asString().c_str());
 
-	std::string sysinfo2("\n");
-	sysinfo2 += llformat("CPU: %s\n", info["CPU"].asString().c_str());
-	sysinfo2 += llformat("Memory: %d MB\n", info["MEMORY_MB"].asInteger());
-	sysinfo2 += llformat("OS: %s\n", info["OS_VERSION"].asString().c_str());
-	sysinfo2 += llformat("Graphics Card Vendor: %s\n", info["GRAPHICS_CARD_VENDOR"].asString().c_str());
-	sysinfo2 += llformat("Graphics Card: %s\n", info["GRAPHICS_CARD"].asString().c_str());
+	sysinfo1 += llformat("CPU: %s\n", info["CPU"].asString().c_str());
+	sysinfo1 += llformat("Memory: %d MB\n", info["MEMORY_MB"].asInteger());
+	sysinfo1 += llformat("OS: %s\n", info["OS_VERSION"].asString().c_str());
+	sysinfo1 += llformat("Graphics Card Vendor: %s\n", info["GRAPHICS_CARD_VENDOR"].asString().c_str());
+	sysinfo1 += llformat("Graphics Card: %s\n", info["GRAPHICS_CARD"].asString().c_str());
 	
 	if (info.has("GRAPHICS_DRIVER_VERSION"))
 	{
-		sysinfo2 += llformat("Graphics Card Driver Version: %s\n", info["GRAPHICS_DRIVER_VERSION"].asString().c_str());
+		sysinfo1 += llformat("Graphics Card Driver Version: %s\n", info["GRAPHICS_DRIVER_VERSION"].asString().c_str());
 	}
 
+	std::string sysinfo2("\n");
 	sysinfo2 += llformat("OpenGL Version: %s\n\n", info["OPENGL_VERSION"].asString().c_str());
 	sysinfo2 += llformat("libcurl Version: %s\n", info["LIBCURL_VERSION"].asString().c_str());
 	sysinfo2 += llformat("J2C Decoder Version: %s\n", info["J2C_VERSION"].asString().c_str());
@@ -984,6 +980,7 @@ LLSD FSData::getSystemInfo()
 	sysinfo2 += llformat("Font: %s\n", info["FONT"].asString().c_str());
 	sysinfo2 += llformat("Font Size Adjustment: %d pt\n", info["FONT_SIZE"].asInteger());
 	sysinfo2 += llformat("Font Screen DPI: %d\n", info["FONT_SCREEN_DPI"].asInteger());
+	sysinfo2 += llformat("UI Scaling: %.3f\n", info["UI_SCALE_FACTOR"].asReal());
 	sysinfo2 += llformat("Draw Distance: %d m\n", info["DRAW_DISTANCE"].asInteger());
 	sysinfo2 += llformat("Bandwidth: %d kbit/s\n", info["BANDWIDTH"].asInteger());
 	sysinfo2 += llformat("LOD Factor: %.3f\n", info["LOD"].asReal());

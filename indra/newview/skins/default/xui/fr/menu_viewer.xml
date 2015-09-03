@@ -9,6 +9,8 @@
     <menu_item_call label="Acheter des L$" name="Buy and Sell L$"/>
 		<menu_item_call label="Mon profil" name="Profile"/>
 		<menu_item_call label="Mon apparence" name="ChangeOutfit"/>
+		<menu_item_call label="Expériences" name="Experiences"/>
+		<menu_item_call label="Choisir un avatar" name="Avatar Picker"/>
 		<menu_item_call label="Contrôles de la caméra..." name="Camera Controls"/>
     <menu_item_check label="Photo" name="Take Snapshot"/>
     <menu_item_check label="Mon inventaire" name="Inventory"/>
@@ -28,6 +30,7 @@
 		</menu>
 		<menu_item_call label="Acheter des L$..." name="Buy and Sell L$"/>
 		<menu_item_call label="Boîte d&apos;envoi vendeur..." name="MerchantOutbox"/>
+		<menu_item_call label="Annonces de Place du marché..." name="MarketplaceListings"/>
 		<menu_item_call label="Page d&apos;accueil du compte..." name="Manage My Account">
 			<menu_item_call.on_click name="ManageMyAccount_url" parameter="WebLaunchJoinNow,http://secondlife.com/account/index.php?lang=fr"/>
 		</menu_item_call>
@@ -51,12 +54,12 @@
 		<menu_item_check label="Amis" name="My Friends"/>
 		<menu_item_check label="Groupes" name="My Groups"/>
 		<menu_item_check label="Personnes près de vous" name="Active Speakers"/>
-		<menu_item_call label="Liste des ignorés" name="Block List"/>
+		<menu_item_check label="Liste des ignorés" name="Block List"/>
 		<menu_item_check label="Ne pas déranger" name="Do Not Disturb"/>
 	</menu>
 	<menu label="Monde" name="World">
 		<menu_item_call label="Créer un repère pour ce lieu" name="Create Landmark Here"/>
-		<menu_item_call label="Destinations..." name="Destinations"/>
+		<menu_item_call label="Destinations" name="Destinations"/>
 		<menu_item_check label="Carte du monde" name="World Map"/>
 		<menu_item_check label="Mini-carte" name="Mini-Map"/>
 		<menu_item_check label="Rechercher" name="Search"/>
@@ -156,7 +159,8 @@
 			<menu_item_check label="Fixer sur la grille" name="Snap to Grid"/>
 			<menu_item_call label="Fixer les coordonnées XY de l&apos;objet sur la grille" name="Snap Object XY to Grid"/>
 			<menu_item_call label="Utiliser la sélection pour la grille" name="Use Selection for Grid"/>
-			<menu_item_call label="Options de la grille" name="Grid Options"/>
+			<menu_item_call label="Options de la grille..." name="Grid Options"/>
+			<menu_item_call label="Définir les droits par défaut..." name="Set default permissions"/>
 		</menu>
 		<menu label="Charger" name="Upload">
 			<menu_item_call label="Image ([COST])..." name="Upload Image"/>
@@ -164,7 +168,6 @@
 			<menu_item_call label="Animation ([COST])..." name="Upload Animation"/>
 			<menu_item_call label="Modèle..." name="Upload Model"/>
 			<menu_item_call label="Lot ([COST] par fichier)..." name="Bulk Upload"/>
-			<menu_item_call label="Définir les droits de chargement par défaut" name="perm prefs"/>
 		</menu>
 		<menu_item_call label="Annuler" name="Undo"/>
 		<menu_item_call label="Refaire" name="Redo"/>
@@ -193,6 +196,7 @@
 		<menu_item_check label="Photo haute résolution" name="HighResSnapshot"/>
 		<menu_item_check label="Photos discrètes sur disque" name="QuietSnapshotsToDisk"/>
 		<menu label="Outils de performance" name="Performance Tools">
+			<menu_item_call label="Mesure du lag" name="Lag Meter"/>
 			<menu_item_check label="Barre de statistiques" name="Statistics Bar"/>
 			<menu_item_check label="Afficher le poids de dessin pour les avatars" name="Avatar Rendering Cost"/>
 		</menu>
@@ -253,6 +257,7 @@
 			<menu_item_check label="Console de textures" name="Texture Console"/>
 			<menu_item_check label="Console de débogage" name="Debug Console"/>
 			<menu_item_call label="Console de notifications" name="Notifications"/>
+			<menu_item_check label="Console de débogage de région" name="Region Debug Console"/>
 			<menu_item_check label="Chronos" name="Fast Timers"/>
 			<menu_item_check label="Mémoire" name="Memory"/>
 			<menu_item_check label="Statistiques de la scène" name="Scene Statistics"/>

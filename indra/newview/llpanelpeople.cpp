@@ -521,7 +521,7 @@ public:
 
 LLPanelPeople::LLPanelPeople()
 	:	LLPanel(),
-		mTryToConnectToFbc(true),
+		mTryToConnectToFacebook(true),
 		mTabContainer(NULL),
 		mOnlineFriendList(NULL),
 		mAllFriendList(NULL),
@@ -534,8 +534,10 @@ LLPanelPeople::LLPanelPeople()
 		// <FS:Ansariel> Firestorm radar
 		//mMiniMap(NULL)
 		mMiniMap(NULL),
-		mRadarPanel(NULL)
+		mRadarPanel(NULL),
 		// </FS:Ansariel> Firestorm radar
+		// <FS:Ansariel> FIRE-4740: Friend counter in people panel
+		mFriendsTabContainer(NULL)
 {
 	mFriendListUpdater = new LLFriendListUpdater(boost::bind(&LLPanelPeople::updateFriendList,	this));
 	// <FS:Ansariel> Firestorm radar
@@ -641,6 +643,8 @@ BOOL LLPanelPeople::postBuild()
     friends_tab->setVisibleCallback(boost::bind(&LLPanelPeople::removePicker, this));
 	friends_tab->setVisibleCallback(boost::bind(&LLPanelPeople::updateFacebookList, this, _2));
 
+	// <FS:Ansariel> FIRE-4740: Friend counter in people panel
+	mFriendsTabContainer = friends_tab->findChild<LLTabContainer>("friends_accordion");
 	// <FS:Ansariel> Firestorm radar
 	friends_tab->childSetAction("GlobalOnlineStatusToggle", boost::bind(&LLPanelPeople::onGlobalVisToggleButtonClicked, this));
 	mOnlineFriendList = friends_tab->getChild<LLAvatarList>("avatars_online");
@@ -878,6 +882,17 @@ void LLPanelPeople::updateFriendList()
 	updateButtons();
 	updateSuggestedFriendList();
 	showFriendsAccordionsIfNeeded();
+
+	// <FS:Ansariel> FIRE-4740: Friend counter in people panel
+	if (mFriendsTabContainer)
+	{
+		LLStringUtil::format_map_t args;
+		args["ALL"] = llformat("%d", all_friendsp.size());
+		args["ONLINE"] = llformat("%d", online_friendsp.size());
+		mFriendsTabContainer->setPanelTitle(0, getString("OnlineFriendsTitle", args));
+		mFriendsTabContainer->setPanelTitle(1, getString("AllFriendsTitle", args));
+	}
+	// </FS:Ansariel>
 }
 
 bool LLPanelPeople::updateSuggestedFriendList()
@@ -963,10 +978,10 @@ void LLPanelPeople::updateFacebookList(bool visible)
 		{
 			LLFacebookConnect::instance().loadFacebookFriends();
 		}
-		else if(mTryToConnectToFbc)
+		else if(mTryToConnectToFacebook)
 		{
 			LLFacebookConnect::instance().checkConnectionToFacebook();
-			mTryToConnectToFbc = false;
+			mTryToConnectToFacebook = false;
 		}
     
 		updateSuggestedFriendList();
@@ -1036,7 +1051,10 @@ void LLPanelPeople::updateButtons()
 				cur_panel->getChildView("friends_del_btn")->setEnabled(multiple_selected);
 			}
 
-			if (!group_tab_active)
+			// <FS:Ansariel> Fix warning about missing gear button on blocklist panel
+			//if (!group_tab_active)
+			if (!group_tab_active && cur_tab != BLOCKED_TAB_NAME)
+			// </FS:Ansariel>
 			{
 				cur_panel->getChildView("gear_btn")->setEnabled(multiple_selected);
 			}
@@ -1580,6 +1598,17 @@ void LLPanelPeople::onOpen(const LLSD& key)
 	std::string tab_name = key["people_panel_tab_name"];
 	if (!tab_name.empty())
 		mTabContainer->selectTabByName(tab_name);
+
+	// <FS:Ansariel> Call onOpen for the blocklist panel to select mute if necessary
+	if (tab_name == "blocked_panel")
+	{
+		LLPanel* blocklist_impl_panel = mTabContainer->getCurrentPanel()->findChild<LLPanel>("panel_block_list_sidetray");
+		if (blocklist_impl_panel)
+		{
+			blocklist_impl_panel->onOpen(key);
+		}
+	}
+	// </FS:Ansariel>
 }
 
 bool LLPanelPeople::notifyChildren(const LLSD& info)

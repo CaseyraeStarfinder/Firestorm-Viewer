@@ -24,7 +24,6 @@
 #include "llviewerparcelmgr.h"
 #include "llviewermenu.h"
 #include "llviewerregion.h"
-#include "llviewerstats.h"
 #include "llworld.h"
 
 #include "rlvactions.h"
@@ -83,6 +82,9 @@ void RlvSettings::initClass()
 	static bool fInitialized = false;
 	if (!fInitialized)
 	{
+		// Ansariel: Wired up in LLViewerControl because of FIRE-16601
+		//gSavedSettings.getControl(RLV_SETTING_MAIN)->getSignal()->connect(boost::bind(&onChangedSettingMain, _2));
+
 		#ifdef RLV_EXPERIMENTAL_COMPOSITEFOLDERS
 		fCompositeFolders = rlvGetSetting<bool>(RLV_SETTING_ENABLECOMPOSITES, false);
 		if (gSavedSettings.controlExists(RLV_SETTING_ENABLECOMPOSITES))
@@ -144,6 +146,19 @@ bool RlvSettings::onChangedSettingBOOL(const LLSD& sdValue, bool* pfSetting)
 	return true;
 }
 
+// Checked: 2015-05-25 (RLVa-1.5.0)
+void RlvSettings::onChangedSettingMain(const LLSD& sdValue)
+{
+	if (sdValue.asBoolean() != (bool)rlv_handler_t::isEnabled())
+	{
+		LLNotificationsUtil::add(
+			"GenericAlert",
+			LLSD().with("MESSAGE", llformat(RlvStrings::getString("message_toggle_restart").c_str(), 
+				(sdValue.asBoolean()) ? RlvStrings::getString("message_toggle_restart_enabled").c_str()
+				                      : RlvStrings::getString("message_toggle_restart_disabled").c_str())));
+	}
+}
+
 // ============================================================================
 // RlvStrings
 //
@@ -187,7 +202,7 @@ void RlvStrings::initClass()
 // Checked: 2011-11-08 (RLVa-1.5.0)
 void RlvStrings::loadFromFile(const std::string& strFilePath, bool fUserOverride)
 {
-	llifstream fileStream(strFilePath, std::ios::binary); LLSD sdFileData;
+	llifstream fileStream(strFilePath.c_str(), std::ios::binary); LLSD sdFileData;
 	if ( (!fileStream.is_open()) || (!LLSDSerialize::fromXMLDocument(sdFileData, fileStream)) )
 		return;
 	fileStream.close();
@@ -197,7 +212,7 @@ void RlvStrings::loadFromFile(const std::string& strFilePath, bool fUserOverride
 		const LLSD& sdStrings = sdFileData["strings"];
 		for (LLSD::map_const_iterator itString = sdStrings.beginMap(); itString != sdStrings.endMap(); ++itString)
 		{
-			if ( (!itString->second.has("value")) || ((fUserOverride) && (!hasString(itString->first))) )
+			if ((!itString->second.has("value")) || ((fUserOverride) && (!hasString(itString->first))))
 				continue;
 
 			std::list<std::string>& listValues = m_StringMap[itString->first];
@@ -238,7 +253,7 @@ void RlvStrings::saveToFile(const std::string& strFilePath)
 			sdStrings[itString->first]["value"] = listValues.back();
 	}
 
-	llofstream fileStream(strFilePath);
+	llofstream fileStream(strFilePath.c_str());
 	if (!fileStream.good())
 		return;
 
@@ -262,6 +277,7 @@ const std::string& RlvStrings::getAnonym(const std::string& strName)
 const std::string& RlvStrings::getString(const std::string& strStringName)
 {
 	static const std::string strMissing = "(Missing RLVa string)";
+	initClass(); // Ansariel: Make sure RlvStrings gets initialized before accessing it
 	string_map_t::const_iterator itString = m_StringMap.find(strStringName);
 	return (itString != m_StringMap.end()) ? itString->second.back() : strMissing;
 }
@@ -357,6 +373,12 @@ void RlvStrings::setCustomString(const std::string& strStringName, const std::st
 
 bool RlvUtil::m_fForceTp = false;
 
+std::string escape_for_regex(const std::string& str)
+{
+	using namespace boost;
+	return regex_replace(str, regex("[.^$|()\\[\\]{}*+?\\\\]"), "\\\\&", match_default|format_sed);
+}
+
 // Checked: 2009-07-04 (RLVa-1.0.0a) | Modified: RLVa-1.0.0a
 void RlvUtil::filterLocation(std::string& strUTF8Text)
 {
@@ -364,12 +386,12 @@ void RlvUtil::filterLocation(std::string& strUTF8Text)
 	LLWorld::region_list_t regions = LLWorld::getInstance()->getRegionList();
 	const std::string& strHiddenRegion = RlvStrings::getString(RLV_STRING_HIDDEN_REGION);
 	for (LLWorld::region_list_t::const_iterator itRegion = regions.begin(); itRegion != regions.end(); ++itRegion)
-		boost::replace_all_regex(strUTF8Text, boost::regex("\\b" + (*itRegion)->getName() + "\\b", boost::regex::icase), strHiddenRegion);
+		boost::replace_all_regex(strUTF8Text, boost::regex("\\b" + escape_for_regex((*itRegion)->getName()) + "\\b", boost::regex::icase), strHiddenRegion);
 
 	// Filter any mention of the parcel name
 	LLViewerParcelMgr* pParcelMgr = LLViewerParcelMgr::getInstance();
 	if (pParcelMgr)
-		boost::replace_all_regex(strUTF8Text, boost::regex("\\b" + pParcelMgr->getAgentParcelName() + "\\b", boost::regex::icase), RlvStrings::getString(RLV_STRING_HIDDEN_PARCEL));
+		boost::replace_all_regex(strUTF8Text, boost::regex("\\b" + escape_for_regex(pParcelMgr->getAgentParcelName()) + "\\b", boost::regex::icase), RlvStrings::getString(RLV_STRING_HIDDEN_PARCEL));
 }
 
 // Checked: 2010-12-08 (RLVa-1.2.2c) | Modified: RLVa-1.2.2c
@@ -382,7 +404,7 @@ void RlvUtil::filterNames(std::string& strUTF8Text, bool fFilterLegacy)
 		LLAvatarName avName;
 		if (LLAvatarNameCache::get(idAgents[idxAgent], &avName))
 		{
-			const std::string& strDisplayName = avName.getDisplayName();
+			const std::string& strDisplayName = escape_for_regex(avName.getDisplayName());
 			bool fFilterDisplay = (strDisplayName.length() > 2);
 			const std::string& strLegacyName = avName.getLegacyName();
 			fFilterLegacy &= (strLegacyName.length() > 2);
@@ -523,7 +545,7 @@ bool RlvUtil::sendChatReply(S32 nChannel, const std::string& strUTF8Text)
 	gMessageSystem->addU8Fast(_PREHASH_Type, CHAT_TYPE_SHOUT);
 	gMessageSystem->addS32("Channel", nChannel);
 	gAgent.sendReliableMessage();
-	add(LLStatViewer::CHAT_COUNT,1);
+	add(LLStatViewer::CHAT_COUNT, 1);
 
 	return true;
 }
@@ -532,21 +554,18 @@ bool RlvUtil::sendChatReply(S32 nChannel, const std::string& strUTF8Text)
 // Generic menu enablers
 //
 
-// Checked: 2010-04-23 (RLVa-1.2.0g) | Modified: RLVa-1.2.0g
-bool rlvMenuCheckEnabled()
+// Checked: 2015-05-25 (RLVa-1.5.0)
+bool rlvMenuMainToggleVisible(LLUICtrl* pMenuCtrl)
 {
-	return rlv_handler_t::isEnabled();
-}
-
-// Checked: 2010-04-23 (RLVa-1.2.0g) | Modified: RLVa-1.2.0g
-bool rlvMenuToggleEnabled()
-{
-	gSavedSettings.setBOOL(RLV_SETTING_MAIN, !rlv_handler_t::isEnabled());
-
-	LLSD args;
-	args["MESSAGE"] = (rlv_handler_t::isEnabled() ? LLTrans::getString("RlvDisabled") : LLTrans::getString("RlvEnabled"));
-	LLNotificationsUtil::add("GenericAlert", args);
-	
+	LLMenuItemCheckGL* pMenuItem = dynamic_cast<LLMenuItemCheckGL*>(pMenuCtrl);
+	if (pMenuItem)
+	{
+		static std::string strLabel = pMenuItem->getLabel();
+		if (gSavedSettings.getBOOL(RLV_SETTING_MAIN) == rlv_handler_t::isEnabled())
+			pMenuItem->setLabel(strLabel);
+		else
+			pMenuItem->setLabel(strLabel + RlvStrings::getString("message_toggle_restart_pending"));
+	}
 	return true;
 }
 
@@ -671,10 +690,30 @@ bool rlvPredCanNotWearItem(const LLViewerInventoryItem* pItem, ERlvWearMask eWea
 	return !rlvPredCanWearItem(pItem, eWearMask);
 }
 
-// Checked: 2010-03-22 (RLVa-1.2.0c) | Added: RLVa-1.2.0a
+// Checked: 2014-11-02 (RLVa-1.4.11)
+bool rlvPredCanRemoveItem(const LLUUID& idItem)
+{
+	// Check the inventory item if it's available
+	const LLViewerInventoryItem* pItem = gInventory.getItem(idItem);
+	if (pItem)
+	{
+		return rlvPredCanRemoveItem(pItem);
+	}
+
+	// Temporary attachments don't have inventory items associated with them so check the attachment itself
+	if (isAgentAvatarValid())
+	{
+		const LLViewerObject* pAttachObj = gAgentAvatarp->getWornAttachment(idItem);
+		return (pAttachObj) && (!gRlvAttachmentLocks.isLockedAttachment(pAttachObj));
+	}
+
+	return false;
+}
+
+// Checked: 2010-03-22 (RLVa-1.2.0)
 bool rlvPredCanRemoveItem(const LLViewerInventoryItem* pItem)
 {
-	if ( (pItem) && (RlvForceWear::isWearableItem(pItem)) )
+	if (pItem)
 	{
 		switch (pItem->getType())
 		{
@@ -686,12 +725,10 @@ bool rlvPredCanRemoveItem(const LLViewerInventoryItem* pItem)
 			case LLAssetType::AT_GESTURE:
 				return true;
 			default:
-				RLV_ASSERT(false);
+				RLV_ASSERT(!RlvForceWear::isWearableItem(pItem));
 		}
 	}
-	// HACK-RLVa: Until LL supports temporary attachment detection assume that no inventory item means a temporary 
-	//            attachment which are always removeable
-	return true;
+	return false;
 }
 
 // Checked: 2010-03-22 (RLVa-1.2.0c) | Added: RLVa-1.2.0a

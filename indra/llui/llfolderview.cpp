@@ -53,7 +53,6 @@
 /// Local function declarations, constants, enums, and typedefs
 ///----------------------------------------------------------------------------
 
-const S32 RENAME_WIDTH_PAD = 4;
 const S32 RENAME_HEIGHT_PAD = 1;
 const S32 AUTO_OPEN_STACK_DEPTH = 16;
 
@@ -175,7 +174,8 @@ LLFolderView::LLFolderView(const Params& p)
 	mDraggingOverItem(NULL),
 	mStatusTextBox(NULL),
 	mShowItemLinkOverlays(p.show_item_link_overlays),
-	mViewModel(p.view_model)
+	mViewModel(p.view_model),
+    mGroupedItemModel(p.grouped_item_model)
 {
 	claimMem(mViewModel);
     LLPanel* panel = p.parent_panel;
@@ -231,10 +231,11 @@ LLFolderView::LLFolderView(const Params& p)
 	mStatusTextBox = LLUICtrlFactory::create<LLTextBox> (text_p);
 	mStatusTextBox->setFollowsLeft();
 	mStatusTextBox->setFollowsTop();
-	//addChild(mStatusTextBox);
+	addChild(mStatusTextBox);
 
 
 	// make the popup menu available
+	llassert(LLMenuGL::sMenuContainer != NULL);
 	LLMenuGL* menu = LLUICtrlFactory::getInstance()->createFromFile<LLMenuGL>(p.options_menu, LLMenuGL::sMenuContainer, LLMenuHolderGL::child_registry_t::instance());
 	if (!menu)
 	{
@@ -310,18 +311,18 @@ S32 LLFolderView::arrange( S32* unused_width, S32* unused_height )
 	LLFolderViewFolder::arrange(&mMinWidth, &target_height);
 
 	LLRect scroll_rect = (mScrollContainer ? mScrollContainer->getContentWindowRect() : LLRect());
-	reshape( llmax(scroll_rect.getWidth(), mMinWidth), llround(mCurHeight) );
+	reshape( llmax(scroll_rect.getWidth(), mMinWidth), ll_round(mCurHeight) );
 
 	LLRect new_scroll_rect = (mScrollContainer ? mScrollContainer->getContentWindowRect() : LLRect());
 	if (new_scroll_rect.getWidth() != scroll_rect.getWidth())
 	{
-		reshape( llmax(scroll_rect.getWidth(), mMinWidth), llround(mCurHeight) );
+		reshape( llmax(scroll_rect.getWidth(), mMinWidth), ll_round(mCurHeight) );
 	}
 
 	// move item renamer text field to item's new position
 	updateRenamerPosition();
 
-	return llround(mTargetHeight);
+	return ll_round(mTargetHeight);
 }
 
 static LLTrace::BlockTimerStatHandle FTM_FILTER("Filter Folder View");
@@ -349,7 +350,7 @@ void LLFolderView::reshape(S32 width, S32 height, BOOL called_from_parent)
 		scroll_rect = mScrollContainer->getContentWindowRect();
 	}
 	width  = llmax(mMinWidth, scroll_rect.getWidth());
-	height = llmax(llround(mCurHeight), scroll_rect.getHeight());
+	height = llmax(ll_round(mCurHeight), scroll_rect.getHeight());
 
 	// Restrict width within scroll container's width
 	if (mUseEllipses && mScrollContainer)
@@ -734,8 +735,9 @@ void LLFolderView::finishRenamingItem( void )
 
 	closeRenamer();
 
+	// This is moved to an inventory observer in llinventorybridge.cpp, to handle updating after operation completed in AISv3 (SH-4611).
 	// List is re-sorted alphabetically, so scroll to make sure the selected item is visible.
-	scrollToShowSelection();
+	//scrollToShowSelection();
 }
 
 void LLFolderView::closeRenamer( void )
@@ -759,7 +761,7 @@ void LLFolderView::removeSelectedItems()
 		// structures.
 		std::vector<LLFolderViewItem*> items;
 		S32 count = mSelectedItems.size();
-		if(count == 0) return;
+		if(count <= 0) return;
 		LLFolderViewItem* item = NULL;
 		selected_items_t::iterator item_it;
 		for (item_it = mSelectedItems.begin(); item_it != mSelectedItems.end(); ++item_it)
@@ -976,9 +978,6 @@ void LLFolderView::cut()
 			if (listener)
 			{
 				listener->cutToClipboard();
-				// <FS:Ansariel> Re-apply FIRE-6714: Don't move objects to trash during cut&paste
-				//listener->removeItem();
-				// </FS:Ansariel> Re-apply FIRE-6714: Don't move objects to trash during cut&paste
 			}
 		}
 		
@@ -1173,18 +1172,18 @@ BOOL LLFolderView::handleKeyHere( KEY key, MASK mask )
 		if((mSelectedItems.size() > 0) && mScrollContainer)
 		{
 			LLFolderViewItem* last_selected = getCurSelectedItem();
+			BOOL shift_select = mask & MASK_SHIFT;
+			// don't shift select down to children of folders (they are implicitly selected through parent)
+			LLFolderViewItem* next = last_selected->getNextOpenNode(!shift_select);
 
-			if (!mKeyboardSelection)
+			if (!mKeyboardSelection || (!shift_select && (!next || next == last_selected)))
 			{
 				setSelection(last_selected, FALSE, TRUE);
 				mKeyboardSelection = TRUE;
 			}
 
-			LLFolderViewItem* next = NULL;
-			if (mask & MASK_SHIFT)
+			if (shift_select)
 			{
-				// don't shift select down to children of folders (they are implicitly selected through parent)
-				next = last_selected->getNextOpenNode(FALSE);
 				if (next)
 				{
 					if (next->isSelected())
@@ -1201,7 +1200,6 @@ BOOL LLFolderView::handleKeyHere( KEY key, MASK mask )
 			}
 			else
 			{
-				next = last_selected->getNextOpenNode();
 				if( next )
 				{
 					if (next == last_selected)
@@ -1237,18 +1235,18 @@ BOOL LLFolderView::handleKeyHere( KEY key, MASK mask )
 		if((mSelectedItems.size() > 0) && mScrollContainer)
 		{
 			LLFolderViewItem* last_selected = mSelectedItems.back();
+			BOOL shift_select = mask & MASK_SHIFT;
+			// don't shift select down to children of folders (they are implicitly selected through parent)
+			LLFolderViewItem* prev = last_selected->getPreviousOpenNode(!shift_select);
 
-			if (!mKeyboardSelection)
+			if (!mKeyboardSelection || (!shift_select && prev == this))
 			{
 				setSelection(last_selected, FALSE, TRUE);
 				mKeyboardSelection = TRUE;
 			}
 
-			LLFolderViewItem* prev = NULL;
-			if (mask & MASK_SHIFT)
+			if (shift_select)
 			{
-				// don't shift select down to children of folders (they are implicitly selected through parent)
-				prev = last_selected->getPreviousOpenNode(FALSE);
 				if (prev)
 				{
 					if (prev->isSelected())
@@ -1265,7 +1263,6 @@ BOOL LLFolderView::handleKeyHere( KEY key, MASK mask )
 			}
 			else
 			{
-				prev = last_selected->getPreviousOpenNode();
 				if( prev )
 				{
 					if (prev == this)
@@ -1421,7 +1418,8 @@ BOOL LLFolderView::search(LLFolderViewItem* first_item, const std::string &searc
 			//</FS:TS> FIRE-8253
 		}
 
-		const std::string current_item_label(search_item->getViewModelItem()->getSearchableName());
+		std::string current_item_label(search_item->getViewModelItem()->getSearchableName());
+		LLStringUtil::toUpper(current_item_label);
 		S32 search_string_length = llmin(upper_case_string.size(), current_item_label.size());
 		if (!current_item_label.compare(0, search_string_length, upper_case_string))
 		{
@@ -1660,7 +1658,7 @@ void LLFolderView::update()
 
 	LLFolderViewFilter& filter_object = getFolderViewModel()->getFilter();
 
-	if (filter_object.isModified() && filter_object.isNotDefault())
+	if (filter_object.isModified() && filter_object.isNotDefault() && mParentPanel.get()->getVisible())
 	{
 		mNeedsAutoSelect = TRUE;
 	}
@@ -1702,8 +1700,10 @@ void LLFolderView::update()
 		scrollToShowSelection();
 	}
 
-	BOOL filter_finished = getViewModelItem()->passedFilter()
-						&& mViewModel->contentsReady();
+	BOOL filter_finished = mViewModel->contentsReady()
+							&& (getViewModelItem()->passedFilter()
+								|| ( getViewModelItem()->getLastFilterGeneration() >= filter_object.getFirstSuccessGeneration()
+									&& !filter_object.isModified()));
 	if (filter_finished 
 		|| gFocusMgr.childHasKeyboardFocus(mParentPanel.get())
 		|| gFocusMgr.childHasMouseCapture(mParentPanel.get()))
@@ -1858,7 +1858,6 @@ void LLFolderView::updateMenuOptions(LLMenuGL* menu)
 	}
 
 	// Successively filter out invalid options
-
 	U32 multi_select_flag = (mSelectedItems.size() > 1 ? ITEM_IN_MULTI_SELECTION : 0x0);
 	U32 flags = multi_select_flag | FIRST_SELECTED_ITEM;
 	for (selected_items_t::iterator item_itor = mSelectedItems.begin();
@@ -1869,6 +1868,14 @@ void LLFolderView::updateMenuOptions(LLMenuGL* menu)
 		selected_item->buildContextMenu(*menu, flags);
 		flags = multi_select_flag;
 	}
+
+	// This adds a check for restrictions based on the entire
+	// selection set - for example, any one wearable may not push you
+	// over the limit, but all wearables together still might.
+    if (getFolderViewGroupedItemModel())
+    {
+        getFolderViewGroupedItemModel()->groupFilterContextMenu(mSelectedItems,*menu);
+    }
 
 	addNoOptions(menu);
 }

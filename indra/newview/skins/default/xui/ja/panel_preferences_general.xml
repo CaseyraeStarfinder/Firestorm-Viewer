@@ -37,7 +37,7 @@
 		<combo_box.item label="最後にログアウトした場所" name="MyLastLocation" tool_tip="常に最後にいた場所にログイン"/>
 		<combo_box.item label="ホーム" name="MyHome" tool_tip="常にホーム（自宅）にログイン"/>
 	</combo_box>
-	<check_box initial_value="true" label="ログイン画面に表示する" name="show_location_checkbox"/>
+	<check_box label="ログイン画面に表示する" name="show_location_checkbox"/>
 	<text name="name_tags_textbox">
 		名前の表示：
 	</text>
@@ -86,18 +86,5 @@
     <text name="text_box3">
 		退席中及び自動応答の際のメッセージは「プライバシー」の「自動応答」タブで設定。
     </text>
-	
-	<panel name="general_extras">
-		<text name="text_box3">
-			お好み：
-		</text>
-		<check_box label="普段はWebプロフィールを使用" name="FSUseWebProfiles" tool_tip="プロフィールの表示に、V1型のパネルでなく、Webページのプロフイールを表示"/>
-		<text name="inworld_typing_rg_label">
-			文字キーを押して次の操作：
-		</text>
-		<radio_group name="inworld_typing_preference">
-			<radio_item label="ローカル・チャットを始める" name="radio_start_chat"/>
-			<radio_item label="ムーブメントに影響（WASD など）" name="radio_move"/>
-		</radio_group>
-	</panel>
+
 </panel>

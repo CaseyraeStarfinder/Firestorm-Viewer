@@ -39,6 +39,15 @@
 				<combo_box.item label="Słońce/Księżyc" name="1"/>
 				<combo_box.item label="Słońce/Księżyc + inne źródła" name="2"/>
 			</combo_box>
+			<text name="avatar_shadows_label">
+				Cienie awatarów:
+			</text>
+			<combo_box name="AvatarShadowDetail">
+				<combo_box.item label="Brak" name="0"/>
+				<combo_box.item label="Uproszczone" name="1"/>
+				<combo_box.item label="Zoptymalizowane" name="2"/>
+				<combo_box.item label="Złożone" name="3"/>
+			</combo_box>
 			<text name="reflection_label">
 				Odbicia w wodzie:
 			</text>
@@ -132,11 +141,13 @@
 			<text name="Miscellaneous Rendering">
 				Inne opcje wyświetlania:
 			</text>
-			<check_box label="Włącz renderowanie odbić powierzchni ekranu (SSR)" name="FSRenderSSR" tool_tip="Włącza renderowanie odbić powierzchni ekranu (Screen Space Reflections, SSR), gdy włączone jest Zaawansowane Oświetlenie. Wymaga do działania shaderów atmosfery, renderingu awatarów przez GPU i włączonych cieni."/>
 			<check_box label="Renderuj blask" tool_tip="Renderuj blask. Siła musi być ustawiona na 0, aby wyłączyć blask gdy cienie są włączone." name="RenderGlow"/>
 			<slider label="Siła:" tool_tip="Siła blasku. Więcej = szerszy i gładszy (domyślnie 2) " name="glow_strength"/>
 			<check_box label="Pokazuj awatary, które nie skończyły się ładować" name="RenderUnloadedAvatars"/>
 			<check_box label="Limit klatek wyświetlanych na sekundę" name="FSLimitFramerate"/>
+			<check_box label="Tryb obrazu szkieletowego" name="Wireframe"/>
+			<check_box label="Włącz doczepiane światła (np. twarzy)" tool_tip="Ta opcja włącza światła doczepione do awatarów, na przykład te oświetlające twarze. Użyteczne, gdy trzeba wyłączyć oświetlenie twarzy." name="Render Attached Lights"/>
+			<check_box label="Renderuj cząsteczki innych awatarów" name="Render Attached Particles"/>
 			<slider label="Opóźnienie wczytywania świata po logowaniu" tool_tip="Jak długo czekać na rozpoczęcie odświeżenia świata dla Ciebie po tym, gdy pokażesz się dostępny/a dla Twoich znajomych (domyślnie 6 sekund)" name="PrecachingDelay"/>
 			<text name="PrecachingDelayText">
 				sekund
@@ -147,6 +158,7 @@
 		<panel label="Głębia ostrości" name="DOF panel">
 			<check_box label="Włącz głębię ostrości (rozmywaj widok z wyjątkiem miejsca, gdzie skupiona jest kamera)" name="UseDoF"/>
 			<check_box label="Włączaj w trybie budowania" name="RenderDepthOfFieldInEditMode"/>
+			<check_box label="Włączaj pod wodą" name="FSRenderDoFUnderwater"/>
 			<slider label="Wartość F kamery:" name="CameraFNum" tool_tip="Wartość F kamery dla głębi ostrości"/>
 			<slider label="Ogniskowa (mm):" name="CameraFocal" tool_tip="Ogniskowa dla głębi ostrości (w milimetrach)"/>
 			<slider label="Pole widzenia (°):" name="Camera FOV" tool_tip="Pionowy kąt pola widzenia kamery dla głębi ostrości (w stopniach)"/>

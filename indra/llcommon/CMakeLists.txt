@@ -12,12 +12,14 @@ include(GoogleBreakpad)
 include(GooglePerfTools)
 include(Copy3rdPartyLibs)
 include(ZLIB)
+include(URIPARSER)
 
 include_directories(
     ${EXPAT_INCLUDE_DIRS}
     ${LLCOMMON_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIRS}
     ${BREAKPAD_INCLUDE_DIRECTORIES}
+    ${URIPARSER_INCLUDE_DIRS}
     )
 
 # add_executable(lltreeiterators lltreeiterators.cpp)
@@ -103,6 +105,7 @@ set(llcommon_SOURCE_FILES
     lltracerecording.cpp
     lltracethreadrecorder.cpp
     lluri.cpp
+    lluriparser.cpp
     lluuid.cpp
     llworkerthread.cpp
     timing.cpp
@@ -158,7 +161,6 @@ set(llcommon_HEADER_FILES
     llhandle.h
     llhash.h
     llheartbeat.h
-    llhttpstatuscodes.h
     llindexedvector.h
     llinitparam.h
     llinstancetracker.h
@@ -218,6 +220,7 @@ set(llcommon_HEADER_FILES
     llunits.h
     llunittype.h
     lluri.h
+    lluriparser.h
     lluuid.h
     llwin32headers.h
     llwin32headerslean.h
@@ -231,28 +234,20 @@ set(llcommon_HEADER_FILES
 # <FS:ND> Add all nd* files. memory pool, intrinsics, ...
 
 SET( llcommon_ND_SOURCE_FILES
-	 nd/ndallocstats.cpp
 	 nd/ndexceptions.cpp
 	 nd/ndfile.cpp
 	 nd/ndintrin.cpp
 	 nd/ndlogthrottle.cpp
-	 nd/ndmallocstats.cpp
 	 nd/ndetw.cpp
 	 )
 SET(  llcommon_ND_HEADER_FILES 
-	  nd/ndallocstats.h
 	  nd/ndboolswitch.h
-	  nd/ndcallstack.h
-	  nd/ndexception_handler_stub.h
 	  nd/ndexceptions.h
 	  nd/ndfile.h
 	  nd/ndintrin.h
 	  nd/ndlocks.h
 	  nd/ndlogthrottle.h
-	  nd/ndmallocstats.h
 	  nd/ndobjectpool.h
-	  nd/ndpooldefines.h
-	  nd/ndstackwalk.h
 	  nd/ndstlallocator.h
 	  nd/ndetw.h
 	  )
@@ -301,6 +296,7 @@ target_link_libraries(
     ${BOOST_PROGRAM_OPTIONS_LIBRARY}
     ${BOOST_REGEX_LIBRARY}
     ${GOOGLE_PERFTOOLS_LIBRARIES}
+    ${URIPARSER_LIBRARIES}
     )
 
 if (DARWIN)
@@ -341,7 +337,7 @@ if (LL_TESTS)
   LL_ADD_INTEGRATION_TEST(llunits "" "${test_libs}")
   LL_ADD_INTEGRATION_TEST(stringize "" "${test_libs}")
   LL_ADD_INTEGRATION_TEST(lleventdispatcher "" "${test_libs}")
-  LL_ADD_INTEGRATION_TEST(lleventcoro "" "${test_libs};${BOOST_CONTEXT_LIBRARY}")
+  LL_ADD_INTEGRATION_TEST(lleventcoro "" "${test_libs};${BOOST_CONTEXT_LIBRARY};${BOOST_THREAD_LIBRARY};${BOOST_COROUTINE_LIBRARY};${BOOST_SYSTEM_LIBRARY}")
   LL_ADD_INTEGRATION_TEST(llprocess "" "${test_libs}")
   LL_ADD_INTEGRATION_TEST(llleap "" "${test_libs}")
   LL_ADD_INTEGRATION_TEST(llstreamqueue "" "${test_libs}")

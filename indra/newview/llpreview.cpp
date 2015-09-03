@@ -39,6 +39,7 @@
 #include "llradiogroup.h"
 #include "llassetstorage.h"
 #include "llviewerassettype.h"
+#include "llviewermessage.h"
 #include "llviewerobject.h"
 #include "llviewerobjectlist.h"
 #include "lldbstrings.h"
@@ -48,11 +49,13 @@
 #include "llviewerinventory.h"
 #include "llviewerwindow.h"
 #include "lltrans.h"
+#include "roles_constants.h"
 
 // [SL:KB] - Patch: UI-FloaterSearchReplace | Checked: 2010-11-05 (Catznip-2.3.0a) | Added: Catznip-2.3.0a
 #include "llfloatersearchreplace.h"
 #include "llpreviewnotecard.h"
 #include "llpreviewscript.h"
+#include "llscripteditor.h"
 // [/SL:KB]
 #include "llpreviewanim.h"
 #include "llpreviewgesture.h"
@@ -63,7 +66,7 @@
 
 LLPreview::LLPreview(const LLSD& key)
 :	LLFloater(key),
-	mItemUUID(key.asUUID()),
+	mItemUUID(key.has("itemid") ? key.get("itemid").asUUID() : key.asUUID()),
 	mObjectUUID(),			// set later by setObjectID()
 	mCopyToInvBtn( NULL ),
 	mForceClose(FALSE),
@@ -100,8 +103,6 @@ void LLPreview::setObjectID(const LLUUID& object_id)
 	{
 		loadAsset();
 	}
-
-	// <FS:Ansariel> FIRE-10899: Multi previews from object inventory misses tab titles
 	refreshFromItem();
 }
 
@@ -112,8 +113,6 @@ void LLPreview::setItem( LLInventoryItem* item )
 	{
 		loadAsset();
 	}
-
-	// <FS:Ansariel> FIRE-10899: Multi previews from object inventory misses tab titles
 	refreshFromItem();
 }
 
@@ -248,8 +247,23 @@ void LLPreview::refreshFromItem()
 	}
 	getChild<LLUICtrl>("desc")->setValue(item->getDescription());
 
-	BOOL can_agent_manipulate = item->getPermissions().allowModifyBy(gAgent.getID());
-	getChildView("desc")->setEnabled(can_agent_manipulate);
+	getChildView("desc")->setEnabled(canModify(mObjectUUID, item));
+}
+
+// static
+BOOL LLPreview::canModify(const LLUUID taskUUID, const LLInventoryItem* item)
+{
+	if (taskUUID.notNull())
+	{
+		LLViewerObject* object = gObjectList.findObject(taskUUID);
+		if(object && !object->permModify())
+		{
+			// No permission to edit in-world inventory
+			return FALSE;
+		}
+	}
+
+	return item && gAgent.allowOperation(PERM_MODIFY, item->getPermissions(), GP_OBJECT_MANIPULATE);
 }
 
 // static 
@@ -406,6 +420,20 @@ void LLPreview::onBtnCopyToInv(void* userdata)
 										 self->mNotecardInventoryID,
 										 item);
 		}
+		else if (self->mObjectUUID.notNull())
+		{
+			// item is in in-world inventory
+			LLViewerObject* object = gObjectList.findObject(self->mObjectUUID);
+			LLPermissions perm(item->getPermissions());
+			if(object
+				&&(perm.allowCopyBy(gAgent.getID(), gAgent.getGroupID())
+				&& perm.allowTransferTo(gAgent.getID())))
+			{
+				// copy to default folder
+				set_dad_inventory_item(item, LLUUID::null);
+				object->moveInventory(LLUUID::null, item->getUUID());
+			}
+		}
 		else
 		{
 			LLPointer<LLInventoryCallback> cb = NULL;
@@ -438,13 +466,6 @@ void LLPreview::onDiscardBtn(void* data)
 
 	self->mForceClose = TRUE;
 	self->closeFloater();
-
-	// Delete the item entirely
-	/*
-	item->removeFromServer();
-	gInventory.deleteObject(item->getUUID());
-	gInventory.notifyObservers();
-	*/
 
 	// Move the item to the trash
 	const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
@@ -500,8 +521,6 @@ LLMultiPreview::LLMultiPreview()
 	setTitle(LLTrans::getString("MultiPreviewTitle"));
 	buildTabContainer();
 	setCanResize(TRUE);
-	// <FS:Ansariel> Multi preview layout fix
-	//mAutoResize = FALSE;
 }
 
 void LLMultiPreview::onOpen(const LLSD& key)

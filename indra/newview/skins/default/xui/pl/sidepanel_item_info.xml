@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel name="item properties" title="Profil obiektu">
+	<panel.string name="loading_experience">
+		(wczytywanie)
+	</panel.string>
 	<panel.string name="unknown">
 		(nieznany)
 	</panel.string>
@@ -40,6 +43,9 @@
 			<text name="LabelAcquiredTitle">
 				Nabyte:
 			</text>
+			<text name="LabelItemExperienceTitle">
+				Przygoda:
+			</text>
 			<panel name="perms_inv">
 				<text name="perm_modify">
 					Możesz:
@@ -63,8 +69,9 @@
 				<check_box label="Transferowanie" name="CheckNextOwnerTransfer" tool_tip="Następny właściciel może oddać lub sprzedać ten obiekt"/>
 			</panel>
 			<check_box label="Na sprzedaż" name="CheckPurchase"/>
-			<combo_box name="combobox sale copy">
+			<combo_box name="ComboBoxSaleType">
 				<combo_box.item label="Kopia" name="Copy"/>
+				<combo_box.item label="Zawartość" name="Contents"/>
 				<combo_box.item label="Oryginał" name="Original"/>
 			</combo_box>
 			<spinner label="Cena: L$" name="Edit Cost"/>

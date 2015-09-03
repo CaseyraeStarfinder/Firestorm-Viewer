@@ -28,13 +28,18 @@
 #define FS_FLOATERLINKREPLACE_H
 
 #include "llfloater.h"
+#include "lleventtimer.h"
+#include "llinventoryfunctions.h"
+#include "llviewerinventory.h"
 
 class FSInventoryLinkReplaceDropTarget;
 class LLButton;
 class LLTextBox;
 
-class FSFloaterLinkReplace : public LLFloater
+class FSFloaterLinkReplace : public LLFloater, LLEventTimer
 {
+	LOG_CLASS(FSFloaterLinkReplace);
+
 public:
 	FSFloaterLinkReplace(const LLSD& key);
 	virtual ~FSFloaterLinkReplace();
@@ -42,24 +47,38 @@ public:
 	BOOL postBuild();
 	virtual void onOpen(const LLSD& key);
 
+	virtual BOOL tick();
+
 private:
 	void checkEnableStart();
 	void onStartClicked();
 	void decreaseOpenItemCount();
 	void updateFoundLinks();
+	void processBatch(LLInventoryModel::item_array_t items);
 
-	void linkCreatedCallback(const LLUUID& old_item_id);
+	void linkCreatedCallback(const LLUUID& old_item_id,
+								const LLUUID& target_item_id,
+								bool needs_wearable_ordering_update,
+								bool needs_description_update,
+								const LLUUID& outfit_folder_id);
+
 	void onSourceItemDrop(const LLUUID& source_item_id);
 	void onTargetItemDrop(const LLUUID& target_item_id);
 
 	FSInventoryLinkReplaceDropTarget*	mSourceEditor;
 	FSInventoryLinkReplaceDropTarget*	mTargetEditor;
 	LLButton*							mStartBtn;
+	LLButton*							mRefreshBtn;
 	LLTextBox*							mStatusText;
 
 	LLUUID	mSourceUUID;
 	LLUUID	mTargetUUID;
 	U32		mRemainingItems;
+	U32		mBatchSize;
+
+	LLInventoryModel::item_array_t	mRemainingInventoryItems;
+
+	FSFloaterLinkReplace* mInstance;
 };
 
 #endif // FS_FLOATERLINKREPLACE_H

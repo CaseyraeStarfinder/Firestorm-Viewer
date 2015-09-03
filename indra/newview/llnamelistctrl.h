@@ -29,7 +29,10 @@
 
 #include <set>
 
-#include "llscrolllistctrl.h"
+// <FS:Ansariel> Inherit from FSScrollListCtrl for additional features
+//#include "llscrolllistctrl.h"
+#include "fsscrolllistctrl.h"
+// </FS:Ansariel>
 
 #include <boost/unordered_map.hpp>
 
@@ -67,7 +70,10 @@ private:
 
 
 class LLNameListCtrl
-:	public LLScrollListCtrl, public LLInstanceTracker<LLNameListCtrl>
+// <FS:Ansariel> Inherit from FSScrollListCtrl for additional features
+//:	public LLScrollListCtrl, public LLInstanceTracker<LLNameListCtrl>
+:	public FSScrollListCtrl, public LLInstanceTracker<LLNameListCtrl>
+// </FS:Ansariel>
 {
 public:
 	typedef boost::signals2::signal<void(bool)> namelist_complete_signal_t;
@@ -106,7 +112,10 @@ public:
 		{}
 	};
 
-	struct Params : public LLInitParam::Block<Params, LLScrollListCtrl::Params>
+	// <FS:Ansariel> Inherit from FSScrollListCtrl for additional features
+	//struct Params : public LLInitParam::Block<Params, LLScrollListCtrl::Params>
+	struct Params : public LLInitParam::Block<Params, FSScrollListCtrl::Params>
+	// </FS:Ansariel>
 	{
 		Optional<NameColumn>	name_column;
 		Optional<bool>	allow_calling_card_drop;
@@ -118,11 +127,6 @@ protected:
 	LLNameListCtrl(const Params&);
 	virtual ~LLNameListCtrl()
 	{
-		// <FS:Ansariel> FIRE-12347 / MAINT-3187: Name list not loading
-		//if (mAvatarNameCacheConnection.connected())
-		//{
-		//	mAvatarNameCacheConnection.disconnect();
-		//}
 		for (avatar_name_cache_connection_map_t::iterator it = mAvatarNameCacheConnections.begin(); it != mAvatarNameCacheConnections.end(); ++it)
 		{
 			if (it->second.connected())
@@ -131,18 +135,18 @@ protected:
 			}
 		}
 		mAvatarNameCacheConnections.clear();
-		// </FS:Ansariel>
 	}
 	friend class LLUICtrlFactory;
 public:
 	// Add a user to the list by name.  It will be added, the name
 	// requested from the cache, and updated as necessary.
 	LLScrollListItem* addNameItem(const LLUUID& agent_id, EAddPosition pos = ADD_BOTTOM,
-					 BOOL enabled = TRUE, const std::string& suffix = LLStringUtil::null);
+					 BOOL enabled = TRUE, const std::string& suffix = LLStringUtil::null, const std::string& prefix = LLStringUtil::null);
 	LLScrollListItem* addNameItem(NameItem& item, EAddPosition pos = ADD_BOTTOM);
 
 	/*virtual*/ LLScrollListItem* addElement(const LLSD& element, EAddPosition pos = ADD_BOTTOM, void* userdata = NULL);
-	LLScrollListItem* addNameItemRow(const NameItem& value, EAddPosition pos = ADD_BOTTOM, const std::string& suffix = LLStringUtil::null);
+	LLScrollListItem* addNameItemRow(const NameItem& value, EAddPosition pos = ADD_BOTTOM, const std::string& suffix = LLStringUtil::null,
+																							const std::string& prefix = LLStringUtil::null);
 
 	// Add a user to the list by name.  It will be added, the name
 	// requested from the cache, and updated as necessary.
@@ -169,21 +173,15 @@ public:
 	/*virtual*/ void mouseOverHighlightNthItem( S32 index );
 private:
 	void showInspector(const LLUUID& avatar_id, bool is_group);
-	// <FS:Ansariel> FIRE-12347 / MAINT-3187: Name list not loading
-	//void onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name, LLHandle<LLNameListItem> item);
 	void onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name, std::string suffix, LLHandle<LLNameListItem> item);
-	// </FS:Ansariel>
 
 private:
 	S32    			mNameColumnIndex;
 	std::string		mNameColumn;
 	BOOL			mAllowCallingCardDrop;
 	bool			mShortNames;  // display name only, no SLID
-	// <FS:Ansariel> FIRE-12347 / MAINT-3187: Name list not loading
-	//boost::signals2::connection mAvatarNameCacheConnection;
-	typedef boost::unordered_map<LLUUID, boost::signals2::connection, FSUUIDHash> avatar_name_cache_connection_map_t;
+	typedef std::map<LLUUID, boost::signals2::connection> avatar_name_cache_connection_map_t;
 	avatar_name_cache_connection_map_t mAvatarNameCacheConnections;
-	// </FS:Ansariel>
 
 // <FS:Ansariel> Fix Baker's NameListCtrl un-fix
 //	S32 mPendingLookupsRemaining;

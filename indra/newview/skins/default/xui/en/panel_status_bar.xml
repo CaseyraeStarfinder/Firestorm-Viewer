@@ -245,7 +245,7 @@
 		 clear_button_visible="true"
 		 follows="left|top"
 		 height="18"
-		 label="Search Menu"
+		 label="Search Menus"
 		 layout="topleft"
 		 left="0"
 		 max_length_bytes="255"
@@ -279,6 +279,7 @@
     top="0"
     follows="right|top"
     name="balance_bg"
+    visibility_control="FSShowCurrencyBalanceInStatusbar"
     background_opaque="true"
     background_visible="true"
     bg_opaque_color="MouseGray">
@@ -296,7 +297,7 @@
      v_pad="4"
      top="0"
      wrap="false"
-     value="L$???"
+     value="L$??" 
      width="35" />
     <button
      auto_resize="true"

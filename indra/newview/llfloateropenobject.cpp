@@ -56,8 +56,13 @@ LLFloaterOpenObject::LLFloaterOpenObject(const LLSD& key)
 	mPanelInventoryObject(NULL),
 	mDirty(TRUE)
 {
-	mCommitCallbackRegistrar.add("OpenObject.MoveToInventory",	boost::bind(&LLFloaterOpenObject::onClickMoveToInventory, this));
-	mCommitCallbackRegistrar.add("OpenObject.MoveAndWear",		boost::bind(&LLFloaterOpenObject::onClickMoveAndWear, this));
+	// <FS:Ansariel> Cinder's fly-out button
+	//mCommitCallbackRegistrar.add("OpenObject.MoveToInventory",	boost::bind(&LLFloaterOpenObject::onClickMoveToInventory, this));
+	//mCommitCallbackRegistrar.add("OpenObject.MoveAndWear",		boost::bind(&LLFloaterOpenObject::onClickMoveAndWear, this));
+	//mCommitCallbackRegistrar.add("OpenObject.ReplaceOutfit",	boost::bind(&LLFloaterOpenObject::onClickReplace, this));
+	mCommitCallbackRegistrar.add("OpenObject.CopyAction",		boost::bind(&LLFloaterOpenObject::onClickCopy, this, _2));
+	// </FS:Ansariel>
+	mCommitCallbackRegistrar.add("OpenObject.Cancel",			boost::bind(&LLFloaterOpenObject::onClickCancel, this));
 }
 
 LLFloaterOpenObject::~LLFloaterOpenObject()
@@ -70,7 +75,7 @@ BOOL LLFloaterOpenObject::postBuild()
 {
 	getChild<LLUICtrl>("object_name")->setTextArg("[DESC]", std::string("Object") ); // *Note: probably do not want to translate this
 	mPanelInventoryObject = getChild<LLPanelObjectInventory>("object_contents");
-	
+
 	refresh();
 	return TRUE;
 }
@@ -113,9 +118,12 @@ void LLFloaterOpenObject::refresh()
 	}
 	
 	getChild<LLUICtrl>("object_name")->setTextArg("[DESC]", name);
-	getChildView("copy_to_inventory_button")->setEnabled(enabled);
-	getChildView("copy_and_wear_button")->setEnabled(enabled);
-
+	// <FS:Ansariel> Cinder's fly-out button
+	//getChildView("copy_to_inventory_button")->setEnabled(enabled);
+	//getChildView("copy_and_wear_button")->setEnabled(enabled);
+	//getChildView("copy_and_replace_button")->setEnabled(enabled);
+	getChildView("copy_flyout")->setEnabled(enabled);
+	// </FS:Ansariel>
 }
 
 void LLFloaterOpenObject::draw()
@@ -135,7 +143,7 @@ void LLFloaterOpenObject::dirty()
 
 
 
-void LLFloaterOpenObject::moveToInventory(bool wear)
+void LLFloaterOpenObject::moveToInventory(bool wear, bool replace)
 {
 	if (mObjectSelection->getRootObjectCount() != 1)
 	{
@@ -162,25 +170,22 @@ void LLFloaterOpenObject::moveToInventory(bool wear)
 	{
 		parent_category_id = gInventory.getRootFolderID();
 	}
-	
-	LLCategoryCreate* cat_data = new LLCategoryCreate(object_id, wear);
-	
+
+	inventory_func_type func = boost::bind(LLFloaterOpenObject::callbackCreateInventoryCategory,_1,object_id,wear,replace);
 	LLUUID category_id = gInventory.createNewCategory(parent_category_id, 
 													  LLFolderType::FT_NONE, 
 													  name,
-													  callbackCreateInventoryCategory,
-													  (void*)cat_data);
+													  func);
 
 	//If we get a null category ID, we are using a capability in createNewCategory and we will
 	//handle the following in the callbackCreateInventoryCategory routine.
 	if ( category_id.notNull() )
 	{
-		delete cat_data;
-		
 		LLCatAndWear* data = new LLCatAndWear;
 		data->mCatID = category_id;
 		data->mWear = wear;
 		data->mFolderResponded = false;
+		data->mReplace = replace;
 
 		// Copy and/or move the items into the newly created folder.
 		// Ignore any "you're going to break this item" messages.
@@ -198,20 +203,18 @@ void LLFloaterOpenObject::moveToInventory(bool wear)
 }
 
 // static
-void LLFloaterOpenObject::callbackCreateInventoryCategory(const LLSD& result, void* data)
+void LLFloaterOpenObject::callbackCreateInventoryCategory(const LLUUID& category_id, LLUUID object_id, bool wear, bool replace)
 {
-	LLCategoryCreate* cat_data = (LLCategoryCreate*)data;
-	
-	LLUUID category_id = result["folder_id"].asUUID();
 	LLCatAndWear* wear_data = new LLCatAndWear;
 
 	wear_data->mCatID = category_id;
-	wear_data->mWear = cat_data->mWear;
+	wear_data->mWear = wear;
 	wear_data->mFolderResponded = true;
+	wear_data->mReplace = replace;
 	
 	// Copy and/or move the items into the newly created folder.
 	// Ignore any "you're going to break this item" messages.
-	BOOL success = move_inv_category_world_to_agent(cat_data->mObjectID, category_id, TRUE,
+	BOOL success = move_inv_category_world_to_agent(object_id, category_id, TRUE,
 													callbackMoveInventory, 
 													(void*)wear_data);
 	if (!success)
@@ -221,7 +224,6 @@ void LLFloaterOpenObject::callbackCreateInventoryCategory(const LLSD& result, vo
 		
 		LLNotificationsUtil::add("OpenObjectCannotCopy");
 	}
-	delete cat_data;	
 }
 
 // static
@@ -241,15 +243,47 @@ void LLFloaterOpenObject::callbackMoveInventory(S32 result, void* data)
 	delete cat;
 }
 
-void LLFloaterOpenObject::onClickMoveToInventory()
+// <FS:Ansariel> Cinder's fly-out button
+//void LLFloaterOpenObject::onClickMoveToInventory()
+//{
+//	moveToInventory(false);
+//	closeFloater();
+//}
+//
+//void LLFloaterOpenObject::onClickMoveAndWear()
+//{
+//	moveToInventory(true, false);
+//	closeFloater();
+//}
+//
+//void LLFloaterOpenObject::onClickReplace()
+//{
+//	moveToInventory(true, true);
+//	closeFloater();
+//}
+// </FS:Ansariel>
+
+void LLFloaterOpenObject::onClickCancel()
 {
-	moveToInventory(false);
 	closeFloater();
 }
 
-void LLFloaterOpenObject::onClickMoveAndWear()
+// <FS:Ansariel> Cinder's fly-out button
+void LLFloaterOpenObject::onClickCopy(const LLSD& value)
 {
-	moveToInventory(true);
+	const std::string& action = value.asString();
+	if (action == "replace")
+	{
+		moveToInventory(true, true);
+	}
+	else if (action == "add")
+	{
+		moveToInventory(true, false);
+	}
+	else
+	{
+		moveToInventory(false);
+	}
 	closeFloater();
 }
-
+// </FS:Ansariel>

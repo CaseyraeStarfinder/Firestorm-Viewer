@@ -328,6 +328,7 @@ void LLNotificationChiclet::createMenu()
 	enable_registrar.add("NotificationWellChicletMenu.EnableItem",
 		boost::bind(&LLNotificationChiclet::enableMenuItem, this, _2));
 
+	llassert(LLMenuGL::sMenuContainer != NULL);
 	mContextMenu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>
 		("menu_notification_well_button.xml",
 		 LLMenuGL::sMenuContainer,
@@ -565,11 +566,14 @@ void LLIMChiclet::toggleSpeakerControl()
 			mSpeakerCtrl->translate(mCounterCtrl->getRect().getWidth(), 0);
 		}
 
-		initSpeakerControl();		
+		initSpeakerControl();
+	}
+	else
+	{
+		mSpeakerCtrl->setSpeakerId(LLUUID::null);
 	}
 
 	setRequiredWidth();
-	mSpeakerCtrl->setSpeakerId(LLUUID::null);
 	mSpeakerCtrl->setVisible(getShowSpeaker());
 }
 
@@ -648,6 +652,14 @@ BOOL LLIMChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
 	}
 
 	return TRUE;
+}
+
+void LLIMChiclet::hidePopupMenu()
+{
+	if (mPopupMenu)
+	{
+		mPopupMenu->setVisible(FALSE);
+	}
 }
 
 bool LLIMChiclet::canCreateMenu()
@@ -1034,6 +1046,16 @@ void LLIMGroupChiclet::onMenuItemClicked(const LLSD& user_data)
 	{
 		LLGroupActions::show(group_id);
 	}
+// [SL:KB] - Patch: Chat-GroupSnooze | Checked: 2012-06-17 (Catznip-3.3)
+	else if("snooze" == level)
+	{
+		LLGroupActions::snoozeIM(group_id);
+	}
+	else if("leave" == level)
+	{
+		LLGroupActions::leaveIM(group_id);
+	}
+// [/SL:KB]
 	else if("end" == level)
 	{
 		LLGroupActions::endIM(group_id);
@@ -1197,7 +1219,7 @@ void LLChicletPanel::onCurrentVoiceChannelChanged(const LLUUID& session_id)
 	}
 
 	// <FS:Ansariel> [FS communication UI]
-	if(!s_previous_active_voice_session_id.isNull() && s_previous_active_voice_session_id != session_id)
+	if(s_previous_active_voice_session_id.notNull() && s_previous_active_voice_session_id != session_id)
 	{
 		chiclets = LLIMChiclet::sFindChicletsSignal(s_previous_active_voice_session_id);
 
@@ -1313,6 +1335,22 @@ S32 LLChicletPanel::getChicletIndex(const LLChiclet* chiclet)
 
 	return -1;
 }
+
+// [SL:KB] - Patch: UI-TabRearrange | Checked: 2012-05-05 (Catznip-3.3.0)
+void LLChicletPanel::setChicletIndex(const LLChiclet* chiclet, S32 index)
+{
+	if ( (index >= mChicletList.size()) || (index < 0) )
+		return;
+
+	S32 cur_index = getChicletIndex(chiclet);
+	if ( (-1 == cur_index) && (cur_index != index) )
+		return;
+
+	mChicletList.erase(mChicletList.begin() + cur_index);
+	mChicletList.insert(mChicletList.begin() + index, const_cast<LLChiclet*>(chiclet));
+	arrange();
+}
+// [/SL:KB]
 
 void LLChicletPanel::removeChiclet(LLChiclet*chiclet)
 {

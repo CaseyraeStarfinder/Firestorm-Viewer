@@ -140,6 +140,7 @@ public:
 	virtual void filter() = 0;
 
 	virtual bool contentsReady() = 0;
+	virtual bool isFolderComplete(class LLFolderViewFolder*) = 0;
 	virtual void setFolderView(LLFolderView* folder_view) = 0;
 	virtual LLFolderViewFilter& getFilter() = 0;
 	virtual const LLFolderViewFilter& getFilter() const = 0;
@@ -174,6 +175,8 @@ public:
 	virtual void openItem( void ) = 0;
 	virtual void closeItem( void ) = 0;
 	virtual void selectItem(void) = 0;
+    
+    virtual BOOL isItemWearable() const { return FALSE; }
 
 	virtual BOOL isItemRenameable() const = 0;
 	virtual BOOL renameItem(const std::string& new_name) = 0;
@@ -187,7 +190,7 @@ public:
 
 	virtual BOOL isItemCopyable() const = 0;
 	virtual BOOL copyToClipboard() const = 0;
-	virtual BOOL cutToClipboard() const = 0;
+	virtual BOOL cutToClipboard() = 0;
 
 	virtual BOOL isClipboardPasteable() const = 0;
 	virtual void pasteFromClipboard() = 0;
@@ -203,11 +206,13 @@ public:
 	virtual void setPassedFilter(bool passed, S32 filter_generation, std::string::size_type string_offset = std::string::npos, std::string::size_type string_size = 0) = 0;
 	virtual void setPassedFolderFilter(bool passed, S32 filter_generation) = 0;
 	virtual void dirtyFilter() = 0;
+	virtual void dirtyDescendantsFilter() = 0;
 	virtual bool hasFilterStringMatch() = 0;
 	virtual std::string::size_type getFilterStringOffset() = 0;
 	virtual std::string::size_type getFilterStringSize() = 0;
 
 	virtual S32	getLastFilterGeneration() const = 0;
+	virtual S32 getMarkedDirtyGeneration() const = 0;
 
 	virtual bool hasChildren() const = 0;
 	virtual void addChild(LLFolderViewModelItem* child) = 0;
@@ -227,6 +232,9 @@ public:
 	virtual void setSortVersion(S32 version) = 0;
 	virtual void setParent(LLFolderViewModelItem* parent) = 0;
 	virtual bool hasParent() = 0;
+
+	// <FS:ND/>
+	virtual LLFolderViewModelItem* getParent() const = 0;
 
 	// <FS:Ansariel> Special for protected items
 	virtual bool isProtected() const { return false; }
@@ -251,6 +259,7 @@ public:
 		mFolderViewItem(NULL),
 		mLastFilterGeneration(-1),
 		mLastFolderFilterGeneration(-1),
+		mMarkedDirtyGeneration(-1),
 		mMostFilteredDescendantGeneration(-1),
 		mParent(NULL),
 		mRootViewModel(root_view_model)
@@ -264,8 +273,13 @@ public:
 
 	S32	getLastFilterGeneration() const { return mLastFilterGeneration; }
 	S32	getLastFolderFilterGeneration() const { return mLastFolderFilterGeneration; }
+	S32	getMarkedDirtyGeneration() const { return mMarkedDirtyGeneration; }
 	void dirtyFilter()
 	{
+		if(mMarkedDirtyGeneration < 0)
+		{
+			mMarkedDirtyGeneration = mLastFilterGeneration;
+		}
 		mLastFilterGeneration = -1;
 		mLastFolderFilterGeneration = -1;
 
@@ -274,6 +288,14 @@ public:
 		{
 			mParent->dirtyFilter();
 		}	
+	}
+	void dirtyDescendantsFilter()
+	{
+		mMostFilteredDescendantGeneration = -1;
+		if (mParent)
+		{
+			mParent->dirtyDescendantsFilter();
+		}
 	}
 	bool hasFilterStringMatch();
 	std::string::size_type getFilterStringOffset();
@@ -285,15 +307,24 @@ public:
 	{ 
 		// Avoid duplicates: bail out if that child is already present in the list
 		// Note: this happens when models are created before views
-		child_list_t::const_iterator iter;
-		for (iter = mChildren.begin(); iter != mChildren.end(); iter++)
-		{
-			if (child == *iter)
-			{
-				return;
-			}
-		}
-		mChildren.push_back(child); 
+
+		// <FS:ND> Ugh, linear search! Replace this by simply looking if the parent matches
+
+		// child_list_t::const_iterator iter;
+		// for (iter = mChildren.begin(); iter != mChildren.end(); iter++)
+		// {
+		// 	if (child == *iter)
+		// 	{
+		// 		return;
+		// 	}
+		// }
+
+		if( child->getParent() == this )
+			return;
+		
+		// </FS:ND>
+		
+		mChildren.push_back(child);
 		child->setParent(this); 
 		dirtyFilter();
 		requestSort();
@@ -301,7 +332,8 @@ public:
 	virtual void removeChild(LLFolderViewModelItem* child) 
 	{ 
 		mChildren.remove(child); 
-		child->setParent(NULL); 
+		child->setParent(NULL);
+		dirtyDescendantsFilter();
 		dirtyFilter();
 	}
 	
@@ -311,6 +343,7 @@ public:
 		// This is different and not equivalent to calling removeChild() on each child
 		std::for_each(mChildren.begin(), mChildren.end(), DeletePointer());
 		mChildren.clear();
+		dirtyDescendantsFilter();
 		dirtyFilter();
 	}
 	
@@ -324,6 +357,7 @@ public:
 		mLastFilterGeneration = filter_generation;
 		mStringMatchOffsetFilter = string_offset;
 		mStringFilterSize = string_size;
+		mMarkedDirtyGeneration = -1;
 	}
 
 	void setPassedFolderFilter(bool passed, S32 filter_generation)
@@ -364,6 +398,9 @@ protected:
 	virtual void setParent(LLFolderViewModelItem* parent) { mParent = parent; }
 	virtual bool hasParent() { return mParent != NULL; }
 
+	// <FS:ND/>
+	virtual LLFolderViewModelItem* getParent() const { return mParent; }
+
 	S32							mSortVersion;
 	bool						mPassedFilter;
 	bool						mPassedFolderFilter;
@@ -372,7 +409,8 @@ protected:
 
 	S32							mLastFilterGeneration,
 								mLastFolderFilterGeneration,
-								mMostFilteredDescendantGeneration;
+								mMostFilteredDescendantGeneration,
+								mMarkedDirtyGeneration;
 
 	child_list_t				mChildren;
 	LLFolderViewModelItem*		mParent;
@@ -443,6 +481,7 @@ public:
 	// By default, we assume the content is available. If a network fetch mechanism is implemented for the model,
 	// this method needs to be overloaded and return the relevant fetch status.
 	virtual bool contentsReady()					{ return true; }
+	virtual bool isFolderComplete(LLFolderViewFolder* folder)					{ return true; }
 
 	struct ViewModelCompare
 	{

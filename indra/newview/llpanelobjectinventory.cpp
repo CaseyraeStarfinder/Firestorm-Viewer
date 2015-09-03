@@ -135,7 +135,7 @@ public:
 	virtual void move(LLFolderViewModelItem* parent_listener);	
 	virtual BOOL isItemCopyable() const;
 	virtual BOOL copyToClipboard() const;
-	virtual BOOL cutToClipboard() const;
+	virtual BOOL cutToClipboard();
 	virtual BOOL isClipboardPasteable() const;
 	virtual void pasteFromClipboard();
 	virtual void pasteLinkFromClipboard();
@@ -268,6 +268,8 @@ void LLTaskInvFVBridge::buyItem()
 		payload["item_id"] = inv->mItemID;
 		payload["type"] = inv->mType;
 		LLNotificationsUtil::add(alertdesc, args, payload, LLTaskInvFVBridge::commitBuyItem);
+
+		delete inv; // <FS:ND/> Fix for memory leak
 	}
 }
 
@@ -598,7 +600,7 @@ BOOL LLTaskInvFVBridge::copyToClipboard() const
 	return FALSE;
 }
 
-BOOL LLTaskInvFVBridge::cutToClipboard() const
+BOOL LLTaskInvFVBridge::cutToClipboard()
 {
 	return FALSE;
 }
@@ -717,7 +719,7 @@ void LLTaskInvFVBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 		return;
 	}
 
-	if(gAgent.allowOperation(PERM_OWNER, item->getPermissions(),
+	if(!gAgent.allowOperation(PERM_OWNER, item->getPermissions(),
 							 GP_OBJECT_MANIPULATE)
 	   && item->getSaleInfo().isForSale())
 	{
@@ -755,12 +757,8 @@ void LLTaskInvFVBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 	else if (canOpenItem())
 	{
 		items.push_back(std::string("Task Open"));
-		if (!isItemCopyable())
-		{
-			disabled_items.push_back(std::string("Task Open"));
-		}
 // [RLVa:KB] - Checked: 2010-03-01 (RLVa-1.2.0b) | Modified: RLVa-1.1.0a
-		else if (rlv_handler_t::isEnabled())
+		if (rlv_handler_t::isEnabled())
 		{
 			LLViewerObject* pAttachObj = gObjectList.findObject(mPanel->getTaskUUID());
 			bool fLocked = (pAttachObj) ? gRlvAttachmentLocks.isLockedAttachment(pAttachObj->getRootEdit()) : false;
@@ -777,6 +775,10 @@ void LLTaskInvFVBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 //	if(isItemRenameable())
 //	{
 //		items.push_back(std::string("Task Rename"));
+//		if ((flags & FIRST_SELECTED_ITEM) == 0)
+//		{
+//			disabled_items.push_back(std::string("Task Rename"));
+//		}
 //	}
 //	if(isItemRemovable())
 //	{
@@ -785,7 +787,7 @@ void LLTaskInvFVBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 // [RLVa:KB] - Checked: 2010-09-28 (RLVa-1.2.1f) | Added: RLVa-1.2.1f
 	items.push_back(std::string("Task Rename"));
 	items.push_back(std::string("Task Remove"));
-	if (!isItemRenameable())
+	if (!isItemRenameable() || (flags & FIRST_SELECTED_ITEM) == 0)
 	{
 		disabled_items.push_back(std::string("Task Rename"));
 	}
@@ -1006,6 +1008,7 @@ void LLTaskTextureBridge::openItem()
 	LLPreviewTexture* preview = LLFloaterReg::showTypedInstance<LLPreviewTexture>("preview_texture", LLSD(mUUID), TAKE_FOCUS_YES);
 	if(preview)
 	{
+		preview->setAuxItem(findItem());
 		preview->setObjectID(mPanel->getTaskUUID());
 	}
 }
@@ -1214,10 +1217,10 @@ void LLTaskLSLBridge::openItem()
 // [/RLVa:KB]
 	if (object->permModify() || gAgent.isGodlike())
 	{
-		// <FS:Ansariel> FIRE-511 / VWR-27512: Can't open script editors from objects individually
-		//LLLiveLSLEditor* preview = LLFloaterReg::showTypedInstance<LLLiveLSLEditor>("preview_scriptedit", LLSD(mUUID), TAKE_FOCUS_YES);
-		LLLiveLSLEditor* preview = LLFloaterReg::showTypedInstance<LLLiveLSLEditor>("preview_scriptedit", LLSD().with("xoredid", mUUID ^ mPanel->getTaskUUID()).with("assetid", mUUID), TAKE_FOCUS_YES);
-		// </FS:Ansariel>
+		LLSD floater_key;
+		floater_key["taskid"] = mPanel->getTaskUUID();
+		floater_key["itemid"] = mUUID;
+		LLLiveLSLEditor* preview = LLFloaterReg::showTypedInstance<LLLiveLSLEditor>("preview_scriptedit", floater_key, TAKE_FOCUS_YES);
 		if (preview)
 		{
 			preview->setObjectID(mPanel->getTaskUUID());
@@ -1280,7 +1283,13 @@ void LLTaskNotecardBridge::openItem()
 		return;
 	}
 // [/RLVa:KB]
-	if(object->permModify() || gAgent.isGodlike())
+
+	// Note: even if we are not allowed to modify copyable notecard, we should be able to view it
+	LLInventoryItem *item = dynamic_cast<LLInventoryItem*>(object->getInventoryObject(mUUID));
+	BOOL item_copy = item && gAgent.allowOperation(PERM_COPY, item->getPermissions(), GP_OBJECT_MANIPULATE);
+	if( item_copy
+		|| object->permModify()
+		|| gAgent.isGodlike())
 	{
 		LLPreviewNotecard* preview = LLFloaterReg::showTypedInstance<LLPreviewNotecard>("preview_notecard", LLSD(mUUID), TAKE_FOCUS_YES);
 		if (preview)
@@ -2000,12 +2009,17 @@ void LLPanelObjectInventory::refresh()
 	}
 	if(!has_inventory)
 	{
-		mTaskUUID = LLUUID::null;
-		removeVOInventoryListener();
-		clearContents();
+		clearInventoryTask();
 	}
 	mInventoryViewModel.setTaskID(mTaskUUID);
 	//LL_INFOS() << "LLPanelObjectInventory::refresh() " << mTaskUUID << LL_ENDL;
+}
+
+void LLPanelObjectInventory::clearInventoryTask()
+{
+	mTaskUUID = LLUUID::null;
+	removeVOInventoryListener();
+	clearContents();
 }
 
 void LLPanelObjectInventory::removeSelectedItem()

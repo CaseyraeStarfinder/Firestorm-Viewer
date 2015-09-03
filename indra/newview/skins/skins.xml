@@ -58,7 +58,7 @@
           <key>name</key>
           <string>Blue</string>
           <key>folder</key>
-          <string>Blue</string>
+          <string>blue</string>
         </map>
         <!-- Ansariel Hiller's high contrast theme -->
         <map>
@@ -186,7 +186,7 @@
           <key>name</key>
           <string>Custom Light</string>
           <key>folder</key>
-          <string>custom_Light</string>
+          <string>custom_light</string>
         </map>
       </array>
     </map>

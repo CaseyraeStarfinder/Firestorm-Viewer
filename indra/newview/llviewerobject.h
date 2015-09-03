@@ -135,6 +135,8 @@ public:
 
 	virtual LLVOAvatar* asAvatar();
 
+	LLVOAvatar* getAvatarAncestor();
+
 	static void initVOClasses();
 	static void cleanupVOClasses();
 
@@ -170,6 +172,8 @@ public:
 	void			setOnActiveList(BOOL on_active)		{ mOnActiveList = on_active; }
 
 	virtual BOOL	isAttachment() const { return FALSE; }
+	const std::string& getAttachmentItemName();
+
 	virtual LLVOAvatar* getAvatar() const;  //get the avatar this object is attached to, or NULL if object is not an attachment
 	virtual BOOL	isHUDAttachment() const { return FALSE; }
 	virtual BOOL	isTempAttachment() const;
@@ -428,6 +432,7 @@ public:
 
 	void setDrawableState(U32 state, BOOL recursive = TRUE);
 	void clearDrawableState(U32 state, BOOL recursive = TRUE);
+	BOOL isDrawableState(U32 state, BOOL recursive = TRUE) const;
 
 	// Called when the drawable shifts
 	virtual void onShift(const LLVector4a &shift_vector)	{ }

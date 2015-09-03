@@ -3,7 +3,6 @@
  bg_visible="false"
  follows="left|top|right"
  name="Main Menu">
- <!-- #####  When editing entries in the menu, please also edit the V1 section below  ##### -->
     <menu
      create_jump_keys="true"
      label="Avatar"
@@ -29,9 +28,13 @@
             <menu_item_call.on_click
              function="Floater.Show"
              parameter="outbox" />
-            <menu_item_call.on_visible
-             function="GridCheck"
-             parameter="secondlife"/>
+        </menu_item_call>
+        <menu_item_call
+            label="Marketplace listings..."
+            name="MarketplaceListings">
+            <menu_item_call.on_click
+            function="Floater.ToggleOrBringToFront"
+            parameter="marketplace_listings" />
         </menu_item_call>
 
         <menu_item_call
@@ -42,68 +45,7 @@
         </menu_item_call>
 
         <menu_item_separator/>
-        
-        <menu_item_call
-         label="Preferences"
-         name="Preferences"
-         shortcut="control|P">
-            <menu_item_call.on_click
-             function="Floater.Toggle"
-             parameter="preferences" />
-        </menu_item_call>
-        
-        <menu_item_call
-         label="Toolbar Buttons"
-         name="Toolbar Buttons">
-            <menu_item_call.on_click
-             function="Floater.Show"
-             parameter="toybox" />
-        </menu_item_call>
 
-        <menu_item_call
-         label="Profile"
-         name="Profile">
-            <menu_item_call.on_click
-             function="ShowAgentProfile"
-             parameter="agent" />
-        </menu_item_call>
-        
-      <menu_item_call
-       label="Picks..."
-       name="Picks">
-        <menu_item_call.on_click
-         function="Floater.Show"
-         parameter="picks" />
-        </menu_item_call>
-         <menu_item_call
-        label="Post to Facebook..."
-        name="PostToFacebook">
-        <menu_item_call.on_click
-          function="Floater.Toggle"
-          parameter="social"/>
-        <menu_item_call.on_visible
-          function="GridCheck"
-          parameter="secondlife"/>
-      </menu_item_call>      
-      <menu_item_separator/>
-        <menu_item_call
-         label="Appearance"
-         name="ChangeOutfit">
-            <menu_item_call.on_click
-             function="CustomizeAvatar" />
-            <menu_item_call.on_enable
-             function="Edit.EnableCustomizeAvatar" />
-        </menu_item_call>
-        
-        <menu_item_call
-         label="Snapshot"
-         name="Take Snapshot"
-         shortcut="control|shift|S">
-            <menu_item_call.on_click
-             function="Floater.Show"
-             parameter="snapshot" />
-        </menu_item_call>
-        
         <menu_item_check
          label="Inventory"
          name="Inventory"
@@ -116,7 +58,7 @@
              function="Floater.Toggle"
              parameter="secondary_inventory" />
         </menu_item_check>
-        
+
         <menu_item_check
          label="Inventory"
          name="ShowSidetrayInventory"
@@ -129,24 +71,61 @@
            function="Floater.Toggle"
            parameter="inventory" />
         </menu_item_check>
-        
-        <menu_item_check
-         label="Move Controls"
-         name="Movement Controls">
-            <menu_item_check.on_check
-             function="Floater.Visible"
-             parameter="moveview" />
-            <menu_item_check.on_click
-             function="Floater.Toggle"
-             parameter="moveview" />
-        </menu_item_check>
-   
-	<menu
-             create_jump_keys="true"
-             label="Movement"
-             name="Movement"
-             tear_off="true">
-`     
+
+      <menu_item_call
+       label="Picks"
+       name="Picks">
+        <menu_item_call.on_click
+         function="Floater.Show"
+         parameter="picks" />
+        </menu_item_call>
+
+      <menu_item_call
+        label="Experiences"
+        name="Experiences">
+        <menu_item_call.on_click
+          function="Floater.ToggleOrBringToFront"
+          parameter="experiences"/>
+      </menu_item_call>
+
+        <menu_item_separator/>
+		
+        <menu_item_call
+         label="Profile"
+         name="Profile">
+            <menu_item_call.on_click
+             function="ShowAgentProfile"
+             parameter="agent" />
+        </menu_item_call>
+
+        <menu_item_call
+         label="Appearance"
+         name="ChangeOutfit">
+            <menu_item_call.on_click
+             function="CustomizeAvatar" />
+            <menu_item_call.on_enable
+             function="Edit.EnableCustomizeAvatar" />
+        </menu_item_call>
+
+      <menu_item_call
+       label="Choose an avatar"
+       name="Avatar Picker">
+        <menu_item_call.on_click
+         function="Floater.Toggle"
+         parameter="avatar" />
+        <menu_item_call.on_visible
+         function="GridCheck"
+         parameter="secondlife"/>
+      </menu_item_call>
+		
+        <menu_item_separator/>
+
+		<menu
+		 create_jump_keys="true"
+		 label="Movement"
+		 name="Movement"
+		 tear_off="true">
+
           <menu_item_call
              label="Sit Down"
              layout="topleft"
@@ -217,19 +196,32 @@
                 <menu_item_check.on_click
                    function="Self.toggleIgnorePreJump" />
 			</menu_item_check>
-	</menu>
-        
-        <menu_item_check
-         label="Camera Controls"
-         name="Camera Controls">
-            <menu_item_check.on_check
-             function="Floater.Visible"
-             parameter="camera" />
-            <menu_item_check.on_click
-             function="Floater.Toggle"
-             parameter="camera" />
-        </menu_item_check>
-        
+		</menu>
+
+		<menu_item_check
+		 label="Move Controls"
+		 name="Movement Controls">
+			<menu_item_check.on_check
+			 function="Floater.Visible"
+			 parameter="moveview" />
+			<menu_item_check.on_click
+			 function="Floater.Toggle"
+			 parameter="moveview" />
+		</menu_item_check>   
+
+		<menu_item_check
+		 label="Camera Controls"
+		 name="Camera Controls">
+			<menu_item_check.on_check
+			 function="Floater.Visible"
+			 parameter="camera" />
+			<menu_item_check.on_click
+			 function="Floater.Toggle"
+			 parameter="camera" />
+		</menu_item_check>
+
+        <menu_item_separator/>
+
         <menu
          create_jump_keys="true"
          label="Avatar Health"
@@ -286,6 +278,13 @@
 	             function="Advanced.ToggleInfoDisplay"
 	             parameter="shame" />
 	        </menu_item_check>
+	        <menu_item_call
+             label="Lag Meter"
+             name="Lag Meter">
+                <menu_item_call.on_click
+                 function="Floater.Show"
+                 parameter="lagmeter" />
+            </menu_item_call>
           <menu_item_call
              label="Recreate LSL Bridge"
              name="Recreate LSL Bridge">
@@ -294,8 +293,17 @@
           </menu_item_call>
         </menu>
 
+        <menu_item_call
+         label="Snapshot"
+         name="Take Snapshot"
+         shortcut="control|shift|S">
+            <menu_item_call.on_click
+             function="Floater.Show"
+             parameter="snapshot" />
+        </menu_item_call>
+
       <menu_item_call
-        label="Tip Tracker"
+        label="Money Tracker"
         name="money_tracker">
         <menu_item_call.on_click
           function="Floater.Toggle"
@@ -309,94 +317,38 @@
 			function="Floater.Show"
 			parameter="fs_posestand" />
         </menu_item_call>
-        
-        <menu
-         create_jump_keys="true"
-         label="Upload"
-         layout="topleft"
-         name="Upload"
-         tear_off="true">
-            <menu_item_call
-             label="Image ([COST])..."
-             layout="topleft"
-             name="Upload Image"
-             shortcut="control|U">
-                <menu_item_call.on_click
-                 function="File.UploadImage"
-                 parameter="" />
-                <menu_item_call.on_enable
-                 function="File.EnableUpload" />
-                <menu_item_call.on_visible
-                 function="Upload.CalculateCosts"
-                 parameter="Upload Image" />
-            </menu_item_call>
-            <menu_item_call
-             label="Sound ([COST])..."
-             layout="topleft"
-             name="Upload Sound">
-                <menu_item_call.on_click
-                 function="File.UploadSound"
-                 parameter="" />
-                <menu_item_call.on_enable
-                 function="File.EnableUpload" />
-                <menu_item_call.on_visible
-                 function="Upload.CalculateCosts"
-                 parameter="Upload Sound" />
-            </menu_item_call>
-            <menu_item_call
-             label="Animation ([COST])..."
-             layout="topleft"
-             name="Upload Animation">
-                <menu_item_call.on_click
-                 function="File.UploadAnim"
-                 parameter="" />
-                <menu_item_call.on_enable
-                 function="File.EnableUpload" />
-                <menu_item_call.on_visible
-                 function="Upload.CalculateCosts"
-                 parameter="Upload Animation" />
-            </menu_item_call>
-	    <menu_item_call
-             label="Mesh Model..."
-             layout="topleft"
-             name="Upload Model">
-            <menu_item_call.on_click
-             function="File.UploadModel"
-             parameter="" />
-            <menu_item_call.on_enable
-             function="File.EnableUploadModel" />
-            <menu_item_call.on_visible
-            function="File.VisibleUploadModel"/>
-            </menu_item_call>
-            <menu_item_call
-             label="Bulk (Multi-file) upload..."
-             layout="topleft"
-             name="Bulk Upload">
-               <menu_item_call.on_click
-                 function="File.UploadBulk"
-                 parameter="" />
-               <menu_item_call.on_visible
-                 function="Upload.CalculateCosts"
-                 parameter="Bulk Upload" />
-            </menu_item_call>
-            <menu_item_call
-             label="Set Default Upload Permissions"
-             name="perm prefs">
-                <menu_item_call.on_click
-                 function="Floater.Toggle"
-                 parameter="perm_prefs" />
-            </menu_item_call>
-            <menu_item_call
-             label="Import Linkset..."
-             visibility_control="FSEnableObjectExports"
-             name="import linkset">
-                <menu_item_call.on_click
-                 function="File.ImportLinkset"
-                 parameter="" />
-            </menu_item_call>
-        </menu>
 
+        <menu_item_separator/>
+
+        <menu_item_call
+         label="Preferences"
+         name="Preferences"
+         shortcut="control|P">
+            <menu_item_call.on_click
+             function="Floater.Toggle"
+             parameter="preferences" />
+        </menu_item_call>
         
+        <menu_item_call
+         label="Toolbar Buttons"
+         name="Toolbar Buttons">
+            <menu_item_call.on_click
+             function="Floater.Show"
+             parameter="toybox" />
+        </menu_item_call>
+
+         <menu_item_check
+         label="Show HUD Attachments"
+         name="Show HUD Attachments"
+         shortcut="alt|shift|H">
+           <menu_item_check.on_check
+            function="View.CheckHUDAttachments" />
+            <menu_item_check.on_click
+             function="View.ShowHUDAttachments" />
+         </menu_item_check>
+
+        <menu_item_separator/>
+
         <menu_item_call
          label="Request Admin Status"
          name="Request Admin Options"
@@ -414,17 +366,6 @@
             <menu_item_call.on_click
              function="Advanced.LeaveAdminStatus" />
         </menu_item_call>
-         <menu_item_check
-         label="Show HUD Attachments"
-         name="Show HUD Attachments"
-         shortcut="alt|shift|H">
-           <menu_item_check.on_check
-            function="View.CheckHUDAttachments" />
-            <menu_item_check.on_click
-             function="View.ShowHUDAttachments" />
-         </menu_item_check>
-
-        <menu_item_separator/>
 
         <menu_item_call
          label="Exit [APP_NAME]"
@@ -433,6 +374,7 @@
             <menu_item_call.on_click
              function="File.Quit" />
         </menu_item_call>
+
     </menu>
     
     <!-- Comm Menu -->
@@ -490,6 +432,14 @@
                  function="World.GetRejectTeleportOffers"/>
                 <menu_item_check.on_click
                  function="World.SetRejectTeleportOffers"/>
+            </menu_item_check>
+                <menu_item_check
+             label="Reject all group invites"
+             name="Reject all group invites">
+                <menu_item_check.on_check
+                 function="World.GetRejectAllGroupInvites"/>
+                <menu_item_check.on_click
+                 function="World.SetRejectAllGroupInvites"/>
             </menu_item_check>
         
         </menu>
@@ -579,6 +529,28 @@
              function="Floater.Toggle"
              parameter="gestures" />
         </menu_item_check>
+        <menu_item_separator/>
+      <menu_item_call
+        label="Facebook..."
+        name="Facebook">
+        <menu_item_call.on_click
+          function="Floater.Toggle"
+          parameter="facebook"/>
+      </menu_item_call>
+      <menu_item_call
+        label="Twitter..."
+        name="Twitter">
+        <menu_item_call.on_click
+          function="Floater.Toggle"
+          parameter="twitter"/>
+      </menu_item_call>
+      <menu_item_call
+        label="Flickr..."
+        name="Flickr">
+        <menu_item_call.on_click
+          function="Floater.Toggle"
+          parameter="flickr"/>
+      </menu_item_call>
         <menu_item_separator/>
         <menu
          label="Voice morphing"
@@ -733,6 +705,17 @@
              function="Floater.Toggle"
              parameter="places" />
             </menu_item_check>
+
+        <menu_item_call
+         label="Destinations"
+         name="Destinations">
+            <menu_item_call.on_click
+             function="Floater.Toggle"
+             parameter="destinations" />
+            <menu_item_call.on_visible
+             function="GridCheck"
+             parameter="secondlife"/>
+        </menu_item_call>
             
         <menu_item_check
              label="Mini-Map"
@@ -757,6 +740,17 @@
             <menu_item_check.on_click
              function="Floater.Toggle"
              parameter="world_map" />
+        </menu_item_check>
+        
+         <menu_item_check
+             label="Region Tracker"
+             name="Region Tracker">
+            <menu_item_check.on_check
+             function="Floater.Visible"
+             parameter="region_tracker" />
+            <menu_item_check.on_click
+             function="Floater.Toggle"
+             parameter="region_tracker" />
         </menu_item_check>
         <menu_item_separator/>
         
@@ -1612,6 +1606,15 @@
                      parameter="movable" />
                 </menu_item_check>
                 <menu_item_check
+                 label="Select Only Copyable Objects"
+                 name="Select Only Copyable Objects">
+                    <menu_item_check.on_check
+                     control="FSSelectCopyableOnly" />
+                    <menu_item_check.on_click
+                     function="ToggleControl"
+                     parameter="FSSelectCopyableOnly" />
+                </menu_item_check>
+                <menu_item_check
                  label="Select By Surrounding"
                  name="Select By Surrounding">
                     <menu_item_check.on_check
@@ -1625,7 +1628,8 @@
                     <menu_item_check.on_check
                      control="FSSelectIncludeGroupOwned" />
                     <menu_item_check.on_click
-                     function="Tools.SelectIncludeGroupOwned" />
+                     function="ToggleControl"
+                     parameter="FSSelectIncludeGroupOwned" />
                 </menu_item_check>
 
           <menu_item_separator/>
@@ -1699,15 +1703,23 @@
                     <menu_item_call.on_enable
                      function="SomethingSelected" />
                 </menu_item_call>
+                <menu_item_separator/>
                 <menu_item_call
-                 label="Grid Options"
+                 label="Grid Options..."
                  name="Grid Options"
                  shortcut="control|shift|B">
                     <menu_item_call.on_click
-                     function="Floater.Show"
+                     function="Floater.Toggle"
                      parameter="build_options" />
                     <menu_item_call.on_enable
                      function="Tools.EnableToolNotPie" />
+                </menu_item_call>
+                <menu_item_call
+                 label="Set Default Permissions..."
+                 name="Set default permissions">
+                    <menu_item_call.on_click
+                     function="Floater.ToggleOrBringToFront"
+                     parameter="perms_default" />
                 </menu_item_call>
         </menu>
         <menu
@@ -1778,13 +1790,6 @@
 		<menu_item_call.on_visible
                  function="Upload.CalculateCosts"
                  parameter="Bulk Upload" />
-            </menu_item_call>
-            <menu_item_call
-             label="Set Default Upload Permissions"
-             name="perm prefs">
-                <menu_item_call.on_click
-                 function="Floater.Toggle"
-                 parameter="perm_prefs" />
             </menu_item_call>
 	    <menu_item_call
              label="Import Linkset..."
@@ -2086,7 +2091,6 @@
             </menu_item_call>
 
         <menu_item_separator/>
-		
         <menu_item_call
              label="Bumps, Pushes &amp; Hits"
              name="Bumps, Pushes &amp;amp; Hits">
@@ -2388,6 +2392,13 @@
          label="Performance Tools"
          name="Performance Tools"
          tear_off="true">
+            <menu_item_call
+             label="Lag Meter"
+             name="Lag Meter">
+                <menu_item_call.on_click
+                 function="Floater.Show"
+                 parameter="lagmeter" />
+            </menu_item_call>
             <menu_item_check
              label="Statistics Bar"
              name="Statistics Bar"
@@ -2831,19 +2842,6 @@
          name="Shortcuts"
          tear_off="true"
          visible="false">
-          <menu_item_call
-             label="Upload Image ([COST])..."
-             name="Upload Image"
-             shortcut="control|U">
-            <menu_item_call.on_click
-               function="File.UploadImage"
-               parameter="" />
-            <menu_item_call.on_enable
-               function="File.EnableUpload" />
-            <menu_item_call.on_visible
-               function="Upload.CalculateCosts"
-               parameter="Upload Image" />
-            </menu_item_call>
             <menu_item_check
                label="Search"
                name="Search"
@@ -3026,9 +3024,13 @@
            label="RestrainedLove API"
            name="RLV API">
               <menu_item_check.on_check
-               function="RLV.CheckEnabled" />
+               function="CheckControl"
+               parameter="RestrainedLove" />
               <menu_item_check.on_click
-               function="RLV.ToggleEnabled" />
+               function="ToggleControl"
+               parameter="RestrainedLove" />
+              <menu_item_check.on_visible
+               function="RLV.MainToggleVisible" />
         </menu_item_check>
 
         <menu_item_call
@@ -3040,7 +3042,7 @@
              parameter="all" />
         </menu_item_call>
      <menu_item_check
-         label="Show Develop Menu"
+         label="Show Developer Menu"
          name="Debug Mode"
          shortcut="control|alt|Q">
             <menu_item_check.on_check
@@ -3054,7 +3056,7 @@
 
     <menu
      create_jump_keys="true"
-     label="Develop"
+     label="Developer"
      name="Develop"
      tear_off="true"
      visible="false">
@@ -3277,6 +3279,13 @@
                  function="ToggleControl"
                  parameter="DebugShowTextureInfo" />
             </menu_item_check>
+            <menu_item_call
+              label="VRAM usage per object"
+              name="VRAM usage per object">
+              <menu_item_call.on_click
+                function="Floater.Show"
+                parameter="vram_usage" />
+            </menu_item_call>
             <menu_item_check
              label="Show Avatar Render Info"
              name="Show Avatar Render Info">
@@ -3632,6 +3641,16 @@
            parameter="lights" />
         </menu_item_check>
         <menu_item_check
+         label="Particles"
+         name="Particles">
+          <menu_item_check.on_check
+           function="Advanced.CheckInfoDisplay"
+           parameter="particles" />
+          <menu_item_check.on_click
+           function="Advanced.ToggleInfoDisplay"
+           parameter="particles" />
+        </menu_item_check>
+        <menu_item_check
          label="Collision Skeleton"
          name="Collision Skeleton">
           <menu_item_check.on_check
@@ -3961,15 +3980,6 @@
                  parameter="RenderHoverGlowEnable" />
             </menu_item_check>
           <menu_item_separator />
-          
-          <menu_item_call
-            enabled="true"
-            label="Clear Cache Immediately"
-            name="Cache Clear">
-            <menu_item_call.on_click
-             function="Develop.ClearCache" />
-          </menu_item_call>
-          
         </menu>
 
         <menu
@@ -4041,8 +4051,7 @@
          name="Dump Scripted Camera">
             <menu_item_call.on_click
              function="Advanced.DumpScriptedCamera" />
-        </menu_item_call>
-
+        </menu_item_call>      
         <menu
          create_jump_keys="true"
          label="Recorder"

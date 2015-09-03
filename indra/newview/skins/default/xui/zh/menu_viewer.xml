@@ -8,6 +8,7 @@
 		<menu_item_call label="新收納區視窗" name="NewInventoryWindow"/>
 		<menu_item_call label="地點…" name="Places"/>
 		<menu_item_call label="精選地點…" name="Picks"/>
+		<menu_item_call label="體驗…" name="Experiences"/>
 		<menu_item_call label="攝影機控制…" name="Camera Controls"/>
 		<menu label="動作" name="Movement">
 			<menu_item_call label="坐下" name="Sit Down Here"/>
@@ -22,6 +23,7 @@
 		</menu>
 		<menu_item_call label="購買 L$…" name="Buy and Sell L$"/>
 		<menu_item_call label="商家發件匣…" name="MerchantOutbox"/>
+		<menu_item_call label="Marketplace 刊登…" name="MarketplaceListings"/>
 		<menu_item_call label="帳戶主控臺…" name="Manage My Account"/>
 		<menu_item_call label="偏好設定…" name="Preferences"/>
 		<menu_item_call label="工具列按鈕…" name="Toolbars"/>
@@ -43,7 +45,7 @@
 		<menu_item_check label="朋友" name="My Friends"/>
 		<menu_item_check label="群組" name="My Groups"/>
 		<menu_item_check label="附近的人群" name="Active Speakers"/>
-		<menu_item_call label="封鎖清單" name="Block List"/>
+		<menu_item_check label="封鎖清單" name="Block List"/>
 		<menu_item_check label="請勿打擾" name="Do Not Disturb"/>
 	</menu>
 	<menu label="世界" name="World">
@@ -148,7 +150,8 @@
 			<menu_item_check label="貼齊格線" name="Snap to Grid"/>
 			<menu_item_call label="貼齊物件 XY 軸到格線" name="Snap Object XY to Grid"/>
 			<menu_item_call label="以所選擇作為格線" name="Use Selection for Grid"/>
-			<menu_item_call label="格線選項" name="Grid Options"/>
+			<menu_item_call label="格線選項..." name="Grid Options"/>
+			<menu_item_call label="设置默认权限..." name="Set default permissions"/>
 		</menu>
 		<menu label="上傳" name="Upload">
 			<menu_item_call label="圖像（[COST]）..." name="Upload Image"/>
@@ -156,7 +159,6 @@
 			<menu_item_call label="動作（[COST]）..." name="Upload Animation"/>
 			<menu_item_call label="模型…" name="Upload Model"/>
 			<menu_item_call label="批量（每檔案 [COST] ）..." name="Bulk Upload"/>
-			<menu_item_call label="設定預設上傳權限" name="perm prefs"/>
 		</menu>
 		<menu_item_call label="復原" name="Undo"/>
 		<menu_item_call label="重做" name="Redo"/>
@@ -184,6 +186,7 @@
 		<menu_item_check label="高解析度快照" name="HighResSnapshot"/>
 		<menu_item_check label="靜音拍攝快照到硬碟" name="QuietSnapshotsToDisk"/>
 		<menu label="效能工具" name="Performance Tools">
+			<menu_item_call label="Lag 測量器" name="Lag Meter"/>
 			<menu_item_check label="統計列" name="Statistics Bar"/>
 			<menu_item_check label="顯示化身的繪製重量" name="Avatar Rendering Cost"/>
 		</menu>
@@ -244,6 +247,7 @@
 			<menu_item_check label="材質控制台" name="Texture Console"/>
 			<menu_item_check label="除錯控制台" name="Debug Console"/>
 			<menu_item_call label="通知控制台" name="Notifications"/>
+			<menu_item_check label="地區除錯控制台" name="Region Debug Console"/>
 			<menu_item_check label="快速碼錶" name="Fast Timers"/>
 			<menu_item_check label="記憶體" name="Memory"/>
 			<menu_item_check label="場景統計資料" name="Scene Statistics"/>

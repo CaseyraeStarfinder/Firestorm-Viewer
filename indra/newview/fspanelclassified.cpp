@@ -42,7 +42,6 @@
 #include "llagent.h"
 #include "llclassifiedflags.h"
 #include "llclassifiedstatsresponder.h"
-#include "llcommandhandler.h" // for classified HTML detail page click tracking
 #include "lliconctrl.h"
 #include "lllineeditor.h"
 #include "llcombobox.h"
@@ -101,13 +100,10 @@ class FSClassifiedClickMessageResponder : public LLHTTPClient::Responder
 
 public:
 	// If we get back an error (not found, etc...), handle it here
-	virtual void errorWithContent(
-		U32 status,
-		const std::string& reason,
-		const LLSD& content)
+	virtual void httpFailure()
 	{
-		LL_WARNS("FSClassifiedClickMessageResponder") << "Sending click message failed (" << status << "): [" << reason << "]" << LL_ENDL;
-		LL_WARNS("FSClassifiedClickMessageResponder") << "Content: [" << content << "]" << LL_ENDL;
+		LL_WARNS("FSClassifiedClickMessageResponder") << "Sending click message failed (" << getStatus() << "): [" << getReason() << "]" << LL_ENDL;
+		LL_WARNS("FSClassifiedClickMessageResponder") << "Content: [" << getContent() << "]" << LL_ENDL;
 	}
 };
 
@@ -481,9 +477,9 @@ std::string FSPanelClassifiedInfo::createLocationText(
 
 	if (!pos_global.isNull())
 	{
-		S32 region_x = llround((F32)pos_global.mdV[VX]) % REGION_WIDTH_UNITS;
-		S32 region_y = llround((F32)pos_global.mdV[VY]) % REGION_WIDTH_UNITS;
-		S32 region_z = llround((F32)pos_global.mdV[VZ]);
+		S32 region_x = ll_round((F32)pos_global.mdV[VX]) % REGION_WIDTH_UNITS;
+		S32 region_y = ll_round((F32)pos_global.mdV[VY]) % REGION_WIDTH_UNITS;
+		S32 region_z = ll_round((F32)pos_global.mdV[VZ]);
 		location_text.append(llformat(" (%d, %d, %d)", region_x, region_y, region_z));
 	}
 

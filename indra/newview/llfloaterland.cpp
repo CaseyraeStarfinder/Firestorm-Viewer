@@ -75,6 +75,9 @@
 #include "llviewercontrol.h"
 #include "roles_constants.h"
 #include "lltrans.h"
+#include "llpanelexperiencelisteditor.h"
+#include "llpanelexperiencepicker.h"
+#include "llexperiencecache.h"
 
 #include "llgroupactions.h"
 #include "llsdutil_math.h"
@@ -85,6 +88,9 @@
 #ifdef OPENSIM
 #include "llviewernetwork.h"
 #endif // OPENSIM
+#include "fsnamelistavatarmenu.h"
+
+const F64 COVENANT_REFRESH_TIME_SEC = 60.0f;
 
 static std::string OWNER_ONLINE 	= "0";
 static std::string OWNER_OFFLINE	= "1";
@@ -116,6 +122,28 @@ public:
 	{
 		return mLabel;
 	}
+};
+
+
+class LLPanelLandExperiences
+	:	public LLPanel
+{
+public:	
+	LLPanelLandExperiences(LLSafeHandle<LLParcelSelection>& parcelp);
+	virtual BOOL postBuild();
+	void refresh();
+
+	void experienceAdded(const LLUUID& id, U32 xp_type, U32 access_type);
+	void experienceRemoved(const LLUUID& id, U32 access_type);
+protected:
+	LLPanelExperienceListEditor* setupList( const char* control_name, U32 xp_type, U32 access_type );
+	void refreshPanel(LLPanelExperienceListEditor* panel, U32 xp_type);
+
+	LLSafeHandle<LLParcelSelection>&	mParcel;
+
+
+	LLPanelExperienceListEditor* mAllowed;
+	LLPanelExperienceListEditor* mBlocked;
 };
 
 // inserts maturity info(icon and text) into target textbox 
@@ -256,6 +284,7 @@ LLFloaterLand::LLFloaterLand(const LLSD& seed)
 	mFactoryMap["land_audio_panel"] =	LLCallbackMap(createPanelLandAudio, this);
 	mFactoryMap["land_media_panel"] =	LLCallbackMap(createPanelLandMedia, this);
 	mFactoryMap["land_access_panel"] =	LLCallbackMap(createPanelLandAccess, this);
+	mFactoryMap["land_experiences_panel"] =	LLCallbackMap(createPanelLandExperiences, this);
 
 	sObserver = new LLParcelSelectionObserver();
 	LLViewerParcelMgr::getInstance()->addObserver( sObserver );
@@ -296,6 +325,7 @@ void LLFloaterLand::refresh()
 	mPanelMedia->refresh();
 	mPanelAccess->refresh();
 	mPanelCovenant->refresh();
+	mPanelExperiences->refresh();
 }
 
 
@@ -355,6 +385,15 @@ void* LLFloaterLand::createPanelLandAccess(void* data)
 	self->mPanelAccess = new LLPanelLandAccess(self->mParcel);
 	return self->mPanelAccess;
 }
+
+// static
+void* LLFloaterLand::createPanelLandExperiences(void* data)
+{
+	LLFloaterLand* self = (LLFloaterLand*)data;
+	self->mPanelExperiences = new LLPanelLandExperiences(self->mParcel);
+	return self->mPanelExperiences;
+}
+
 
 //---------------------------------------------------------------------------
 // LLPanelLandGeneral
@@ -1136,7 +1175,7 @@ void LLPanelLandGeneral::setParcelID(const LLUUID& parcel_id)
 }
 
 // virtual
-void LLPanelLandGeneral::setErrorStatus(U32 status, const std::string& reason)
+void LLPanelLandGeneral::setErrorStatus(S32 status, const std::string& reason)
 {
 	mEditUUID->setText(getString("error_resolving_uuid"));
 	mLastParcelLocalID = 0;
@@ -1229,7 +1268,10 @@ BOOL LLPanelLandObjects::postBuild()
 	mOwnerList->sortByColumnIndex(3, FALSE);
 	childSetCommitCallback("owner list", onCommitList, this);
 	mOwnerList->setDoubleClickCallback(onDoubleClickOwner, this);
-	mOwnerList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+	// <FS:Ansariel> Special Firestorm menu also allowing multi-select action
+	//mOwnerList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+	mOwnerList->setContextMenu(&gFSNameListAvatarMenu);
+	// </FS:Ansariel>
 
 	return TRUE;
 }
@@ -1305,7 +1347,7 @@ void LLPanelLandObjects::refresh()
 	{
 		S32 sw_max = parcel->getSimWideMaxPrimCapacity();
 		S32 sw_total = parcel->getSimWidePrimCount();
-		S32 max = llround(parcel->getMaxPrimCapacity() * parcel->getParcelPrimBonus());
+		S32 max = ll_round(parcel->getMaxPrimCapacity() * parcel->getParcelPrimBonus());
 		S32 total = parcel->getPrimCount();
 		S32 owned = parcel->getOwnerPrimCount();
 		S32 group = parcel->getGroupPrimCount();
@@ -1598,6 +1640,8 @@ void LLPanelLandObjects::onClickRefresh(void* userdata)
 	LLViewerRegion* region = LLViewerParcelMgr::getInstance()->getSelectionRegion();
 	if (!region) return;
 
+	self->mBtnRefresh->setEnabled(false);
+
 	// ready the list for results
 	self->mOwnerList->deleteAllItems();
 	self->mOwnerList->setCommentText(LLTrans::getString("Searching"));
@@ -1672,6 +1716,7 @@ void LLPanelLandObjects::processParcelObjectOwnersReply(LLMessageSystem *msg, vo
 		{
 			msg->getU32("DataExtended", "TimeStamp", most_recent_time, i);
 		}
+
 		if (owner_id.isNull())
 		{
 			continue;
@@ -1735,10 +1780,10 @@ void LLPanelLandObjects::processParcelObjectOwnersReply(LLMessageSystem *msg, vo
 		item_params.columns.add().value(LLDate((time_t)most_recent_time)).font(FONT).column("mostrecent").type("date");
 
 		self->mOwnerList->addNameItemRow(item_params);
-
 		LL_DEBUGS() << "object owner " << owner_id << " (" << (is_group_owned ? "group" : "agent")
 				<< ") owns " << object_count << " objects." << LL_ENDL;
 	}
+
 	// check for no results
 	if (0 == self->mOwnerList->getItemCount())
 	{
@@ -1748,6 +1793,8 @@ void LLPanelLandObjects::processParcelObjectOwnersReply(LLMessageSystem *msg, vo
 	{
 		self->mOwnerList->setEnabled(TRUE);
 	}
+
+	self->mBtnRefresh->setEnabled(true);
 }
 
 // static
@@ -2125,6 +2172,7 @@ void LLPanelLandOptions::refresh()
 	else
 	{
 		// something selected, hooray!
+		//LLViewerRegion* regionp = LLViewerParcelMgr::getInstance()->getSelectionRegion(); // <FS:LO> FIRE-16112 fix
 
 		// Display options
 		BOOL can_change_options = LLViewerParcelMgr::isParcelModifiableByAgent(parcel, GP_LAND_OPTIONS);
@@ -2140,14 +2188,19 @@ void LLPanelLandOptions::refresh()
 		mCheckGroupObjectEntry	->set( parcel->getAllowGroupObjectEntry() ||  parcel->getAllowAllObjectEntry());
 		mCheckGroupObjectEntry	->setEnabled( can_change_options && !parcel->getAllowAllObjectEntry() );
 		
-	// <FS:WF> FIRE-6604 : Reinstate the "Allow Other Residents to Edit Terrain" option in About Land
-	    BOOL can_change_terraform = LLViewerParcelMgr::isParcelModifiableByAgent(parcel, GP_LAND_EDIT);
+		//BOOL region_damage = regionp ? regionp->getAllowDamage() : FALSE;  // <FS:LO> FIRE-16112 fix
+		
+		// <FS:WF> FIRE-6604 : Reinstate the "Allow Other Residents to Edit Terrain" option in About Land
+		BOOL can_change_terraform = LLViewerParcelMgr::isParcelModifiableByAgent(parcel, GP_LAND_EDIT);
 		mCheckEditLand		->set( parcel->getAllowTerraform() );
 		mCheckEditLand		->setEnabled( can_change_terraform );
-	// <FS:WF>	
+		// <FS:WF>	
 		
 		mCheckSafe			->set( !parcel->getAllowDamage() );
+		// <FS:LO> FIRE-16112 fix
+		//mCheckSafe			->setEnabled( can_change_options && region_damage );
 		mCheckSafe			->setEnabled( can_change_options );
+		// </FS:LO>
 
 		mCheckFly			->set( parcel->getAllowFly() );
 		mCheckFly			->setEnabled( can_change_options );
@@ -2200,9 +2253,9 @@ void LLPanelLandOptions::refresh()
 		else
 		{
 			mLocationText->setTextArg("[LANDING]",llformat("%d, %d, %d (%d\xC2\xB0)",
-														   llround(pos.mV[VX]),
-														   llround(pos.mV[VY]),
-		   												   llround(pos.mV[VZ]),
+														   ll_round(pos.mV[VX]),
+														   ll_round(pos.mV[VY]),
+		   												   ll_round(pos.mV[VZ]),
 														   user_look_at_angle));
 			// <FS:Ansariel> FIRE-10043: Teleport to LP button
 			mTeleportToLandingPointBtn->setEnabled(TRUE);
@@ -2233,7 +2286,7 @@ void LLPanelLandOptions::refresh()
 			
 			// they can see the checkbox, but its disposition depends on the 
 			// state of the region
-			LLViewerRegion* regionp = LLViewerParcelMgr::getInstance()->getSelectionRegion();
+			LLViewerRegion* regionp = LLViewerParcelMgr::getInstance()->getSelectionRegion();  // <FS:LO> FIRE-16112 fix
 			if (regionp)
 			{
 				if (regionp->getSimAccess() == SIM_ACCESS_PG)
@@ -2557,14 +2610,20 @@ BOOL LLPanelLandAccess::postBuild()
 	if (mListAccess)
 	{
 		mListAccess->sortByColumnIndex(0, TRUE); // ascending
-		mListAccess->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+		// <FS:Ansariel> Special Firestorm menu also allowing multi-select action
+		//mListAccess->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+		mListAccess->setContextMenu(&gFSNameListAvatarMenu);
+		// </FS:Ansariel>
 	}
 
 	mListBanned = getChild<LLNameListCtrl>("BannedList");
 	if (mListBanned)
 	{
 		mListBanned->sortByColumnIndex(0, TRUE); // ascending
-		mListBanned->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+		// <FS:Ansariel> Special Firestorm menu also allowing multi-select action
+		//mListBanned->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+		mListBanned->setContextMenu(&gFSNameListAvatarMenu);
+		// </FS:Ansariel>
 	}
 
 	return TRUE;
@@ -2608,37 +2667,37 @@ void LLPanelLandAccess::refresh()
 			getChild<LLUICtrl>("AllowedText")->setTextArg(LLStringExplicit("[MAX]"), llformat("%d",PARCEL_MAX_ACCESS_LIST));
 			// </FS:Ansariel>
 
-			for (access_map_const_iterator cit = parcel->mAccessList.begin();
+			for (LLAccessEntry::map::const_iterator cit = parcel->mAccessList.begin();
 				 cit != parcel->mAccessList.end(); ++cit)
 			{
 				const LLAccessEntry& entry = (*cit).second;
-				std::string suffix;
+				std::string prefix;
 				if (entry.mTime != 0)
 				{
 					LLStringUtil::format_map_t args;
 					S32 now = time(NULL);
 					S32 seconds = entry.mTime - now;
 					if (seconds < 0) seconds = 0;
-					suffix.assign(" (");
+					prefix.assign(" (");
 					if (seconds >= 120)
 					{
 						args["[MINUTES]"] = llformat("%d", (seconds/60));
 						std::string buf = parent_floater->getString ("Minutes", args);
-						suffix.append(buf);
+						prefix.append(buf);
 					}
 					else if (seconds >= 60)
 					{
-						suffix.append("1 " + parent_floater->getString("Minute"));
+						prefix.append("1 " + parent_floater->getString("Minute"));
 					}
 					else
 					{
 						args["[SECONDS]"] = llformat("%d", seconds);
 						std::string buf = parent_floater->getString ("Seconds", args);
-						suffix.append(buf);
+						prefix.append(buf);
 					}
-					suffix.append(" " + parent_floater->getString("Remaining") + ")");
+					prefix.append(" " + parent_floater->getString("Remaining") + ") ");
 				}
-				mListAccess->addNameItem(entry.mID, ADD_DEFAULT, TRUE, suffix);
+				mListAccess->addNameItem(entry.mID, ADD_DEFAULT, TRUE, "", prefix);
 			}
 			mListAccess->sortByName(TRUE);
 		}
@@ -2658,37 +2717,37 @@ void LLPanelLandAccess::refresh()
 			getChild<LLUICtrl>("BanCheck")->setTextArg(LLStringExplicit("[MAX]"), llformat("%d",PARCEL_MAX_ACCESS_LIST));
 			// </FS:Ansariel>
 
-			for (access_map_const_iterator cit = parcel->mBanList.begin();
+			for (LLAccessEntry::map::const_iterator cit = parcel->mBanList.begin();
 				 cit != parcel->mBanList.end(); ++cit)
 			{
 				const LLAccessEntry& entry = (*cit).second;
-				std::string suffix;
+				std::string prefix;
 				if (entry.mTime != 0)
 				{
 					LLStringUtil::format_map_t args;
 					S32 now = time(NULL);
 					S32 seconds = entry.mTime - now;
 					if (seconds < 0) seconds = 0;
-					suffix.assign(" (");
+					prefix.assign(" (");
 					if (seconds >= 120)
 					{
 						args["[MINUTES]"] = llformat("%d", (seconds/60));
 						std::string buf = parent_floater->getString ("Minutes", args);
-						suffix.append(buf);
+						prefix.append(buf);
 					}
 					else if (seconds >= 60)
 					{
-						suffix.append("1 " + parent_floater->getString("Minute"));
+						prefix.append("1 " + parent_floater->getString("Minute"));
 					}
 					else
 					{
 						args["[SECONDS]"] = llformat("%d", seconds);
 						std::string buf = parent_floater->getString ("Seconds", args);
-						suffix.append(buf);
+						prefix.append(buf);
 					}
-					suffix.append(" " + parent_floater->getString("Remaining") + ")");
+					prefix.append(" " + parent_floater->getString("Remaining") + ") ");
 				}
-				mListBanned->addNameItem(entry.mID, ADD_DEFAULT, TRUE, suffix);
+				mListBanned->addNameItem(entry.mID, ADD_DEFAULT, TRUE, "",  prefix);
 			}
 			mListBanned->sortByName(TRUE);
 		}
@@ -3009,10 +3068,16 @@ void LLPanelLandAccess::callbackAvatarCBAccess(const uuid_vec_t& ids)
 	{
 		LLUUID id = ids[0];
 		LLParcel* parcel = mParcel->getParcel();
-		if (parcel)
+		if (parcel && parcel->addToAccessList(id, 0))
 		{
-			parcel->addToAccessList(id, 0);
-			LLViewerParcelMgr::getInstance()->sendParcelAccessListUpdate(AL_ACCESS);
+			U32 lists_to_update = AL_ACCESS;
+			// agent was successfully added to access list
+			// but we also need to check ban list to ensure that agent will not be in two lists simultaneously
+			if(parcel->removeFromBanList(id))
+			{
+				lists_to_update |= AL_BAN;
+			}
+			LLViewerParcelMgr::getInstance()->sendParcelAccessListUpdate(lists_to_update);
 			refresh();
 		}
 	}
@@ -3061,10 +3126,16 @@ void LLPanelLandAccess::callbackAvatarCBBanned(const uuid_vec_t& ids)
 	{
 		LLUUID id = ids[0];
 		LLParcel* parcel = mParcel->getParcel();
-		if (parcel)
+		if (parcel && parcel->addToBanList(id, 0))
 		{
-			parcel->addToBanList(id, 0);
-			LLViewerParcelMgr::getInstance()->sendParcelAccessListUpdate(AL_BAN);
+			U32 lists_to_update = AL_BAN;
+			// agent was successfully added to ban list
+			// but we also need to check access list to ensure that agent will not be in two lists simultaneously
+			if (parcel->removeFromAccessList(id))
+			{
+				lists_to_update |= AL_ACCESS;
+			}
+			LLViewerParcelMgr::getInstance()->sendParcelAccessListUpdate(lists_to_update);
 			refresh();
 		}
 	}
@@ -3098,17 +3169,21 @@ void LLPanelLandAccess::onClickRemoveBanned(void* data)
 //---------------------------------------------------------------------------
 LLPanelLandCovenant::LLPanelLandCovenant(LLParcelSelectionHandle& parcel)
 	: LLPanel(),
-	  // <FS:Zi> Fix covenant loading slowdowns
-	  mCovenantChanged(true),
-	  mCovenantRequested(false),
-	  mPreviousRegion(NULL),
-	  // <FS:Zi>
-	  mParcel(parcel)
-{	
+	  mParcel(parcel),
+	  mNextUpdateTime(0)
+{
 }
 
 LLPanelLandCovenant::~LLPanelLandCovenant()
 {
+}
+
+BOOL LLPanelLandCovenant::postBuild()
+{
+	mLastRegionID = LLUUID::null;
+	mNextUpdateTime = 0;
+
+	return TRUE;
 }
 
 // virtual
@@ -3117,20 +3192,6 @@ void LLPanelLandCovenant::refresh()
 	LLViewerRegion* region = LLViewerParcelMgr::getInstance()->getSelectionRegion();
 	if(!region) return;
 		
-	// <FS:Zi> Fix covenant loading slowdowns
-	// Only refresh the covenant panel when we are looking at a different region now
-	if(region==mPreviousRegion)
-	{
-		return;
-	}
-
-	// We save the region pointer only here so a NULL region does not update mPreviousRegion.
-	// This means we don't update the covenant even when the user right clicked somewhere that
-	// invalidated the About Land floater. The covenant page does not clean up its elements,
-	// so the last region's data is still showing. -Zi
-	mPreviousRegion=region;
-	// </FS:Zi>
-
 	LLTextBox* region_name = getChild<LLTextBox>("region_name_text");
 	if (region_name)
 	{
@@ -3171,39 +3232,30 @@ void LLPanelLandCovenant::refresh()
 			changeable_clause->setText(getString("can_not_change"));
 		}
 	}
-	
-	// <FS:Zi> Fix covenant loading slowdowns
-	// only request a covenant when we are not already waiting for one
-	if(mCovenantRequested)
-	{
-		return;
-	}
-	mCovenantRequested=true;
-	// </FS:Zi>
 
-	// send EstateCovenantInfo message
-	LLMessageSystem *msg = gMessageSystem;
-	msg->newMessage("EstateCovenantRequest");
-	msg->nextBlockFast(_PREHASH_AgentData);
-	msg->addUUIDFast(_PREHASH_AgentID,	gAgent.getID());
-	msg->addUUIDFast(_PREHASH_SessionID,gAgent.getSessionID());
-	msg->sendReliable(region->getHost());
+	if (mLastRegionID != region->getRegionID()
+		|| mNextUpdateTime < LLTimer::getElapsedSeconds())
+	{
+		// Request Covenant Info
+		// Note: LLPanelLandCovenant doesn't change Covenant's content and any
+		// changes made by Estate floater should be requested by Estate floater
+		LLMessageSystem *msg = gMessageSystem;
+		msg->newMessage("EstateCovenantRequest");
+		msg->nextBlockFast(_PREHASH_AgentData);
+		msg->addUUIDFast(_PREHASH_AgentID,	gAgent.getID());
+		msg->addUUIDFast(_PREHASH_SessionID,gAgent.getSessionID());
+		msg->sendReliable(region->getHost());
+
+		mLastRegionID = region->getRegionID();
+		mNextUpdateTime = LLTimer::getElapsedSeconds() + COVENANT_REFRESH_TIME_SEC;
+	}
 }
 
 // static
 void LLPanelLandCovenant::updateCovenantText(const std::string &string)
 {
 	LLPanelLandCovenant* self = LLFloaterLand::getCurrentPanelLandCovenant();
-	// <FS:Zi> Fix covenant loading slowdowns
-	// if (self)
-	// covenant received, allow requesting another one next time
-	self->mCovenantRequested=false;
-
-	// Only update covenant when Last Modified was found to be different and
-	// we still have a parcel selected. "Last Modified" will always be set before
-	// the covenant (see llviewermessage.cpp, process_covenant_reply()) -Zi
-	if(self && self->mCovenantChanged && self->mParcel->getParcel())
-	// </FS:Zi>
+	if (self)
 	{
 		LLViewerTextEditor* editor = self->getChild<LLViewerTextEditor>("covenant_editor");
 		editor->setText(string);
@@ -3225,32 +3277,10 @@ void LLPanelLandCovenant::updateEstateName(const std::string& name)
 void LLPanelLandCovenant::updateLastModified(const std::string& text)
 {
 	LLPanelLandCovenant* self = LLFloaterLand::getCurrentPanelLandCovenant();
-	// <FS:Zi> Fix covenant loading slowdowns
-	// if (self)
-
-	// only update the last modified field when we still have no parcel selected
-	if(self && self->mParcel->getParcel())
+	if (self)
 	{
-	// </FS:Zi>
 		LLTextBox* editor = self->getChild<LLTextBox>("covenant_timestamp_text");
-		// <FS:Zi> Fix covenant loading slowdowns
-		// if (editor) editor->setText(text);
-		if(editor)
-		{
-			// check if Last Modified is different from before
-			if(editor->getText()!=text)
-			{
-				// Update Last Modified field and remember to allow covenant to change
-				editor->setText(text);
-				self->mCovenantChanged=true;
-			}
-			else
-			{
-				// Last Modified was the same, so don't allow the covenant to change
-				self->mCovenantChanged=false;
-			}
-		}
-		// </FS:Zi>
+		if (editor) editor->setText(text);
 	}
 }
 
@@ -3312,4 +3342,104 @@ void insert_maturity_into_textbox(LLTextBox* target_textbox, LLFloater* names_fl
 
 	target_textbox->appendText(LLViewerParcelMgr::getInstance()->getSelectionRegion()->getSimAccessString(), false);
 	target_textbox->appendText(text_after_rating, false);
+}
+
+LLPanelLandExperiences::LLPanelLandExperiences( LLSafeHandle<LLParcelSelection>& parcelp ) 
+	: mParcel(parcelp)
+{
+
+}
+
+
+BOOL LLPanelLandExperiences::postBuild()
+{
+	mAllowed = setupList("panel_allowed", EXPERIENCE_KEY_TYPE_ALLOWED, AL_ALLOW_EXPERIENCE);
+	mBlocked = setupList("panel_blocked", EXPERIENCE_KEY_TYPE_BLOCKED, AL_BLOCK_EXPERIENCE);
+
+	// only non-grid-wide experiences
+	mAllowed->addFilter(boost::bind(LLPanelExperiencePicker::FilterWithProperty, _1, LLExperienceCache::PROPERTY_GRID));
+
+	// no privileged ones
+	mBlocked->addFilter(boost::bind(LLPanelExperiencePicker::FilterWithoutProperties, _1, LLExperienceCache::PROPERTY_PRIVILEGED|LLExperienceCache::PROPERTY_GRID));
+
+	getChild<LLLayoutPanel>("trusted_layout_panel")->setVisible(FALSE);
+	getChild<LLTextBox>("experiences_help_text")->setVisible(FALSE);
+	getChild<LLTextBox>("allowed_text_help")->setText(getString("allowed_parcel_text"));
+	getChild<LLTextBox>("blocked_text_help")->setText(getString("blocked_parcel_text"));
+	
+	return LLPanel::postBuild();
+}
+
+LLPanelExperienceListEditor* LLPanelLandExperiences::setupList( const char* control_name, U32 xp_type, U32 access_type )
+{
+	LLPanelExperienceListEditor* child = findChild<LLPanelExperienceListEditor>(control_name);
+	if(child)
+	{
+		child->getChild<LLTextBox>("text_name")->setText(child->getString(control_name));
+		child->setMaxExperienceIDs(PARCEL_MAX_EXPERIENCE_LIST);
+		child->setAddedCallback(boost::bind(&LLPanelLandExperiences::experienceAdded, this, _1, xp_type, access_type));
+		child->setRemovedCallback(boost::bind(&LLPanelLandExperiences::experienceRemoved, this, _1, access_type));
+	}
+
+	return child;
+}
+
+void LLPanelLandExperiences::experienceAdded( const LLUUID& id, U32 xp_type, U32 access_type )
+{
+	LLParcel* parcel = mParcel->getParcel();
+	if (parcel)
+	{			
+		parcel->setExperienceKeyType(id, xp_type);
+		LLViewerParcelMgr::getInstance()->sendParcelAccessListUpdate(access_type);
+		refresh();
+	}
+}
+
+void LLPanelLandExperiences::experienceRemoved( const LLUUID& id, U32 access_type )
+{
+	LLParcel* parcel = mParcel->getParcel();
+	if (parcel)
+	{			
+		parcel->setExperienceKeyType(id, EXPERIENCE_KEY_TYPE_NONE);
+		LLViewerParcelMgr::getInstance()->sendParcelAccessListUpdate(access_type);
+		refresh();
+	}
+}
+
+void LLPanelLandExperiences::refreshPanel(LLPanelExperienceListEditor* panel, U32 xp_type)
+{
+	LLParcel *parcel = mParcel->getParcel();
+
+	// Display options
+	if (panel == NULL)
+	{
+		return;
+	}
+	if (parcel == NULL)
+	{
+		// disable the panel
+		panel->setEnabled(FALSE);
+		panel->setExperienceIds(LLSD::emptyArray());
+	}
+	else
+	{
+		// enable the panel
+		panel->setEnabled(TRUE);
+		LLAccessEntry::map entries = parcel->getExperienceKeysByType(xp_type);
+		LLAccessEntry::map::iterator it = entries.begin();
+		LLSD ids = LLSD::emptyArray();
+		for (/**/; it != entries.end(); ++it)
+		{
+			ids.append(it->second.mID);
+		}
+		panel->setExperienceIds(ids);
+		panel->setReadonly(!LLViewerParcelMgr::isParcelModifiableByAgent(parcel, GP_LAND_OPTIONS));
+		panel->refreshExperienceCounter();
+	}
+}
+
+void LLPanelLandExperiences::refresh()
+{
+	refreshPanel(mAllowed, EXPERIENCE_KEY_TYPE_ALLOWED);
+	refreshPanel(mBlocked, EXPERIENCE_KEY_TYPE_BLOCKED);
 }

@@ -142,7 +142,7 @@ MACRO(LL_ADD_PROJECT_UNIT_TESTS project sources)
     #
     # Setup test targets
     #
-    GET_TARGET_PROPERTY(TEST_EXE PROJECT_${project}_TEST_${name} LOCATION)
+    SET(TEST_EXE $<TARGET_FILE:PROJECT_${project}_TEST_${name}>)
     SET(TEST_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/PROJECT_${project}_TEST_${name}_ok.txt)
     SET(TEST_CMD ${TEST_EXE} --touch=${TEST_OUTPUT} --sourcedir=${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -207,9 +207,9 @@ FUNCTION(LL_ADD_INTEGRATION_TEST
   ADD_EXECUTABLE(INTEGRATION_TEST_${testname} ${source_files})
   SET_TARGET_PROPERTIES(INTEGRATION_TEST_${testname} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${EXE_STAGING_DIR}")
 
-  if(STANDALONE)
+  if(USESYSTEMLIBS)
     SET_TARGET_PROPERTIES(INTEGRATION_TEST_${testname} PROPERTIES COMPILE_FLAGS -I"${TUT_INCLUDE_DIR}")
-  endif(STANDALONE)
+  endif(USESYSTEMLIBS)
 
   # The following was copied to llcorehttp/CMakeLists.txt's texture_load target. 
   # Any changes made here should be replicated there.
@@ -230,7 +230,7 @@ FUNCTION(LL_ADD_INTEGRATION_TEST
 
   # Create the test running command
   SET(test_command ${ARGN})
-  GET_TARGET_PROPERTY(TEST_EXE INTEGRATION_TEST_${testname} LOCATION)
+  SET(TEST_EXE $<TARGET_FILE:INTEGRATION_TEST_${testname}>)
   LIST(FIND test_command "{}" test_exe_pos)
   IF(test_exe_pos LESS 0)
     # The {} marker means "the full pathname of the test executable."
@@ -280,10 +280,10 @@ MACRO(SET_TEST_PATH LISTVAR)
     set(${LISTVAR} ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/Resources ${SHARED_LIB_STAGING_DIR}/Release/Resources /usr/lib)
   ELSE(WINDOWS)
     # Linux uses a single staging directory anyway.
-    IF (STANDALONE)
+    IF (USESYSTEMLIBS)
       set(${LISTVAR} ${CMAKE_BINARY_DIR}/llcommon /usr/lib /usr/local/lib)
-    ELSE (STANDALONE)
+    ELSE (USESYSTEMLIBS)
       set(${LISTVAR} ${SHARED_LIB_STAGING_DIR} /usr/lib)
-    ENDIF (STANDALONE)
+    ENDIF (USESYSTEMLIBS)
   ENDIF(WINDOWS)
 ENDMACRO(SET_TEST_PATH)

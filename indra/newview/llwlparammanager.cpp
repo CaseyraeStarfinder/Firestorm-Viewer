@@ -338,7 +338,7 @@ void LLWLParamManager::savePreset(LLWLParamKey key)
 	paramsData = mParamList[key].getAll();
 
 	// write to file
-	llofstream presetsXML(pathName);
+	llofstream presetsXML(pathName.c_str());
 	LLPointer<LLSDFormatter> formatter = new LLSDXMLFormatter();
 	formatter->format(paramsData, presetsXML, LLSDFormatter::OPTIONS_PRETTY);
 	presetsXML.close();
@@ -773,6 +773,12 @@ std::string LLWLParamManager::escapeString(const std::string& str)
 	char* curl_str = curl_escape(str.c_str(), str.size());
 	std::string escaped_str(curl_str);
 	curl_free(curl_str);
+
+	// <FS:Ansariel> FIRE-10861: Fix Windlight settings order
+	// And neither does cURL...
+	LLStringUtil::replaceString(escaped_str, "-", "%2D");
+	LLStringUtil::replaceString(escaped_str, ".", "%2E");
+	// </FS:Ansariel>
 
 	return escaped_str;
 }

@@ -5,27 +5,17 @@
 -->
 <floater name="inspect_group">
 	<string name="PrivateGroup">
-		Частная группа
+		Приватная группа
 	</string>
 	<string name="FreeToJoin">
 		Бесплатное вступление
 	</string>
 	<string name="CostToJoin">
-		L$[AMOUNT] за вступление
+		[AMOUNT]L$ за вступление
 	</string>
 	<string name="YouAreMember">
-		Вы участник группы
+		Вы находитесь в группе
 	</string>
-	<text name="group_subtitle">
-		123 участника
-	</text>
-	<text name="group_details">
-		Группа жителей, которые могут создавать комнату с лосем.
-Бойся лося!  Бойся!  И мангуста тоже!
-	</text>
-	<text name="group_cost">
-		L$123 за вступление
-	</text>
 	<button label="Вступить" name="join_btn"/>
 	<button label="Покинуть" name="leave_btn"/>
 	<button label="Смотреть профиль" name="view_profile_btn"/>

@@ -27,9 +27,6 @@
 #include "utilitybar.h"
 
 #include "llbutton.h"
-#include "llfloaterreg.h"
-#include "llpanel.h"
-#include "lltabcontainer.h"
 
 #include "llagent.h"
 #include "llstatusbar.h"
@@ -142,6 +139,7 @@ BOOL UtilityBar::tick()
 
 	if (mTalkButton)
 	{
+		mTalkButton->setValue(gAgent.isMicrophoneOn(LLSD()));
 		mTalkButton->setEnabled(LLAgent::isActionAllowed(LLSD("speak")));
 	}
 	if (mPTTButton)

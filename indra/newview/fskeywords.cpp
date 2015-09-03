@@ -27,6 +27,7 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "fskeywords.h"
+#include "growlmanager.h"
 #include "llagent.h"
 #include "llchat.h"
 #include "llinstantmessage.h"
@@ -35,13 +36,12 @@
 #include "llviewercontrol.h"
 
 #include <boost/regex.hpp>
-//#include <boost/algorithm/string/find.hpp> //for boost::ifind_first
-
 
 FSKeywords::FSKeywords()
 {
 	gSavedPerAccountSettings.getControl("FSKeywords")->getSignal()->connect(boost::bind(&FSKeywords::updateKeywords, this));
 	gSavedPerAccountSettings.getControl("FSKeywordCaseSensitive")->getSignal()->connect(boost::bind(&FSKeywords::updateKeywords, this));
+	gSavedPerAccountSettings.getControl("FSKeywordMatchWholeWords")->getSignal()->connect(boost::bind(&FSKeywords::updateKeywords, this));
 	updateKeywords();
 }
 
@@ -51,6 +51,7 @@ FSKeywords::~FSKeywords()
 
 void FSKeywords::updateKeywords()
 {
+	BOOL match_whole_words = gSavedPerAccountSettings.getBOOL("FSKeywordMatchWholeWords");
 	std::string s = gSavedPerAccountSettings.getString("FSKeywords");
 	if (!gSavedPerAccountSettings.getBOOL("FSKeywordCaseSensitive"))
 	{
@@ -61,16 +62,29 @@ void FSKeywords::updateKeywords()
 	mWordList.clear();
 	while (begin != end)
 	{
-		mWordList.push_back(*begin++);
+		if (match_whole_words)
+		{
+			mWordList.push_back(boost::regex_replace(std::string(*begin++), boost::regex("[.^$|()\\[\\]{}*+?\\\\]"), "\\\\&", boost::match_default|boost::format_sed));
+		}
+		else
+		{
+			mWordList.push_back(*begin++);
+		}
 	}
 }
 
 bool FSKeywords::chatContainsKeyword(const LLChat& chat, bool is_local)
 {
+
+	// Don't check if message is from us - unless it's a radar notification
+	if (chat.mFromID == gAgentID && chat.mFromName != SYSTEM_FROM)
+	{
+		return false;
+	}
+
 	static LLCachedControl<bool> sFSKeywordOn(gSavedPerAccountSettings, "FSKeywordOn", false);
 	static LLCachedControl<bool> sFSKeywordInChat(gSavedPerAccountSettings, "FSKeywordInChat", false);
 	static LLCachedControl<bool> sFSKeywordInIM(gSavedPerAccountSettings, "FSKeywordInIM", false);
-	static LLCachedControl<bool> sFSKeywordCaseSensitive(gSavedPerAccountSettings, "FSKeywordCaseSensitive", false);
 
 	if (!sFSKeywordOn ||
 		(is_local && !sFSKeywordInChat) ||
@@ -79,20 +93,48 @@ bool FSKeywords::chatContainsKeyword(const LLChat& chat, bool is_local)
 		return false;
 	}
 
-	std::string source(chat.mFromName + " " + chat.mText);
+	static LLCachedControl<bool> sFSKeywordSpeakersName(gSavedPerAccountSettings, "FSKeywordSpeakersName", false);
+
+	std::string source;
+	if (sFSKeywordSpeakersName)
+	{
+		source = chat.mFromName + " " + chat.mText;
+	}
+	else
+	{
+		source = chat.mText;
+	}
+
+	static LLCachedControl<bool> sFSKeywordCaseSensitive(gSavedPerAccountSettings, "FSKeywordCaseSensitive", false);
 
 	if (!sFSKeywordCaseSensitive)
 	{
 		LLStringUtil::toLower(source);
 	}
 
-	for (std::vector<std::string>::iterator it = mWordList.begin(); it != mWordList.end(); ++it)
+	static LLCachedControl<bool> sFSKeywordMatchWholeWords(gSavedPerAccountSettings, "FSKeywordMatchWholeWords", false);
+
+	if (sFSKeywordMatchWholeWords)
 	{
-		if (source.find((*it)) != std::string::npos)
+		for (std::vector<std::string>::iterator it = mWordList.begin(); it != mWordList.end(); ++it)
 		{
-			return true;
+			if (boost::regex_search(source, boost::regex("\\b" + (*it) + "\\b")))
+			{
+				return true;
+			}
 		}
 	}
+	else
+	{
+		for (std::vector<std::string>::iterator it = mWordList.begin(); it != mWordList.end(); ++it)
+		{
+			if (source.find((*it)) != std::string::npos)
+			{
+				return true;
+			}
+		}
+	}
+
 	return false;
 }
 
@@ -101,12 +143,28 @@ void FSKeywords::notify(const LLChat& chat)
 {
 	if (chat.mFromID != gAgentID || chat.mFromName == SYSTEM_FROM)
 	{
-		if (!LLMuteList::getInstance()->isMuted(chat.mFromID) && !chat.mMuted)
+		if (!chat.mMuted && !LLMuteList::getInstance()->isMuted(chat.mFromID))
 		{
 			static LLCachedControl<bool> PlayModeUISndFSKeywordSound(gSavedSettings, "PlayModeUISndFSKeywordSound");
 			if (PlayModeUISndFSKeywordSound)
 			{
 				LLUI::sAudioCallback(LLUUID(gSavedSettings.getString("UISndFSKeywordSound")));
+			}
+
+			static LLCachedControl<bool> FSEnableGrowl(gSavedSettings, "FSEnableGrowl");
+			if (FSEnableGrowl)
+			{
+				std::string msg = chat.mFromName;
+				std::string prefix = chat.mText.substr(0, 4);
+				if (prefix == "/me " || prefix == "/me'")
+				{
+					msg = msg + chat.mText.substr(3);
+				}
+				else
+				{
+					msg = msg + ": " + chat.mText;
+				}
+				GrowlManager::notify("Keyword Alert", msg, GROWL_KEYWORD_ALERT_TYPE);
 			}
 		}
 	}

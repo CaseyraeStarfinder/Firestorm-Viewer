@@ -163,12 +163,13 @@ public:
 	// Gender
 	//--------------------------------------------------------------------
 public:
-	// On the very first login, gender isn't chosen until the user clicks
-	// in a dialog.  We don't render the avatar until they choose.
-	BOOL 			isGenderChosen() const 	{ return mGenderChosen; }
-	void			setGenderChosen(BOOL b)	{ mGenderChosen = b; }
+	// On the very first login, outfit needs to be chosen by some
+	// mechanism, usually by loading the requested initial outfit.  We
+	// don't render the avatar until the choice is made.
+	BOOL 			isOutfitChosen() const 	{ return mOutfitChosen; }
+	void			setOutfitChosen(BOOL b)	{ mOutfitChosen = b; }
 private:
-	BOOL			mGenderChosen;
+	BOOL			mOutfitChosen;
 
 /**                    Identity
  **                                                                            **
@@ -488,6 +489,16 @@ private:
 	BOOL			mIsRejectTeleportOffers;
 // </FS:PP> FIRE-1245: Option to block/reject teleport offers
 
+// <FS:PP> Option to block/reject all group invites
+public:
+	void			setRejectAllGroupInvites();
+	void			clearRejectAllGroupInvites();
+	void			selectRejectAllGroupInvites(BOOL);
+	BOOL			getRejectAllGroupInvites() const;
+private:
+	BOOL			mIsRejectAllGroupInvites;
+// </FS:PP> Option to block/reject all group invites
+
 	//--------------------------------------------------------------------
 	// Grab
 	//--------------------------------------------------------------------
@@ -524,10 +535,10 @@ private:
 	BOOL 			mbFlagsNeedReset;				// ! HACK ! For preventing incorrect flags sent when crossing region boundaries
 
 	// <FS> Ignore prejump and always fly
-	static BOOL ignorePrejump;
-	static BOOL fsAlwaysFly;
-	void updateIgnorePrejump(const LLSD &data);
-	void updateFSAlwaysFly(const LLSD &data);
+	BOOL			mIgnorePrejump;
+	BOOL			mAlwaysFly;
+	void			updateIgnorePrejump(const LLSD &data);
+	void			updateFSAlwaysFly(const LLSD &data);
 	// </FS> Ignore prejump and always fly
 
 	//--------------------------------------------------------------------
@@ -585,6 +596,9 @@ public:
 	void			moveYaw(F32 mag, bool reset_view = true);
 	void			movePitch(F32 mag);
 
+	BOOL			isMovementLocked() const				{ return mMovementKeysLocked; }
+	void			setMovementLocked(BOOL set_locked)	{ mMovementKeysLocked = set_locked; }
+
 	//--------------------------------------------------------------------
  	// Move the avatar's frame
 	//--------------------------------------------------------------------
@@ -639,6 +653,7 @@ private:
 	void			(*mAutoPilotFinishedCallback)(BOOL, void *);
 	void*			mAutoPilotCallbackData;
 	LLUUID			mLeaderID;
+	BOOL			mMovementKeysLocked;
 	
 /**                    Movement
  **                                                                            **
@@ -690,6 +705,9 @@ public:
 protected:
 	bool 			teleportCore(bool is_local = false); 					// Stuff for all teleports; returns true if the teleport can proceed
 
+	// <FS:Ansariel> [Legacy Bake]
+	void			handleServerBakeRegionTransition(const LLUUID& region_id);
+
 	//--------------------------------------------------------------------
 	// Teleport State
 	//--------------------------------------------------------------------
@@ -727,7 +745,6 @@ private:
 
 	void            handleTeleportFinished();
 	void            handleTeleportFailed();
-	void			handleServerBakeRegionTransition(const LLUUID& region_id);
 
 	//--------------------------------------------------------------------
 	// Teleport State
@@ -862,8 +879,9 @@ public:
 	
 private:
 	BOOL			mShowAvatar; 		// Should we render the avatar?
+	// <FS:Ansariel> [Legacy Bake]
 	U32				mAppearanceSerialNum;
-	
+
 	//--------------------------------------------------------------------
 	// Rendering state bitmap helpers
 	//--------------------------------------------------------------------
@@ -963,12 +981,14 @@ private:
 public:
 	void			sendMessage(); // Send message to this agent's region
 	void			sendReliableMessage();
-	void 			dumpSentAppearance(const std::string& dump_prefix);
-	void			sendAgentSetAppearance();
 	void 			sendAgentDataUpdateRequest();
 	void 			sendAgentUserInfoRequest();
 	// IM to Email and Online visibility
 	void			sendAgentUpdateUserInfo(bool im_to_email, const std::string& directory_visibility);
+	// <FS:Ansariel> [Legacy Bake]
+	void 			dumpSentAppearance(const std::string& dump_prefix);
+	void			sendAgentSetAppearance();
+	// </FS:Ansariel> [Legacy Bake]
 
 	//--------------------------------------------------------------------
 	// Receive
@@ -978,8 +998,9 @@ public:
 	static void		processAgentGroupDataUpdate(LLMessageSystem *msg, void **);
 	static void		processAgentDropGroup(LLMessageSystem *msg, void **);
 	static void		processScriptControlChange(LLMessageSystem *msg, void **);
+	// <FS:Ansariel> [Legacy Bake]
 	static void		processAgentCachedTextureResponse(LLMessageSystem *mesgsys, void **user_data);
-	
+
 /**                    Messaging
  **                                                                            **
  *******************************************************************************/
@@ -1021,6 +1042,7 @@ inline bool operator==(const LLGroupData &a, const LLGroupData &b)
 	return (a.mID == b.mID);
 }
 
+// <FS:Ansariel> [Legacy Bake]
 class LLAgentQueryManager
 {
 	friend class LLAgent;
@@ -1040,5 +1062,6 @@ private:
 };
 
 extern LLAgentQueryManager gAgentQueryManager;
+// </FS:Ansariel> [Legacy Bake]
 
 #endif

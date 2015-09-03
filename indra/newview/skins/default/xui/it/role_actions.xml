@@ -3,6 +3,7 @@
 	<action_set description="Queste abilità permettono di aggiungere e rimuovere membri dal gruppo e consentono ai nuovi membri di aderire al gruppo senza invito." name="Membership">
 		<action description="Invita persone in questo gruppo" longdescription="Invita persone in questo gruppo usando il pulsante Invita nella sezione Ruoli &gt; scheda membri." name="member invite" value="1"/>
 		<action description="Espelli membri da questo gruppo" longdescription="Espelli membri dal gruppo usando il pulsante Espelli nella sezione Ruoli &gt; scheda membri. Un proprietario può espellere chiunque tranne un altro proprietario. Se non sei un proprietario, un membro può essere espulso da un gruppo soltanto qualora abbia soltanto il ruolo Tutti, e nessun altro ruolo. Per rimuovere membri dai ruoli, devi avere l&apos;Abilità corrispondente." name="member eject" value="2"/>
+		<action description="Gestisci lista espulsi" longdescription="Consenti ai membri del gruppo di espellere / riammettere i residenti nel gruppo." name="allow ban" value="51"/>
 		<action description="Seleziona Iscrizione libera e modifica la Quota d&apos;iscrizione" longdescription="Seleziona Iscrizione libera per permettere ai nuovi membri di aderire senza invito e modifica la quota d&apos;iscrizione nella scheda Generale." name="member options" value="3"/>
 	</action_set>
 	<action_set description="Queste Abilità permettono di aggiungere, rimuovere, cambiare i ruoli del gruppo, aggiungere e rimuovere membri dai ruoli, nonché assegnare abilità ai ruoli." name="Roles">
@@ -69,5 +70,9 @@
 		<action description="Partecipare alla Chat di gruppo" longdescription="I membri con questo ruolo e abilità possono partecipare alle sessioni di chat, sia scritte che vocale." name="join group chat" value="16"/>
 		<action description="Partecipa alla Chat vocale di gruppo" longdescription=" I membri con questo ruolo e abilità possono partecipare alle sessioni di Chat vocale nel gruppo.  NOTA: per poter partecipare alla Chat di gruppo è necessario accedere alla sessione di chat vocale." name="join voice chat" value="27"/>
 		<action description="Moderare la Chat di gruppo" longdescription="I membri con questo ruolo e abilità possono gestire l&apos;accesso e la partecipazione alle sessioni di chat scritta e di chat vocale nel gruppo." name="moderate group chat" value="37"/>
+	</action_set>
+	<action_set description="Queste Abilità includono la capacità di modificare le esperienze che appartengono al gruppo." name="experience_tools_experience">
+		<action description="Amministratore esperienza" longdescription="I membri di un ruolo che include questa abilità possono modificare i metadati di un&apos;esperienza." name="experience admin" value="49"/>
+		<action description="Fornitore esperienza" longdescription="I membri di un ruolo che include questa abilità possono fornire script per un&apos;esperienza." name="experience contributor" value="50"/>
 	</action_set>
 </role_actions>

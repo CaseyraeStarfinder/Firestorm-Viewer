@@ -253,8 +253,8 @@ void LLUI::dirtyRect(LLRect rect)
 void LLUI::setMousePositionScreen(S32 x, S32 y)
 {
 	S32 screen_x, screen_y;
-	screen_x = llround((F32)x * getScaleFactor().mV[VX]);
-	screen_y = llround((F32)y * getScaleFactor().mV[VY]);
+	screen_x = ll_round((F32)x * getScaleFactor().mV[VX]);
+	screen_y = ll_round((F32)y * getScaleFactor().mV[VY]);
 	
 	LLView::getWindow()->setCursorPosition(LLCoordGL(screen_x, screen_y).convert());
 }
@@ -265,8 +265,8 @@ void LLUI::getMousePositionScreen(S32 *x, S32 *y)
 	LLCoordWindow cursor_pos_window;
 	getWindow()->getCursorPosition(&cursor_pos_window);
 	LLCoordGL cursor_pos_gl(cursor_pos_window.convert());
-	*x = llround((F32)cursor_pos_gl.mX / getScaleFactor().mV[VX]);
-	*y = llround((F32)cursor_pos_gl.mY / getScaleFactor().mV[VX]);
+	*x = ll_round((F32)cursor_pos_gl.mX / getScaleFactor().mV[VX]);
+	*y = ll_round((F32)cursor_pos_gl.mY / getScaleFactor().mV[VX]);
 }
 
 //static 
@@ -293,7 +293,10 @@ void LLUI::getMousePositionLocal(const LLView* viewp, S32 *x, S32 *y)
 // language follows the OS language.  In all cases the user can override
 // the language manually in preferences. JC
 // static
-std::string LLUI::getLanguage()
+// <FS:Ansariel> FIRE-16709: Bypass FSEnabledLanguages for llGetAgentLanguage
+//std::string LLUI::getLanguage()
+std::string LLUI::getLanguage(bool ignore_enabled_languages /*= false*/)
+// </FS:Ansariel>
 {
 	std::string language = "en";
 	if (sSettingGroups["config"])
@@ -311,6 +314,30 @@ std::string LLUI::getLanguage()
 		{
 			language = "en";
 		}
+
+		// <FS:Ansariel> Limit available languages
+		if (ignore_enabled_languages)
+		{
+			return language;
+		}
+
+		bool language_enabled = false;
+		LLSD enabled_languages = sSettingGroups["config"]->getLLSD("FSEnabledLanguages");
+		for (LLSD::array_const_iterator it = enabled_languages.beginArray(); it != enabled_languages.endArray(); ++it)
+		{
+			if ((*it).asString() == language)
+			{
+				language_enabled = true;
+				break;
+			}
+		}
+		
+		if (!language_enabled)
+		{
+			language = "en";
+			sSettingGroups["config"]->setString("Language", "default");
+		}
+		// </FS:Ansariel>
 	}
 	return language;
 }
@@ -386,15 +413,15 @@ LLVector2 LLUI::getWindowSize()
 //static
 void LLUI::screenPointToGL(S32 screen_x, S32 screen_y, S32 *gl_x, S32 *gl_y)
 {
-	*gl_x = llround((F32)screen_x * getScaleFactor().mV[VX]);
-	*gl_y = llround((F32)screen_y * getScaleFactor().mV[VY]);
+	*gl_x = ll_round((F32)screen_x * getScaleFactor().mV[VX]);
+	*gl_y = ll_round((F32)screen_y * getScaleFactor().mV[VY]);
 }
 
 //static
 void LLUI::glPointToScreen(S32 gl_x, S32 gl_y, S32 *screen_x, S32 *screen_y)
 {
-	*screen_x = llround((F32)gl_x / getScaleFactor().mV[VX]);
-	*screen_y = llround((F32)gl_y / getScaleFactor().mV[VY]);
+	*screen_x = ll_round((F32)gl_x / getScaleFactor().mV[VX]);
+	*screen_y = ll_round((F32)gl_y / getScaleFactor().mV[VY]);
 }
 
 //static

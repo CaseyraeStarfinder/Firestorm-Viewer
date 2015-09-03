@@ -40,6 +40,545 @@
 #include "llimagedxt.h"
 #include "llmemory.h"
 
+#include <boost/preprocessor.hpp>
+
+//..................................................................................
+//..................................................................................
+// Helper macrose's for generate cycle unwrap templates
+//..................................................................................
+#define _UNROL_GEN_TPL_arg_0(arg)
+#define _UNROL_GEN_TPL_arg_1(arg) arg
+
+#define _UNROL_GEN_TPL_comma_0
+#define _UNROL_GEN_TPL_comma_1 BOOST_PP_COMMA()
+//..................................................................................
+#define _UNROL_GEN_TPL_ARGS_macro(z,n,seq) \
+	BOOST_PP_CAT(_UNROL_GEN_TPL_arg_, BOOST_PP_MOD(n, 2))(BOOST_PP_SEQ_ELEM(n, seq)) BOOST_PP_CAT(_UNROL_GEN_TPL_comma_, BOOST_PP_AND(BOOST_PP_MOD(n, 2), BOOST_PP_NOT_EQUAL(BOOST_PP_INC(n), BOOST_PP_SEQ_SIZE(seq))))
+
+#define _UNROL_GEN_TPL_ARGS(seq) \
+	BOOST_PP_REPEAT(BOOST_PP_SEQ_SIZE(seq), _UNROL_GEN_TPL_ARGS_macro, seq)
+//..................................................................................
+
+#define _UNROL_GEN_TPL_TYPE_ARGS_macro(z,n,seq) \
+	BOOST_PP_SEQ_ELEM(n, seq) BOOST_PP_CAT(_UNROL_GEN_TPL_comma_, BOOST_PP_AND(BOOST_PP_MOD(n, 2), BOOST_PP_NOT_EQUAL(BOOST_PP_INC(n), BOOST_PP_SEQ_SIZE(seq))))
+
+#define _UNROL_GEN_TPL_TYPE_ARGS(seq) \
+	BOOST_PP_REPEAT(BOOST_PP_SEQ_SIZE(seq), _UNROL_GEN_TPL_TYPE_ARGS_macro, seq)
+//..................................................................................
+#define _UNROLL_GEN_TPL_foreach_ee(z, n, seq) \
+	executor<n>(_UNROL_GEN_TPL_ARGS(seq));
+
+#define _UNROLL_GEN_TPL(name, args_seq, operation, spec) \
+	template<> struct name<spec> { \
+	private: \
+		template<S32 _idx> inline void executor(_UNROL_GEN_TPL_TYPE_ARGS(args_seq)) { \
+			BOOST_PP_SEQ_ENUM(operation) ; \
+		} \
+	public: \
+		inline void operator()(_UNROL_GEN_TPL_TYPE_ARGS(args_seq)) { \
+			BOOST_PP_REPEAT(spec, _UNROLL_GEN_TPL_foreach_ee, args_seq) \
+		} \
+};
+//..................................................................................
+#define _UNROLL_GEN_TPL_foreach_seq_macro(r, data, elem) \
+	_UNROLL_GEN_TPL(BOOST_PP_SEQ_ELEM(0, data), BOOST_PP_SEQ_ELEM(1, data), BOOST_PP_SEQ_ELEM(2, data), elem)
+
+#define UNROLL_GEN_TPL(name, args_seq, operation, spec_seq) \
+	/*general specialization - should not be implemented!*/ \
+	template<U8> struct name { inline void operator()(_UNROL_GEN_TPL_TYPE_ARGS(args_seq)) { /*static_assert(!"Should not be instantiated.");*/  } }; \
+	BOOST_PP_SEQ_FOR_EACH(_UNROLL_GEN_TPL_foreach_seq_macro, (name)(args_seq)(operation), spec_seq)
+//..................................................................................
+//..................................................................................
+
+
+//..................................................................................
+// Generated unrolling loop templates with specializations
+//..................................................................................
+//example: for(c = 0; c < ch; ++c) comp[c] = cx[0] = 0;
+UNROLL_GEN_TPL(uroll_zeroze_cx_comp, (S32 *)(cx)(S32 *)(comp), (cx[_idx] = comp[_idx] = 0), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) comp[c] >>= 4;
+UNROLL_GEN_TPL(uroll_comp_rshftasgn_constval, (S32 *)(comp)(const S32)(cval), (comp[_idx] >>= cval), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) comp[c] = (cx[c] >> 5) * yap;
+UNROLL_GEN_TPL(uroll_comp_asgn_cx_rshft_cval_all_mul_val, (S32 *)(comp)(S32 *)(cx)(const S32)(cval)(S32)(val), (comp[_idx] = (cx[_idx] >> cval) * val), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) comp[c] += (cx[c] >> 5) * Cy;
+UNROLL_GEN_TPL(uroll_comp_plusasgn_cx_rshft_cval_all_mul_val, (S32 *)(comp)(S32 *)(cx)(const S32)(cval)(S32)(val), (comp[_idx] += (cx[_idx] >> cval) * val), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) comp[c] += pix[c] * info.xapoints[x];
+UNROLL_GEN_TPL(uroll_inp_plusasgn_pix_mul_val, (S32 *)(comp)(const U8 *)(pix)(S32)(val), (comp[_idx] += pix[_idx] * val), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) cx[c] = pix[c] * info.xapoints[x];
+UNROLL_GEN_TPL(uroll_inp_asgn_pix_mul_val, (S32 *)(comp)(const U8 *)(pix)(S32)(val), (comp[_idx] = pix[_idx] * val), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) comp[c] = ((cx[c] * info.yapoints[y]) + (comp[c] * (256 - info.yapoints[y]))) >> 16;
+UNROLL_GEN_TPL(uroll_comp_asgn_cx_mul_apoint_plus_comp_mul_inv_apoint_allshifted_16_r, (S32 *)(comp)(S32 *)(cx)(S32)(apoint), (comp[_idx] = ((cx[_idx] * apoint) + (comp[_idx] * (256 - apoint))) >> 16), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) comp[c] = (comp[c] + pix[c] * info.yapoints[y]) >> 8;
+UNROLL_GEN_TPL(uroll_comp_asgn_comp_plus_pix_mul_apoint_allshifted_8_r, (S32 *)(comp)(const U8 *)(pix)(S32)(apoint), (comp[_idx] = (comp[_idx] + pix[_idx] * apoint) >> 8), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) comp[c] = ((comp[c]*(256 - info.xapoints[x])) + ((cx[c] * info.xapoints[x]))) >> 12;
+UNROLL_GEN_TPL(uroll_comp_asgn_comp_mul_inv_apoint_plus_cx_mul_apoint_allshifted_12_r, (S32 *)(comp)(S32)(apoint)(S32 *)(cx), (comp[_idx] = ((comp[_idx] * (256-apoint)) + (cx[_idx] * apoint)) >> 12), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) *dptr++ = comp[c]&0xff;
+UNROLL_GEN_TPL(uroll_uref_dptr_inc_asgn_comp_and_ff, (U8 *&)(dptr)(S32 *)(comp), (*dptr++ = comp[_idx]&0xff), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) *dptr++ = (sptr[info.xpoints[x]*ch + c])&0xff;
+UNROLL_GEN_TPL(uroll_uref_dptr_inc_asgn_sptr_apoint_plus_idx_alland_ff, (U8 *&)(dptr)(const U8 *)(sptr)(S32)(apoint), (*dptr++ = sptr[apoint + _idx]&0xff), (1)(3)(4));
+//example: for(c = 0; c < ch; ++c) *dptr++ = (comp[c]>>10)&0xff;
+UNROLL_GEN_TPL(uroll_uref_dptr_inc_asgn_comp_rshft_cval_and_ff, (U8 *&)(dptr)(S32 *)(comp)(const S32)(cval), (*dptr++ = (comp[_idx]>>cval)&0xff), (1)(3)(4));
+//..................................................................................
+
+
+template<U8 ch>
+struct scale_info 
+{
+public:
+	std::vector<S32> xpoints;
+	std::vector<const U8*> ystrides;
+	std::vector<S32> xapoints, yapoints;
+	S32 xup_yup;
+
+public:
+	//unrolling loop types declaration
+	typedef uroll_zeroze_cx_comp<ch>														uroll_zeroze_cx_comp_t;
+	typedef uroll_comp_rshftasgn_constval<ch>												uroll_comp_rshftasgn_constval_t;
+	typedef uroll_comp_asgn_cx_rshft_cval_all_mul_val<ch>									uroll_comp_asgn_cx_rshft_cval_all_mul_val_t;
+	typedef uroll_comp_plusasgn_cx_rshft_cval_all_mul_val<ch>								uroll_comp_plusasgn_cx_rshft_cval_all_mul_val_t;
+	typedef uroll_inp_plusasgn_pix_mul_val<ch>												uroll_inp_plusasgn_pix_mul_val_t;
+	typedef uroll_inp_asgn_pix_mul_val<ch>													uroll_inp_asgn_pix_mul_val_t;
+	typedef uroll_comp_asgn_cx_mul_apoint_plus_comp_mul_inv_apoint_allshifted_16_r<ch>		uroll_comp_asgn_cx_mul_apoint_plus_comp_mul_inv_apoint_allshifted_16_r_t;
+	typedef uroll_comp_asgn_comp_plus_pix_mul_apoint_allshifted_8_r<ch>						uroll_comp_asgn_comp_plus_pix_mul_apoint_allshifted_8_r_t;
+	typedef uroll_comp_asgn_comp_mul_inv_apoint_plus_cx_mul_apoint_allshifted_12_r<ch>		uroll_comp_asgn_comp_mul_inv_apoint_plus_cx_mul_apoint_allshifted_12_r_t;
+	typedef uroll_uref_dptr_inc_asgn_comp_and_ff<ch>										uroll_uref_dptr_inc_asgn_comp_and_ff_t;
+	typedef uroll_uref_dptr_inc_asgn_sptr_apoint_plus_idx_alland_ff<ch>						uroll_uref_dptr_inc_asgn_sptr_apoint_plus_idx_alland_ff_t;
+	typedef uroll_uref_dptr_inc_asgn_comp_rshft_cval_and_ff<ch>								uroll_uref_dptr_inc_asgn_comp_rshft_cval_and_ff_t;
+
+public:
+	scale_info(const U8 *src, U32 srcW, U32 srcH, U32 dstW, U32 dstH, U32 srcStride)
+		: xup_yup((dstW >= srcW) + ((dstH >= srcH) << 1))
+	{
+		calc_x_points(srcW, dstW);
+		calc_y_strides(src, srcStride, srcH, dstH);
+		calc_aa_points(srcW, dstW, xup_yup&1, xapoints);
+		calc_aa_points(srcH, dstH, xup_yup&2, yapoints);
+	}
+
+private:
+	//...........................................................................................
+	void calc_x_points(U32 srcW, U32 dstW)
+	{
+		xpoints.resize(dstW+1);
+
+		S32 val = dstW >= srcW ? 0x8000 * srcW / dstW - 0x8000 : 0;
+		S32 inc = (srcW << 16) / dstW;
+
+		for(U32 i = 0, j = 0; i < dstW; ++i, ++j, val += inc)
+		{
+			xpoints[j] = llmax(0, val >> 16);
+		}
+	}
+	//...........................................................................................
+	void calc_y_strides(const U8 *src, U32 srcStride, U32 srcH, U32 dstH)
+	{
+		ystrides.resize(dstH+1);
+
+		S32 val = dstH >= srcH ? 0x8000 * srcH / dstH - 0x8000 : 0;
+		S32 inc = (srcH << 16) / dstH;
+
+		for(U32 i = 0, j = 0; i < dstH; ++i, ++j, val += inc)
+		{
+			ystrides[j] = src + llmax(0, val >> 16) * srcStride;
+		}
+	}
+	//...........................................................................................
+	void calc_aa_points(U32 srcSz, U32 dstSz, bool scale_up, std::vector<S32> &vp)
+	{
+		vp.resize(dstSz);
+
+		if(scale_up)
+		{
+			S32 val = 0x8000 * srcSz / dstSz - 0x8000;
+			S32 inc = (srcSz << 16) / dstSz;
+			U32 pos;
+
+			for(U32 i = 0, j = 0; i < dstSz; ++i, ++j, val += inc)
+			{
+				pos = val >> 16;
+
+				if (pos >= (srcSz - 1))
+					vp[j] = 0;
+				else
+					vp[j] = (val >> 8) - ((val >> 8) & 0xffffff00);
+			}
+		}
+		else
+		{ 
+			S32 inc = (srcSz << 16) / dstSz;
+			S32 Cp = ((dstSz << 14) / srcSz) + 1;
+			S32 ap;
+
+			for(U32 i = 0, j = 0, val = 0; i < dstSz; ++i, ++j, val += inc)
+			{
+				ap = ((0x100 - ((val >> 8) & 0xff)) * Cp) >> 8;
+				vp[j] = ap | (Cp << 16);
+			}
+		}
+	}
+};
+
+
+template<U8 ch>
+inline void bilinear_scale(
+	const U8 *src, U32 srcW, U32 srcH, U32 srcStride
+	, U8 *dst, U32 dstW, U32 dstH, U32 dstStride
+	)
+{
+	typedef scale_info<ch> scale_info_t;
+
+	scale_info_t info(src, srcW, srcH, dstW, dstH, srcStride);
+
+	const U8 *sptr;
+	U8 *dptr;
+	U32 x, y;
+	const U8 *pix;
+
+	S32 cx[ch], comp[ch];
+
+
+	if(3 == info.xup_yup)
+	{ //scale x/y - up
+		for(y = 0; y < dstH; ++y)
+		{
+			dptr = dst + (y * dstStride);
+			sptr = info.ystrides[y];
+
+			if(0 < info.yapoints[y])
+			{
+				for(x = 0; x < dstW; ++x)
+				{
+					//for(c = 0; c < ch; ++c) cx[c] = comp[c] = 0;
+					typename scale_info_t::uroll_zeroze_cx_comp_t()(cx, comp);
+
+					if(0 < info.xapoints[x])
+					{
+						pix = info.ystrides[y] + info.xpoints[x] * ch;
+
+						//for(c = 0; c < ch; ++c) comp[c] = pix[c] * (256 - info.xapoints[x]);
+						typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(comp, pix, 256 - info.xapoints[x]);
+
+						pix += ch;
+
+						//for(c = 0; c < ch; ++c) comp[c] += pix[c] * info.xapoints[x];
+						typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(comp, pix, info.xapoints[x]);
+
+						pix += srcStride;
+
+						//for(c = 0; c < ch; ++c) cx[c] = pix[c] * info.xapoints[x];
+						typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(cx, pix, info.xapoints[x]);
+
+						pix -= ch;
+
+						//for(c = 0; c < ch; ++c) { 
+						//	cx[c] += pix[c] * (256 - info.xapoints[x]);
+						//	comp[c] = ((cx[c] * info.yapoints[y]) + (comp[c] * (256 - info.yapoints[y]))) >> 16;
+						//	*dptr++ = comp[c]&0xff;
+						//}
+						typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, 256 - info.xapoints[x]);
+						typename scale_info_t::uroll_comp_asgn_cx_mul_apoint_plus_comp_mul_inv_apoint_allshifted_16_r_t()(comp, cx, info.yapoints[y]);
+						typename scale_info_t::uroll_uref_dptr_inc_asgn_comp_and_ff_t()(dptr, comp);
+					}
+					else
+					{
+						pix = info.ystrides[y] + info.xpoints[x] * ch;
+
+						//for(c = 0; c < ch; ++c) comp[c] = pix[c] * (256 - info.yapoints[y]);
+						typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(comp, pix, 256-info.yapoints[y]);
+
+						pix += srcStride;
+
+						//for(c = 0; c < ch; ++c) { 
+						//	comp[c] = (comp[c] + pix[c] * info.yapoints[y]) >> 8;
+						//	*dptr++ = comp[c]&0xff;
+						//}
+						typename scale_info_t::uroll_comp_asgn_comp_plus_pix_mul_apoint_allshifted_8_r_t()(comp, pix, info.yapoints[y]);
+						typename scale_info_t::uroll_uref_dptr_inc_asgn_comp_and_ff_t()(dptr, comp);
+					}
+				}
+			}
+			else
+			{
+				for(x = 0; x < dstW; ++x)
+				{
+					if(0 < info.xapoints[x])
+					{
+						pix = info.ystrides[y] + info.xpoints[x] * ch;
+
+						//for(c = 0; c < ch; ++c) {
+						//	comp[c] = pix[c] * (256 - info.xapoints[x]);
+						//	comp[c] = (comp[c] + pix[c] * info.xapoints[x]) >> 8;
+						//	*dptr++ = comp[c]&0xff;
+						//}
+						typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(comp, pix, 256 - info.xapoints[x]);
+						typename scale_info_t::uroll_comp_asgn_comp_plus_pix_mul_apoint_allshifted_8_r_t()(comp, pix, info.xapoints[x]);
+						typename scale_info_t::uroll_uref_dptr_inc_asgn_comp_and_ff_t()(dptr, comp);
+					}
+					else 
+					{
+						//for(c = 0; c < ch; ++c) *dptr++ = (sptr[info.xpoints[x]*ch + c])&0xff;
+						typename scale_info_t::uroll_uref_dptr_inc_asgn_sptr_apoint_plus_idx_alland_ff_t()(dptr, sptr, info.xpoints[x]*ch);
+					}
+				}
+			}
+		}
+	}
+	else if(info.xup_yup == 1)
+	{ //scaling down vertically
+		S32 Cy, j;
+		S32 yap;
+
+		for(y = 0; y < dstH; y++)
+		{
+			Cy = info.yapoints[y] >> 16;
+			yap = info.yapoints[y] & 0xffff;
+
+			dptr = dst + (y * dstStride);
+
+			for(x = 0; x < dstW; x++)
+			{
+				pix = info.ystrides[y] + info.xpoints[x] * ch;
+
+				//for(c = 0; c < ch; ++c) comp[c] = pix[c] * yap;
+				typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(comp, pix, yap);
+
+				pix += srcStride;
+
+				for(j = (1 << 14) - yap; j > Cy; j -= Cy, pix += srcStride)
+				{
+					//for(c = 0; c < ch; ++c) comp[c] += pix[c] * Cy;
+					typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(comp, pix, Cy);
+				}
+
+				if(j > 0)
+				{
+					//for(c = 0; c < ch; ++c) comp[c] += pix[c] * j;
+					typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(comp, pix, j);
+				}
+
+				if(info.xapoints[x] > 0)
+				{
+					pix = info.ystrides[y] + info.xpoints[x]*ch + ch;
+					//for(c = 0; c < ch; ++c) cx[c] = pix[c] * yap;
+					typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(cx, pix, yap);
+
+					pix += srcStride;
+					for(j = (1 << 14) - yap; j > Cy; j -= Cy)
+					{
+						//for(c = 0; c < ch; ++c) cx[c] += pix[c] * Cy;
+						typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, Cy);
+						pix += srcStride;
+					}
+
+					if(j > 0)
+					{
+						//for(c = 0; c < ch; ++c) cx[c] += pix[c] * j;
+						typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, j);
+					}
+
+					//for(c = 0; c < ch; ++c) comp[c] = ((comp[c]*(256 - info.xapoints[x])) + ((cx[c] * info.xapoints[x]))) >> 12;
+					typename scale_info_t::uroll_comp_asgn_comp_mul_inv_apoint_plus_cx_mul_apoint_allshifted_12_r_t()(comp, info.xapoints[x], cx);
+				}
+				else
+				{
+					//for(c = 0; c < ch; ++c) comp[c] >>= 4;
+					typename scale_info_t::uroll_comp_rshftasgn_constval_t()(comp, 4);
+				}
+
+				//for(c = 0; c < ch; ++c) *dptr++ = (comp[c]>>10)&0xff;
+				typename scale_info_t::uroll_uref_dptr_inc_asgn_comp_rshft_cval_and_ff_t()(dptr, comp, 10);
+			}
+		}
+	}
+	else if(info.xup_yup == 2)
+	{ // scaling down horizontally
+		S32 Cx, j;
+		S32 xap;
+
+		for(y = 0; y < dstH; y++)
+		{
+			dptr = dst + (y * dstStride);
+
+			for(x = 0; x < dstW; x++)
+			{
+				Cx = info.xapoints[x] >> 16;
+				xap = info.xapoints[x] & 0xffff;
+
+				pix = info.ystrides[y] + info.xpoints[x] * ch;
+
+				//for(c = 0; c < ch; ++c) comp[c] = pix[c] * xap;
+				typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(comp, pix, xap);
+
+				pix+=ch;
+				for(j = (1 << 14) - xap; j > Cx; j -= Cx)
+				{
+					//for(c = 0; c < ch; ++c) comp[c] += pix[c] * Cx;
+					typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(comp, pix, Cx);
+					pix+=ch;
+				}
+
+				if(j > 0)
+				{
+					//for(c = 0; c < ch; ++c) comp[c] += pix[c] * j;
+					typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(comp, pix, j);
+				}
+
+				if(info.yapoints[y] > 0)
+				{
+					pix = info.ystrides[y] + info.xpoints[x]*ch + srcStride;
+					//for(c = 0; c < ch; ++c) cx[c] = pix[c] * xap;
+					typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(cx, pix, xap);
+
+					pix+=ch;
+					for(j = (1 << 14) - xap; j > Cx; j -= Cx)
+					{
+						//for(c = 0; c < ch; ++c) cx[c] += pix[c] * Cx;
+						typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, Cx);
+						pix+=ch;
+					}
+
+					if(j > 0)
+					{
+						//for(c = 0; c < ch; ++c) cx[c] += pix[c] * j;
+						typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, j);
+					}
+
+					//for(c = 0; c < ch; ++c) comp[c] = ((comp[c] * (256 - info.yapoints[y])) + ((cx[c] * info.yapoints[y]))) >> 12;
+					typename scale_info_t::uroll_comp_asgn_comp_mul_inv_apoint_plus_cx_mul_apoint_allshifted_12_r_t()(comp, info.yapoints[y], cx);
+				}
+				else
+				{
+					//for(c = 0; c < ch; ++c) comp[c] >>= 4;
+					typename scale_info_t::uroll_comp_rshftasgn_constval_t()(comp, 4);
+				}
+
+				//for(c = 0; c < ch; ++c) *dptr++ = (comp[c]>>10)&0xff;
+				typename scale_info_t::uroll_uref_dptr_inc_asgn_comp_rshft_cval_and_ff_t()(dptr, comp, 10);
+			}
+		}
+	}
+	else 
+	{ //scale x/y - down
+		S32 Cx, Cy, i, j;
+		S32 xap, yap;
+
+		for(y = 0; y < dstH; y++)
+		{
+			Cy = info.yapoints[y] >> 16;
+			yap = info.yapoints[y] & 0xffff;
+
+			dptr = dst + (y * dstStride);
+			for(x = 0; x < dstW; x++)
+			{
+				Cx = info.xapoints[x] >> 16;
+				xap = info.xapoints[x] & 0xffff;
+
+				sptr = info.ystrides[y] + info.xpoints[x] * ch;
+				pix = sptr;
+				sptr += srcStride;
+
+				//for(c = 0; c < ch; ++c) cx[c] = pix[c] * xap;
+				typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(cx, pix, xap);
+
+				pix+=ch;
+				for(i = (1 << 14) - xap; i > Cx; i -= Cx)
+				{
+					//for(c = 0; c < ch; ++c) cx[c] += pix[c] * Cx;
+					typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, Cx);
+					pix+=ch;
+				}
+
+				if(i > 0)
+				{
+					//for(c = 0; c < ch; ++c) cx[c] += pix[c] * i;
+					typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, i);
+				}
+
+				//for(c = 0; c < ch; ++c) comp[c] = (cx[c] >> 5) * yap;
+				typename scale_info_t::uroll_comp_asgn_cx_rshft_cval_all_mul_val_t()(comp, cx, 5, yap);
+
+				for(j = (1 << 14) - yap; j > Cy; j -= Cy)
+				{
+					pix = sptr;
+					sptr += srcStride;
+
+					//for(c = 0; c < ch; ++c) cx[c] = pix[c] * xap;
+					typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(cx, pix, xap);
+
+					pix+=ch;
+					for(i = (1 << 14) - xap; i > Cx; i -= Cx)
+					{
+						//for(c = 0; c < ch; ++c) cx[c] += pix[c] * Cx;
+						typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, Cx);
+						pix+=ch;
+					}
+
+					if(i > 0)
+					{
+						//for(c = 0; c < ch; ++c) cx[c] += pix[c] * i;
+						typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, i);
+					}
+
+					//for(c = 0; c < ch; ++c) comp[c] += (cx[c] >> 5) * Cy;
+					typename scale_info_t::uroll_comp_plusasgn_cx_rshft_cval_all_mul_val_t()(comp, cx, 5, Cy);
+				}
+
+				if(j > 0)
+				{
+					pix = sptr;
+					sptr += srcStride;
+
+					//for(c = 0; c < ch; ++c) cx[c] = pix[c] * xap;
+					typename scale_info_t::uroll_inp_asgn_pix_mul_val_t()(cx, pix, xap);
+
+					pix+=ch;
+					for(i = (1 << 14) - xap; i > Cx; i -= Cx)
+					{
+						//for(c = 0; c < ch; ++c) cx[c] += pix[c] * Cx;
+						typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, Cx);
+						pix+=ch;
+					}
+
+					if(i > 0)
+					{
+						//for(c = 0; c < ch; ++c) cx[c] += pix[c] * i;
+						typename scale_info_t::uroll_inp_plusasgn_pix_mul_val_t()(cx, pix, i);
+					}
+
+					//for(c = 0; c < ch; ++c) comp[c] += (cx[c] >> 5) * j;
+					typename scale_info_t::uroll_comp_plusasgn_cx_rshft_cval_all_mul_val_t()(comp, cx, 5, j);
+				}
+
+				//for(c = 0; c < ch; ++c) *dptr++ = (comp[c]>>23)&0xff;
+				typename scale_info_t::uroll_uref_dptr_inc_asgn_comp_rshft_cval_and_ff_t()(dptr, comp, 23);
+			}
+		}
+	} //else
+}
+
+//wrapper
+static void bilinear_scale(const U8 *src, U32 srcW, U32 srcH, U32 srcCh, U32 srcStride, U8 *dst, U32 dstW, U32 dstH, U32 dstCh, U32 dstStride)
+{
+	llassert(srcCh == dstCh);
+
+	switch(srcCh)
+	{
+	case 1:
+		bilinear_scale<1>(src, srcW, srcH, srcStride, dst, dstW, dstH, dstStride);
+		break;
+	case 3:
+		bilinear_scale<3>(src, srcW, srcH, srcStride, dst, dstW, dstH, dstStride);
+		break;
+	case 4:
+		bilinear_scale<4>(src, srcW, srcH, srcStride, dst, dstW, dstH, dstStride);
+		break;
+	default:
+		llassert(!"Implement if need");
+		break;
+	}
+
+}
+
 //---------------------------------------------------------------------------
 // LLImage
 //---------------------------------------------------------------------------
@@ -471,18 +1010,8 @@ void LLImageRaw::verticalFlip()
 void LLImageRaw::expandToPowerOfTwo(S32 max_dim, BOOL scale_image)
 {
 	// Find new sizes
-	S32 new_width = MIN_IMAGE_SIZE;
-	S32 new_height = MIN_IMAGE_SIZE;
-
-	while( (new_width < getWidth()) && (new_width < max_dim) )
-	{
-		new_width <<= 1;
-	}
-
-	while( (new_height < getHeight()) && (new_height < max_dim) )
-	{
-		new_height <<= 1;
-	}
+	S32 new_width  = expandDimToPowerOfTwo(getWidth(), max_dim);
+	S32 new_height = expandDimToPowerOfTwo(getHeight(), max_dim);
 
 	scale( new_width, new_height, scale_image );
 }
@@ -490,54 +1019,60 @@ void LLImageRaw::expandToPowerOfTwo(S32 max_dim, BOOL scale_image)
 void LLImageRaw::contractToPowerOfTwo(S32 max_dim, BOOL scale_image)
 {
 	// Find new sizes
-	S32 new_width = max_dim;
-	S32 new_height = max_dim;
-
-	while( (new_width > getWidth()) && (new_width > MIN_IMAGE_SIZE) )
-	{
-		new_width >>= 1;
-	}
-
-	while( (new_height > getHeight()) && (new_height > MIN_IMAGE_SIZE) )
-	{
-		new_height >>= 1;
-	}
+	S32 new_width  = contractDimToPowerOfTwo(getWidth(), MIN_IMAGE_SIZE);
+	S32 new_height = contractDimToPowerOfTwo(getHeight(), MIN_IMAGE_SIZE);
 
 	scale( new_width, new_height, scale_image );
 }
 
-void LLImageRaw::biasedScaleToPowerOfTwo(S32 max_dim)
+// static
+S32 LLImageRaw::biasedDimToPowerOfTwo(S32 curr_dim, S32 max_dim)
 {
 	// Strong bias towards rounding down (to save bandwidth)
 	// No bias would mean THRESHOLD == 1.5f;
-	const F32 THRESHOLD = 1.75f; 
-
+	const F32 THRESHOLD = 1.75f;
+    
 	// Find new sizes
-	S32 larger_w = max_dim;	// 2^n >= mWidth
-	S32 smaller_w = max_dim;	// 2^(n-1) <= mWidth
-	while( (smaller_w > getWidth()) && (smaller_w > MIN_IMAGE_SIZE) )
+	S32 larger_dim  = max_dim;	// 2^n >= curr_dim
+	S32 smaller_dim = max_dim;	// 2^(n-1) <= curr_dim
+	while( (smaller_dim > curr_dim) && (smaller_dim > MIN_IMAGE_SIZE) )
 	{
-		larger_w = smaller_w;
-		smaller_w >>= 1;
+		larger_dim = smaller_dim;
+		smaller_dim >>= 1;
 	}
-	S32 new_width = ( (F32)getWidth() / smaller_w > THRESHOLD ) ? larger_w : smaller_w;
+	return ( ((F32)curr_dim / (F32)smaller_dim) > THRESHOLD ) ? larger_dim : smaller_dim;
+}
 
-
-	S32 larger_h = max_dim;	// 2^m >= mHeight
-	S32 smaller_h = max_dim;	// 2^(m-1) <= mHeight
-	while( (smaller_h > getHeight()) && (smaller_h > MIN_IMAGE_SIZE) )
+// static
+S32 LLImageRaw::expandDimToPowerOfTwo(S32 curr_dim, S32 max_dim)
+{
+	S32 new_dim = MIN_IMAGE_SIZE;
+	while( (new_dim < curr_dim) && (new_dim < max_dim) )
 	{
-		larger_h = smaller_h;
-		smaller_h >>= 1;
+		new_dim <<= 1;
 	}
-	S32 new_height = ( (F32)getHeight() / smaller_h > THRESHOLD ) ? larger_h : smaller_h;
+    return new_dim;
+}
 
+// static
+S32 LLImageRaw::contractDimToPowerOfTwo(S32 curr_dim, S32 min_dim)
+{
+	S32 new_dim = MAX_IMAGE_SIZE;
+	while( (new_dim > curr_dim) && (new_dim > min_dim) )
+	{
+		new_dim >>= 1;
+	}
+    return new_dim;
+}
+
+void LLImageRaw::biasedScaleToPowerOfTwo(S32 max_dim)
+{
+	// Find new sizes
+	S32 new_width  = biasedDimToPowerOfTwo(getWidth(),max_dim);
+	S32 new_height = biasedDimToPowerOfTwo(getHeight(),max_dim);
 
 	scale( new_width, new_height );
 }
-
-
-
 
 // Calculates (U8)(255*(a/255.f)*(b/255.f) + 0.5f).  Thanks, Jim Blinn!
 inline U8 LLImageRaw::fastFractionalMult( U8 a, U8 b )
@@ -582,6 +1117,7 @@ void LLImageRaw::composite( LLImageRaw* src )
 	}
 }
 
+
 // Src and dst can be any size.  Src has 4 components.  Dst has 3 components.
 void LLImageRaw::compositeScaled4onto3(LLImageRaw* src)
 {
@@ -612,21 +1148,6 @@ void LLImageRaw::compositeScaled4onto3(LLImageRaw* src)
 // Src and dst are same size.  Src has 4 components.  Dst has 3 components.
 void LLImageRaw::compositeUnscaled4onto3( LLImageRaw* src )
 {
-	/*
-	//test fastFractionalMult()
-	{
-		U8 i = 255;
-		U8 j = 255;
-		do
-		{
-			do
-			{
-				llassert( fastFractionalMult(i, j) == (U8)(255*(i/255.f)*(j/255.f) + 0.5f) );
-			} while( j-- );
-		} while( i-- );
-	}
-	*/
-
 	LLImageRaw* dst = this;  // Just for clarity.
 
 	llassert( (3 == src->getComponents()) || (4 == src->getComponents()) );
@@ -661,6 +1182,7 @@ void LLImageRaw::compositeUnscaled4onto3( LLImageRaw* src )
 		dst_data += 3;
 	}
 }
+
 
 void LLImageRaw::copyUnscaledAlphaMask( LLImageRaw* src, const LLColor4U& fill)
 {
@@ -869,6 +1391,12 @@ void LLImageRaw::copyScaled( LLImageRaw* src )
 		return;
 	}
 
+	bilinear_scale(
+			src->getData(), src->getWidth(), src->getHeight(), src->getComponents(), src->getWidth()*src->getComponents()
+		,	dst->getData(), dst->getWidth(), dst->getHeight(), dst->getComponents(), dst->getWidth()*dst->getComponents()
+	);
+
+	/*
 	S32 temp_data_size = src->getWidth() * dst->getHeight() * getComponents();
 	llassert_always(temp_data_size > 0);
 	std::vector<U8> temp_buffer(temp_data_size);
@@ -884,6 +1412,7 @@ void LLImageRaw::copyScaled( LLImageRaw* src )
 	{
 		copyLineScaled( &temp_buffer[0] + (getComponents() * src->getWidth() * row), dst->getData() + (getComponents() * dst->getWidth() * row), src->getWidth(), dst->getWidth(), 1, 1 );
 	}
+	*/
 }
 
 
@@ -903,6 +1432,7 @@ BOOL LLImageRaw::scale( S32 new_width, S32 new_height, BOOL scale_image_data )
 
 	if (scale_image_data)
 	{
+		/*
 		S32 temp_data_size = old_width * new_height * getComponents();
 		llassert_always(temp_data_size > 0);
 		std::vector<U8> temp_buffer(temp_data_size);
@@ -927,6 +1457,19 @@ BOOL LLImageRaw::scale( S32 new_width, S32 new_height, BOOL scale_image_data )
 		{
 			copyLineScaled( &temp_buffer[0] + (getComponents() * old_width * row), new_buffer + (getComponents() * new_width * row), old_width, new_width, 1, 1 );
 		}
+		*/
+
+		S32 new_data_size = new_width * new_height * getComponents();
+		llassert_always(new_data_size > 0);
+
+		U8 *new_data = (U8*)ALLOCATE_MEM(LLImageBase::getPrivatePool(), new_data_size); 
+		if(NULL == new_data) 
+		{
+			return FALSE; 
+		}
+
+		bilinear_scale(getData(), old_width, old_height, getComponents(), old_width*getComponents(), new_data, new_width, new_height, getComponents(), new_width*getComponents());
+		setDataAndSize(new_data, new_width, new_height, getComponents()); 
 	}
 	else
 	{
@@ -1069,13 +1612,13 @@ void LLImageRaw::copyLineScaled( U8* in, U8* out, S32 in_pixel_len, S32 out_pixe
 			a *= norm_factor;  // skip conditional
 
 			S32 t4 = x * out_pixel_step * components;
-			out[t4 + 0] = U8(llround(r));
+			out[t4 + 0] = U8(ll_round(r));
 			if (components >= 2)
-				out[t4 + 1] = U8(llround(g));
+				out[t4 + 1] = U8(ll_round(g));
 			if (components >= 3)
-				out[t4 + 2] = U8(llround(b));
+				out[t4 + 2] = U8(ll_round(b));
 			if( components == 4)
-				out[t4 + 3] = U8(llround(a));
+				out[t4 + 3] = U8(ll_round(a));
 		}
 	}
 }
@@ -1150,10 +1693,10 @@ void LLImageRaw::compositeRowScaled4onto3( U8* in, U8* out, S32 in_pixel_len, S3
 			b *= norm_factor;
 			a *= norm_factor;
 
-			in_scaled_r = U8(llround(r));
-			in_scaled_g = U8(llround(g));
-			in_scaled_b = U8(llround(b));
-			in_scaled_a = U8(llround(a));
+			in_scaled_r = U8(ll_round(r));
+			in_scaled_g = U8(ll_round(g));
+			in_scaled_b = U8(ll_round(b));
+			in_scaled_a = U8(ll_round(a));
 		}
 
 		if( in_scaled_a )
@@ -1205,7 +1748,7 @@ static std::string find_file(std::string &name, S8 *codec)
 	for (int i=0; i<(int)(NUM_FILE_EXTENSIONS); i++)
 	{
 		tname = name + "." + std::string(file_extensions[i].exten);
-		llifstream ifs(tname, llifstream::binary);
+		llifstream ifs(tname.c_str(), llifstream::binary);
 		if (ifs.is_open())
 		{
 			ifs.close();
@@ -1252,7 +1795,7 @@ bool LLImageRaw::createFromFile(const std::string &filename, bool j2c_lowest_mip
 		return false; // format not recognized
 	}
 
-	llifstream ifs(name, llifstream::binary);
+	llifstream ifs(name.c_str(), llifstream::binary);
 	if (!ifs.is_open())
 	{
 		// SJB: changed from LL_INFOS() to LL_DEBUGS() to reduce spam

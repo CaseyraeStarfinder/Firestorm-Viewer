@@ -82,11 +82,9 @@
 #include "rlvlocks.h"
 // [/RLVa:KB]
 
-const S32 MIN_QUIET_FRAMES_COALESCE = 30;
 const F32 FORCE_SIMPLE_RENDER_AREA = 512.f;
 const F32 FORCE_CULL_AREA = 8.f;
-const F32 MAX_LOD_DISTANCE = 24.f;
-
+U32 JOINT_COUNT_REQUIRED_FOR_FULLRIG = 20;
 
 BOOL gAnimateTextures = TRUE;
 //extern BOOL gHideSelectedObjects;
@@ -867,7 +865,7 @@ void LLVOVolume::updateTextureVirtualSize(bool forced)
 	}
 	else if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_TEXTURE_SIZE))
 	{
-		mDrawable->getNumFaces();
+		// mDrawable->getNumFaces();
 		std::set<LLViewerFetchedTexture*> tex_list;
 		std::string output="";
 		for(S32 i = 0 ; i < num_faces; i++)
@@ -1267,7 +1265,7 @@ S32	LLVOVolume::computeLODDetail(F32 distance, F32 radius)
 	{
 		// We've got LOD in the profile, and in the twist.  Use radius.
 		F32 tan_angle = (LLVOVolume::sLODFactor*radius)/distance;
-		cur_detail = LLVolumeLODGroup::getDetailFromTan(llround(tan_angle, 0.01f));
+		cur_detail = LLVolumeLODGroup::getDetailFromTan(ll_round(tan_angle, 0.01f));
 	}
 	else
 	{
@@ -1325,21 +1323,21 @@ BOOL LLVOVolume::calcLOD()
 	// DON'T Compensate for field of view changing on FOV zoom.
 	distance *= F_PI/3.f;
 
-	cur_detail = computeLODDetail(llround(distance, 0.01f), 
-									llround(radius, 0.01f));
+	cur_detail = computeLODDetail(ll_round(distance, 0.01f), 
+									ll_round(radius, 0.01f));
 
 
 	if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_LOD_INFO) &&
 		mDrawable->getFace(0))
 	{
-		//setDebugText(llformat("%.2f:%.2f, %d", debug_distance, radius, cur_detail));
+		//setDebugText(llformat("%.2f:%.2f, %d", mDrawable->mDistanceWRTCamera, radius, cur_detail));
 
 		setDebugText(llformat("%d", mDrawable->getFace(0)->getTextureIndex()));
 	}
 
 	if (cur_detail != mLOD)
 	{
-		mAppAngle = llround((F32) atan2( mDrawable->getRadius(), mDrawable->mDistanceWRTCamera) * RAD_TO_DEG, 0.01f);
+		mAppAngle = ll_round((F32) atan2( mDrawable->getRadius(), mDrawable->mDistanceWRTCamera) * RAD_TO_DEG, 0.01f);
 		mLOD = cur_detail;		
 		return TRUE;
 	}
@@ -1801,6 +1799,8 @@ BOOL LLVOVolume::updateGeometry(LLDrawable *drawable)
 				}
 			}
 		}
+
+		genBBoxes(FALSE);
 	}
 	// it has its own drawable (it's moved) or it has changed UVs or it has changed xforms from global<->local
 	else
@@ -2100,10 +2100,240 @@ S32 LLVOVolume::setTEMaterialID(const U8 te, const LLMaterialID& pMaterialID)
 	return res;
 }
 
+bool LLVOVolume::notifyAboutCreatingTexture(LLViewerTexture *texture)
+{ //Ok, here we have confirmation about texture creation, check our wait-list
+  //and make changes, or return false
+
+	std::pair<mmap_UUID_MAP_t::iterator, mmap_UUID_MAP_t::iterator> range = mWaitingTextureInfo.equal_range(texture->getID());
+
+	typedef std::map<U8, LLMaterialPtr> map_te_material;
+	map_te_material new_material;
+
+	for(mmap_UUID_MAP_t::iterator range_it = range.first; range_it != range.second; ++range_it)
+	{
+		LLMaterialPtr cur_material = getTEMaterialParams(range_it->second.te);
+
+		//here we just interesting in DIFFUSE_MAP only!
+		if(NULL != cur_material.get() && LLRender::DIFFUSE_MAP == range_it->second.map && GL_RGBA != texture->getPrimaryFormat())
+		{ //ok let's check the diffuse mode
+			switch(cur_material->getDiffuseAlphaMode())
+			{
+			case LLMaterial::DIFFUSE_ALPHA_MODE_BLEND:
+			case LLMaterial::DIFFUSE_ALPHA_MODE_EMISSIVE:
+			case LLMaterial::DIFFUSE_ALPHA_MODE_MASK:
+				{ //uups... we have non 32 bit texture with LLMaterial::DIFFUSE_ALPHA_MODE_* => LLMaterial::DIFFUSE_ALPHA_MODE_NONE
+
+					LLMaterialPtr mat = NULL;
+					map_te_material::iterator it = new_material.find(range_it->second.te);
+					if(new_material.end() == it) {
+						mat = new LLMaterial(cur_material->asLLSD());
+						new_material.insert(map_te_material::value_type(range_it->second.te, mat));
+					} else {
+						mat = it->second;
+					}
+
+					mat->setDiffuseAlphaMode(LLMaterial::DIFFUSE_ALPHA_MODE_NONE);
+
+				} break;
+			} //switch
+		} //if
+	} //for
+
+	//setup new materials
+	for(map_te_material::const_iterator it = new_material.begin(), end = new_material.end(); it != end; ++it)
+	{
+		LLMaterialMgr::getInstance()->put(getID(), it->first, *it->second);
+		LLViewerObject::setTEMaterialParams(it->first, it->second);
+	}
+
+	//clear wait-list
+	mWaitingTextureInfo.erase(range.first, range.second);
+
+	return 0 != new_material.size();
+}
+
+bool LLVOVolume::notifyAboutMissingAsset(LLViewerTexture *texture)
+{ //Ok, here if we wait information about texture and it's missing
+  //then depending from the texture map (diffuse, normal, or specular)
+  //make changes in material and confirm it. If not return false.
+	std::pair<mmap_UUID_MAP_t::iterator, mmap_UUID_MAP_t::iterator> range = mWaitingTextureInfo.equal_range(texture->getID());
+	if(range.first == range.second) return false;
+
+	typedef std::map<U8, LLMaterialPtr> map_te_material;
+	map_te_material new_material;
+	
+	for(mmap_UUID_MAP_t::iterator range_it = range.first; range_it != range.second; ++range_it)
+	{
+		LLMaterialPtr cur_material = getTEMaterialParams(range_it->second.te);
+		//<FS:Ansariel> Possible crash fix by Drake Arconis
+		if (cur_material.isNull())
+		{
+			continue;
+		}
+		// </FS:Ansariel>
+		switch(range_it->second.map)
+		{
+		case LLRender::DIFFUSE_MAP:
+			{
+				if(LLMaterial::DIFFUSE_ALPHA_MODE_NONE != cur_material->getDiffuseAlphaMode())
+				{ //missing texture + !LLMaterial::DIFFUSE_ALPHA_MODE_NONE => LLMaterial::DIFFUSE_ALPHA_MODE_NONE
+					LLMaterialPtr mat = NULL;
+					map_te_material::iterator it = new_material.find(range_it->second.te);
+					if(new_material.end() == it) {
+						mat = new LLMaterial(cur_material->asLLSD());
+						new_material.insert(map_te_material::value_type(range_it->second.te, mat));
+					} else {
+						mat = it->second;
+					}
+
+					mat->setDiffuseAlphaMode(LLMaterial::DIFFUSE_ALPHA_MODE_NONE);
+				}
+			} break;
+		case LLRender::NORMAL_MAP:
+			{ //missing texture => reset material texture id
+				LLMaterialPtr mat = NULL;
+				map_te_material::iterator it = new_material.find(range_it->second.te);
+				if(new_material.end() == it) {
+					mat = new LLMaterial(cur_material->asLLSD());
+					new_material.insert(map_te_material::value_type(range_it->second.te, mat));
+				} else {
+					mat = it->second;
+				}
+
+				mat->setNormalID(LLUUID::null);
+			} break;
+		case LLRender::SPECULAR_MAP:
+			{ //missing texture => reset material texture id
+				LLMaterialPtr mat = NULL;
+				map_te_material::iterator it = new_material.find(range_it->second.te);
+				if(new_material.end() == it) {
+					mat = new LLMaterial(cur_material->asLLSD());
+					new_material.insert(map_te_material::value_type(range_it->second.te, mat));
+				} else {
+					mat = it->second;
+				}
+
+				mat->setSpecularID(LLUUID::null);
+			} break;
+		case LLRender::NUM_TEXTURE_CHANNELS:
+				//nothing to do, make compiler happy
+			break;
+		} //switch
+	} //for
+
+	//setup new materials
+	for(map_te_material::const_iterator it = new_material.begin(), end = new_material.end(); it != end; ++it)
+	{
+		LLMaterialMgr::getInstance()->put(getID(), it->first, *it->second);
+		LLViewerObject::setTEMaterialParams(it->first, it->second);
+	}
+
+	//clear wait-list
+	mWaitingTextureInfo.erase(range.first, range.second);
+
+	return 0 != new_material.size();
+}
+
 S32 LLVOVolume::setTEMaterialParams(const U8 te, const LLMaterialPtr pMaterialParams)
 {
-	S32 res = LLViewerObject::setTEMaterialParams(te, pMaterialParams);
-	LL_DEBUGS("MaterialTEs") << "te " << (S32)te << " material " << ((pMaterialParams) ? pMaterialParams->asLLSD() : LLSD("null")) << " res " << res
+	LLMaterialPtr pMaterial = const_cast<LLMaterialPtr&>(pMaterialParams);
+
+	if(pMaterialParams)
+	{ //check all of them according to material settings
+
+		LLViewerTexture *img_diffuse = getTEImage(te);
+		LLViewerTexture *img_normal = getTENormalMap(te);
+		LLViewerTexture *img_specular = getTESpecularMap(te);
+
+		llassert(NULL != img_diffuse);
+
+		LLMaterialPtr new_material = NULL;
+
+		//diffuse
+		if(NULL != img_diffuse)
+		{ //guard
+			if(0 == img_diffuse->getPrimaryFormat() && !img_diffuse->isMissingAsset())
+			{ //ok here we don't have information about texture, let's belief and leave material settings
+			  //but we remember this case
+				mWaitingTextureInfo.insert(mmap_UUID_MAP_t::value_type(img_diffuse->getID(), material_info(LLRender::DIFFUSE_MAP, te)));
+			}
+			else
+			{
+				bool bSetDiffuseNone = false;
+				if(img_diffuse->isMissingAsset())
+				{
+					bSetDiffuseNone = true;
+				}
+				else
+				{
+					switch(pMaterialParams->getDiffuseAlphaMode())
+					{
+					case LLMaterial::DIFFUSE_ALPHA_MODE_BLEND:
+					case LLMaterial::DIFFUSE_ALPHA_MODE_EMISSIVE:
+					case LLMaterial::DIFFUSE_ALPHA_MODE_MASK:
+						{ //all of them modes available only for 32 bit textures
+							if(GL_RGBA != img_diffuse->getPrimaryFormat())
+							{
+								bSetDiffuseNone = true;
+							}
+						} break;
+					}
+				} //else
+
+
+				if(bSetDiffuseNone)
+				{ //upps... we should substitute this material with LLMaterial::DIFFUSE_ALPHA_MODE_NONE
+					new_material = new LLMaterial(pMaterialParams->asLLSD());
+					new_material->setDiffuseAlphaMode(LLMaterial::DIFFUSE_ALPHA_MODE_NONE);
+				}
+			}
+		}
+
+		//normal
+		if(LLUUID::null != pMaterialParams->getNormalID())
+		{
+			if(img_normal && img_normal->isMissingAsset() && img_normal->getID() == pMaterialParams->getNormalID())
+			{
+				if(!new_material) {
+					new_material = new LLMaterial(pMaterialParams->asLLSD());
+				}
+				new_material->setNormalID(LLUUID::null);
+			}
+			else if(NULL == img_normal || 0 == img_normal->getPrimaryFormat())
+			{ //ok here we don't have information about texture, let's belief and leave material settings
+				//but we remember this case
+				mWaitingTextureInfo.insert(mmap_UUID_MAP_t::value_type(pMaterialParams->getNormalID(), material_info(LLRender::NORMAL_MAP,te)));
+			}
+
+		}
+
+
+		//specular
+		if(LLUUID::null != pMaterialParams->getSpecularID())
+		{
+			if(img_specular && img_specular->isMissingAsset() && img_specular->getID() == pMaterialParams->getSpecularID())
+			{
+				if(!new_material) {
+					new_material = new LLMaterial(pMaterialParams->asLLSD());
+				}
+				new_material->setSpecularID(LLUUID::null);
+			}
+			else if(NULL == img_specular || 0 == img_specular->getPrimaryFormat())
+			{ //ok here we don't have information about texture, let's belief and leave material settings
+				//but we remember this case
+				mWaitingTextureInfo.insert(mmap_UUID_MAP_t::value_type(pMaterialParams->getSpecularID(), material_info(LLRender::SPECULAR_MAP, te)));
+			}
+		}
+
+		if(new_material) {
+			pMaterial = new_material;
+			LLMaterialMgr::getInstance()->put(getID(),te,*pMaterial);
+		}
+	}
+
+	S32 res = LLViewerObject::setTEMaterialParams(te, pMaterial);
+
+	LL_DEBUGS("MaterialTEs") << "te " << (S32)te << " material " << ((pMaterial) ? pMaterial->asLLSD() : LLSD("null")) << " res " << res
 							 << ( LLSelectMgr::getInstance()->getSelection()->contains(const_cast<LLVOVolume*>(this), te) ? " selected" : " not selected" )
 							 << LL_ENDL;
 	setChanged(ALL_CHANGED);
@@ -4078,22 +4308,44 @@ void LLRiggedVolume::update(const LLMeshSkinInfo* skin, LLVOAvatar* avatar, cons
 					LLMatrix4a final_mat;
 					final_mat.clear();
 
-					S32 idx[4];
+					// <FS:ND> Avoid the 8 floorf by using SSE2.
+					// Using _mm_cvttps_epi32 (truncate) under the assumption that the index can never be negative.
+					
+					// S32 idx[4];
+					// 
+					// LLVector4 wght;
+					// 
+					// F32 scale = 0.f;
+					// for (U32 k = 0; k < 4; k++)
+					// {
+					// 	F32 w = weight[j][k];
+					// 
+					// 	idx[k] = (S32) floorf(w);
+					// 	wght[k] = w - floorf(w);
+					// 	scale += wght[k];
+					// }
+					// 
+					// wght *= 1.f/scale;
 
-					LLVector4 wght;
+					LL_ALIGN_16( S32 idx[4] );
+					LL_ALIGN_16( F32 wght[4] );
 
-					F32 scale = 0.f;
-					for (U32 k = 0; k < 4; k++)
-					{
-						F32 w = weight[j][k];
+					__m128i _mIdx = _mm_cvttps_epi32( weight[j] );
+					__m128 _mWeight = _mm_sub_ps( weight[j], _mm_cvtepi32_ps( _mIdx ) );
 
-						idx[k] = (S32) floorf(w);
-						wght[k] = w - floorf(w);
-						scale += wght[k];
-					}
+					_mm_store_si128( (__m128i*)idx, _mIdx );
 
-					wght *= 1.f/scale;
+					__m128 _mScale = _mm_add_ps( _mWeight, _mm_movehl_ps( _mWeight, _mWeight ));
+					_mScale = _mm_add_ss( _mScale, _mm_shuffle_ps( _mScale, _mScale, 1) );
+					_mScale = _mm_shuffle_ps( _mScale, _mScale, 0 );
 
+					_mWeight = _mm_div_ps( _mWeight, _mScale );
+
+					_mm_store_ps( wght, _mWeight );
+
+					// </FS:ND>
+					
+					
 					for (U32 k = 0; k < 4; k++)
 					{
 						F32 w = wght[k];
@@ -4102,7 +4354,21 @@ void LLRiggedVolume::update(const LLMeshSkinInfo* skin, LLVOAvatar* avatar, cons
 						// Insure ref'd bone is in our clamped array of mats
 						llassert(idx[k] < kMaxJoints);
 						// clamp k to kMaxJoints to avoid reading garbage off stack in release
-						src.setMul(mp[idx[(k < kMaxJoints) ? k : 0]], w);
+
+						// <FS:ND> k will always be lower than kMaxJoints, as k runs from [0,3]
+						// Second we should check against maxJoints, as this can be lower thab kMaxJoints.
+						// And third is is probably better to not cram it all into one line, as that makes
+						// errors as below slip by easily.
+						
+						// src.setMul(mp[idx[(k < kMaxJoints) ? k : 0]], w);
+
+						S32 l = idx[k];
+						if( l >= maxJoints )
+							l = 0;
+						src.setMul( mp[ l ], w );
+
+						// </FS:ND>
+						
 						final_mat.add(src);
 					}
 
@@ -4175,7 +4441,8 @@ U32 LLVOVolume::getPartitionType() const
 }
 
 LLVolumePartition::LLVolumePartition(LLViewerRegion* regionp)
-: LLSpatialPartition(LLVOVolume::VERTEX_DATA_MASK, TRUE, GL_DYNAMIC_DRAW_ARB, regionp)
+: LLSpatialPartition(LLVOVolume::VERTEX_DATA_MASK, TRUE, GL_DYNAMIC_DRAW_ARB, regionp),
+LLVolumeGeometryManager()
 {
 	mLODPeriod = 32;
 	mDepthMask = FALSE;
@@ -4186,7 +4453,8 @@ LLVolumePartition::LLVolumePartition(LLViewerRegion* regionp)
 }
 
 LLVolumeBridge::LLVolumeBridge(LLDrawable* drawablep, LLViewerRegion* regionp)
-: LLSpatialBridge(drawablep, TRUE, LLVOVolume::VERTEX_DATA_MASK, regionp)
+: LLSpatialBridge(drawablep, TRUE, LLVOVolume::VERTEX_DATA_MASK, regionp),
+LLVolumeGeometryManager()
 {
 	mDepthMask = FALSE;
 	mLODPeriod = 32;
@@ -4221,6 +4489,70 @@ bool can_batch_texture(LLFace* facep)
 	}
 	
 	return true;
+}
+
+const static U32 MAX_FACE_COUNT = 4096U;
+int32_t LLVolumeGeometryManager::sInstanceCount = 0;
+LLFace** LLVolumeGeometryManager::sFullbrightFaces = NULL;
+LLFace** LLVolumeGeometryManager::sBumpFaces = NULL;
+LLFace** LLVolumeGeometryManager::sSimpleFaces = NULL;
+LLFace** LLVolumeGeometryManager::sNormFaces = NULL;
+LLFace** LLVolumeGeometryManager::sSpecFaces = NULL;
+LLFace** LLVolumeGeometryManager::sNormSpecFaces = NULL;
+LLFace** LLVolumeGeometryManager::sAlphaFaces = NULL;
+
+LLVolumeGeometryManager::LLVolumeGeometryManager()
+	: LLGeometryManager()
+{
+	llassert(sInstanceCount >= 0);
+	if (sInstanceCount == 0)
+	{
+		allocateFaces(MAX_FACE_COUNT);
+	}
+
+	++sInstanceCount;
+}
+
+LLVolumeGeometryManager::~LLVolumeGeometryManager()
+{
+	llassert(sInstanceCount > 0);
+	--sInstanceCount;
+
+	if (sInstanceCount <= 0)
+	{
+		freeFaces();
+		sInstanceCount = 0;
+	}
+}
+
+void LLVolumeGeometryManager::allocateFaces(U32 pMaxFaceCount)
+{
+	sFullbrightFaces = static_cast<LLFace**>(ll_aligned_malloc<64>(pMaxFaceCount*sizeof(LLFace*)));
+	sBumpFaces = static_cast<LLFace**>(ll_aligned_malloc<64>(pMaxFaceCount*sizeof(LLFace*)));
+	sSimpleFaces = static_cast<LLFace**>(ll_aligned_malloc<64>(pMaxFaceCount*sizeof(LLFace*)));
+	sNormFaces = static_cast<LLFace**>(ll_aligned_malloc<64>(pMaxFaceCount*sizeof(LLFace*)));
+	sSpecFaces = static_cast<LLFace**>(ll_aligned_malloc<64>(pMaxFaceCount*sizeof(LLFace*)));
+	sNormSpecFaces = static_cast<LLFace**>(ll_aligned_malloc<64>(pMaxFaceCount*sizeof(LLFace*)));
+	sAlphaFaces = static_cast<LLFace**>(ll_aligned_malloc<64>(pMaxFaceCount*sizeof(LLFace*)));
+}
+
+void LLVolumeGeometryManager::freeFaces()
+{
+	ll_aligned_free<64>(sFullbrightFaces);
+	ll_aligned_free<64>(sBumpFaces);
+	ll_aligned_free<64>(sSimpleFaces);
+	ll_aligned_free<64>(sNormFaces);
+	ll_aligned_free<64>(sSpecFaces);
+	ll_aligned_free<64>(sNormSpecFaces);
+	ll_aligned_free<64>(sAlphaFaces);
+
+	sFullbrightFaces = NULL;
+	sBumpFaces = NULL;
+	sSimpleFaces = NULL;
+	sNormFaces = NULL;
+	sSpecFaces = NULL;
+	sNormSpecFaces = NULL;
+	sAlphaFaces = NULL;
 }
 
 static LLTrace::BlockTimerStatHandle FTM_REGISTER_FACE("Register Face");
@@ -4385,7 +4717,7 @@ void LLVolumeGeometryManager::registerFace(LLSpatialGroup* group, LLFace* facep,
 		draw_info->mBump  = bump;
 		draw_info->mShiny = shiny;
 
-		float alpha[4] =
+		static const float alpha[4] =
 		{
 			0.00f,
 			0.25f,
@@ -4552,16 +4884,6 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 
 	mFaceList.clear();
 
-	const U32 MAX_FACE_COUNT = 4096;
-	
-	static LLFace** fullbright_faces = (LLFace**) ll_aligned_malloc<64>(MAX_FACE_COUNT*sizeof(LLFace*));
-	static LLFace** bump_faces = (LLFace**) ll_aligned_malloc<64>(MAX_FACE_COUNT*sizeof(LLFace*));
-	static LLFace** simple_faces = (LLFace**) ll_aligned_malloc<64>(MAX_FACE_COUNT*sizeof(LLFace*));
-	static LLFace** norm_faces = (LLFace**) ll_aligned_malloc<64>(MAX_FACE_COUNT*sizeof(LLFace*));
-	static LLFace** spec_faces = (LLFace**) ll_aligned_malloc<64>(MAX_FACE_COUNT*sizeof(LLFace*));
-	static LLFace** normspec_faces = (LLFace**) ll_aligned_malloc<64>(MAX_FACE_COUNT*sizeof(LLFace*));
-	static LLFace** alpha_faces = (LLFace**) ll_aligned_malloc<64>(MAX_FACE_COUNT*sizeof(LLFace*));
-	
 	U32 fullbright_count = 0;
 	U32 bump_count = 0;
 	U32 simple_count = 0;
@@ -4591,7 +4913,12 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 
 	bool emissive = false;
 
-	
+	//Determine if we've received skininfo that contains an
+	//alternate bind matrix - if it does then apply the translational component
+	//to the joints of the avatar.
+#if 0
+	bool pelvisGotSet = false;
+#endif
 
 	{
 		LL_RECORD_BLOCK_TIME(FTM_REBUILD_VOLUME_FACE_LIST);
@@ -4696,61 +5023,13 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 					is_rigged = true;
 				
 					//get drawpool of avatar with rigged face
-					LLDrawPoolAvatar* pool = get_avatar_drawpool(vobj);
-				
-					//Determine if we've received skininfo that contains an
-					//alternate bind matrix - if it does then apply the translational component
-					//to the joints of the avatar.
-					bool pelvisGotSet = false;
-
+					LLDrawPoolAvatar* pool = get_avatar_drawpool(vobj);				
+					
+					// FIXME should this be inside the face loop?
+					// doesn't seem to depend on any per-face state.
 					if ( pAvatarVO )
 					{
-						LLUUID currentId = vobj->getVolume()->getParams().getSculptID();
-						const LLMeshSkinInfo*  pSkinData = gMeshRepo.getSkinInfo( currentId, vobj );
-					
-						if ( pSkinData )
-						{
-							const int bindCnt = pSkinData->mAlternateBindMatrix.size();								
-							if ( bindCnt > 0 )
-							{					
-								const int jointCnt = pSkinData->mJointNames.size();
-								const F32 pelvisZOffset = pSkinData->mPelvisOffset;
-								bool fullRig = (jointCnt>=20) ? true : false;
-								if ( fullRig )
-								{
-									for ( int i=0; i<jointCnt; ++i )
-									{
-										std::string lookingForJoint = pSkinData->mJointNames[i].c_str();
-										//LL_INFOS()<<"joint name "<<lookingForJoint.c_str()<<LL_ENDL;
-										LLJoint* pJoint = pAvatarVO->getJoint( lookingForJoint );
-										if ( pJoint && pJoint->getId() != currentId )
-										{   									
-											pJoint->setId( currentId );
-											const LLVector3& jointPos = pSkinData->mAlternateBindMatrix[i].getTranslation();									
-											//Set the joint position
-											pJoint->storeCurrentXform( jointPos );																																
-											//If joint is a pelvis then handle old/new pelvis to foot values
-											if ( lookingForJoint == "mPelvis" )
-											{	
-												pJoint->storeCurrentXform( jointPos );																																
-												if ( !pAvatarVO->hasPelvisOffset() )
-												{										
-													pAvatarVO->setPelvisOffset( true, jointPos, pelvisZOffset );
-													//Trigger to rebuild viewer AV
-													pelvisGotSet = true;											
-												}										
-											}										
-										}
-									}
-								}							
-							}
-						}
-					}
-					//If we've set the pelvis to a new position we need to also rebuild some information that the
-					//viewer does at launch (e.g. body size etc.)
-					if ( pelvisGotSet )
-					{
-						pAvatarVO->postPelvisSetRecalc();
+						pAvatarVO->addAttachmentPosOverridesForObject(vobj);
 					}
 
 					// <FS:ND> need an texture entry, or we crash
@@ -4981,7 +5260,7 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 						{ //can be treated as alpha mask
 							if (simple_count < MAX_FACE_COUNT)
 							{
-								simple_faces[simple_count++] = facep;
+								sSimpleFaces[simple_count++] = facep;
 							}
 						}
 						else
@@ -4995,7 +5274,7 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 							}
 							if (alpha_count < MAX_FACE_COUNT)
 							{
-								alpha_faces[alpha_count++] = facep;
+								sAlphaFaces[alpha_count++] = facep;
 							}
 						}
 					}
@@ -5021,14 +5300,14 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 									{ //has normal and specular maps (needs texcoord1, texcoord2, and tangent)
 										if (normspec_count < MAX_FACE_COUNT)
 										{
-											normspec_faces[normspec_count++] = facep;
+											sNormSpecFaces[normspec_count++] = facep;
 										}
 									}
 									else
 									{ //has normal map (needs texcoord1 and tangent)
 										if (norm_count < MAX_FACE_COUNT)
 										{
-											norm_faces[norm_count++] = facep;
+											sNormFaces[norm_count++] = facep;
 										}
 									}
 								}
@@ -5036,14 +5315,14 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 								{ //has specular map but no normal map, needs texcoord2
 									if (spec_count < MAX_FACE_COUNT)
 									{
-										spec_faces[spec_count++] = facep;
+										sSpecFaces[spec_count++] = facep;
 									}
 								}
 								else
 								{ //has neither specular map nor normal map, only needs texcoord0
 									if (simple_count < MAX_FACE_COUNT)
 									{
-										simple_faces[simple_count++] = facep;
+										sSimpleFaces[simple_count++] = facep;
 									}
 								}									
 							}
@@ -5051,14 +5330,14 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 							{ //needs normal + tangent
 								if (bump_count < MAX_FACE_COUNT)
 								{
-									bump_faces[bump_count++] = facep;
+									sBumpFaces[bump_count++] = facep;
 								}
 							}
 							else if (te->getShiny() || !te->getFullbright())
 							{ //needs normal
 								if (simple_count < MAX_FACE_COUNT)
 								{
-									simple_faces[simple_count++] = facep;
+									sSimpleFaces[simple_count++] = facep;
 								}
 							}
 							else 
@@ -5066,7 +5345,7 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 								facep->setState(LLFace::FULLBRIGHT);
 								if (fullbright_count < MAX_FACE_COUNT)
 								{
-									fullbright_faces[fullbright_count++] = facep;
+									sFullbrightFaces[fullbright_count++] = facep;
 								}
 							}
 						}
@@ -5076,7 +5355,7 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 							{ //needs normal + tangent
 								if (bump_count < MAX_FACE_COUNT)
 								{
-									bump_faces[bump_count++] = facep;
+									sBumpFaces[bump_count++] = facep;
 								}
 							}
 							else if ((te->getShiny() && LLPipeline::sRenderBump) ||
@@ -5084,7 +5363,7 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 							{ //needs normal
 								if (simple_count < MAX_FACE_COUNT)
 								{
-									simple_faces[simple_count++] = facep;
+									sSimpleFaces[simple_count++] = facep;
 								}
 							}
 							else 
@@ -5092,7 +5371,7 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 								facep->setState(LLFace::FULLBRIGHT);
 								if (fullbright_count < MAX_FACE_COUNT)
 								{
-									fullbright_faces[fullbright_count++] = facep;
+									sFullbrightFaces[fullbright_count++] = facep;
 								}
 							}
 						}
@@ -5103,7 +5382,7 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 					facep->clearVertexBuffer();
 				}		
 			}
-
+			
 			if (is_rigged)
 			{
 				if (!drawablep->isState(LLDrawable::RIGGED))
@@ -5155,13 +5434,13 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 		fullbright_mask = fullbright_mask | LLVertexBuffer::MAP_TEXTURE_INDEX;
 	}
 
-	genDrawInfo(group, simple_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, simple_faces, simple_count, FALSE, batch_textures, FALSE);
-	genDrawInfo(group, fullbright_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, fullbright_faces, fullbright_count, FALSE, batch_textures);
-	genDrawInfo(group, alpha_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, alpha_faces, alpha_count, TRUE, batch_textures);
-	genDrawInfo(group, bump_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, bump_faces, bump_count, FALSE, FALSE);
-	genDrawInfo(group, norm_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, norm_faces, norm_count, FALSE, FALSE);
-	genDrawInfo(group, spec_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, spec_faces, spec_count, FALSE, FALSE);
-	genDrawInfo(group, normspec_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, normspec_faces, normspec_count, FALSE, FALSE);
+	genDrawInfo(group, simple_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, sSimpleFaces, simple_count, FALSE, batch_textures, FALSE);
+	genDrawInfo(group, fullbright_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, sFullbrightFaces, fullbright_count, FALSE, batch_textures);
+	genDrawInfo(group, alpha_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, sAlphaFaces, alpha_count, TRUE, batch_textures);
+	genDrawInfo(group, bump_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, sBumpFaces, bump_count, FALSE, FALSE);
+	genDrawInfo(group, norm_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, sNormFaces, norm_count, FALSE, FALSE);
+	genDrawInfo(group, spec_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, sSpecFaces, spec_count, FALSE, FALSE);
+	genDrawInfo(group, normspec_mask | LLVertexBuffer::MAP_TEXTURE_INDEX, sNormSpecFaces, normspec_count, FALSE, FALSE);
 
 	if (!LLPipeline::sDelayVBUpdate)
 	{
@@ -5606,8 +5885,8 @@ void LLVolumeGeometryManager::genDrawInfo(LLSpatialGroup* group, U32 mask, LLFac
 
 					flexi = flexi || facep->getViewerObject()->getVolume()->isUnique();
 				}
-				}
 			}
+		}
 
 
 		if (flexi && buffer_usage && buffer_usage != GL_STREAM_DRAW_ARB)
@@ -5771,7 +6050,7 @@ void LLVolumeGeometryManager::genDrawInfo(LLSpatialGroup* group, U32 mask, LLFac
 
 				if (material_pass)
 				{
-					U32 pass[] = 
+					static const U32 pass[] = 
 					{
 						LLRenderPass::PASS_MATERIAL,
 						LLRenderPass::PASS_ALPHA, //LLRenderPass::PASS_MATERIAL_ALPHA,

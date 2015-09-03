@@ -4,7 +4,7 @@
  *
  * $LicenseInfo:firstyear=2011&license=fsviewerlgpl$
  * Phoenix Firestorm Viewer Source Code
- * Copyright (C) 2011, The Phoenix Firestorm Project, Inc.
+ * Copyright (C) 2011-2015, The Phoenix Firestorm Project, Inc.
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -35,10 +35,6 @@
 #include "lleventtimer.h"
 
 class FSLSLBridgeRequestResponder;
-
-//
-//-TT Client LSL Bridge File
-//
 
 const std::string LIB_ROCK_NAME = "Rock - medium, round";
 const std::string FS_BRIDGE_NAME = "#Firestorm LSL Bridge v";
@@ -77,6 +73,7 @@ public:
 	void setBridge(LLViewerInventoryItem* item) { mpBridge = item; };
 	LLViewerInventoryItem* getBridge() { return mpBridge; };
 	bool canUseBridge();
+	bool isBridgeValid() const { return NULL != mpBridge; }
 
 	void checkBridgeScriptName(const std::string& fileName);
 	std::string currentFullName() { return mCurrentFullName; }
@@ -106,19 +103,17 @@ private:
 	LLUUID					mBridgeUUID;
 
 	bool					mIsFirstCallDone; //initialization conversation
-	bool isBridgeValid() const { return NULL != mpBridge; }
 
 	uuid_vec_t				mAllowedDetachables;
 
 protected:
-	LLViewerInventoryItem* findInvObject(const std::string& obj_name, const LLUUID& catID, LLAssetType::EType type);
+	LLViewerInventoryItem* findInvObject(const std::string& obj_name, const LLUUID& catID);
 	LLUUID findFSCategory();
 	LLUUID findFSBridgeContainerCategory();
 
 	bool isItemAttached(const LLUUID& iID);
 	void createNewBridge();
-	void create_script_inner(LLViewerObject* object);
-	bool isOldBridgeVersion(LLInventoryItem* item);
+	void create_script_inner();
 	void cleanUpBridgeFolder();
 	void cleanUpBridgeFolder(const std::string& nameToCleanUp);
 	void setupBridgePrim(LLViewerObject* object);

@@ -186,6 +186,7 @@ public:
 	void setObject(LLViewerObject* object);
 	// *NOTE: invalidate stored textures and colors when # faces change
 	void saveColors();
+	void saveShinyColors();
 	void saveTextures(const uuid_vec_t& textures);
 	void saveTextureScaleRatios(LLRender::eTexIndex index_to_query);
 
@@ -222,6 +223,7 @@ public:
 	std::string		mSitName;
 	U64				mCreationDate;
 	std::vector<LLColor4>	mSavedColors;
+	std::vector<LLColor4>	mSavedShinyColors;
 	uuid_vec_t		mSavedTextures;
 	std::vector<LLVector3>  mTextureScaleRatios;
 	std::vector<LLVector3>	mSilhouetteVertices;	// array of vertices to render silhouette of object
@@ -234,6 +236,11 @@ protected:
 	LLPointer<LLViewerObject>	mObject;
 	S32				mTESelectMask;
 	S32				mLastTESelected;
+
+// <FS:ND> For const access. Need to check for isDead yourself.
+public:
+	LLViewerObject const* getObject() const { return mObject; } 
+// </FS:ND>
 };
 
 class LLObjectSelection : public LLRefCount
@@ -380,6 +387,11 @@ private:
 	LLPointer<LLViewerObject> mPrimaryObject;
 	std::map<LLPointer<LLViewerObject>, LLSelectNode*> mSelectNodeMap;
 	ESelectType mSelectType;
+
+	// <FS:Zi> Fix for crash while selecting objects with derendered child prims
+	list_t mFailedNodesList;
+	bool checkNode(LLSelectNode* nodep);
+	// </FS:Zi>
 };
 
 typedef LLSafeHandle<LLObjectSelection> LLObjectSelectionHandle;
@@ -392,7 +404,47 @@ extern template class LLSelectMgr* LLSingleton<class LLSelectMgr>::getInstance()
 // For use with getFirstTest()
 struct LLSelectGetFirstTest;
 
-class LLSelectMgr : public LLEditMenuHandler, public LLSingleton<LLSelectMgr>
+// <FS:ND> To listened into received prop. messages
+namespace nd
+{
+	namespace selection
+	{
+		class PropertiesListener
+		{
+		public:
+			virtual void onProperties( LLSelectNode const * ) = 0;
+		};
+
+		class PropertiesServer
+		{
+		public:
+			PropertiesServer()
+				: mBatchMode( false )
+			{ }
+
+			void registerPropertyListener( nd::selection::PropertiesListener *aP) { mListener.insert( aP ); }
+			void removePropertyListener( nd::selection::PropertiesListener *aP) { mListener.erase( aP ); }
+
+			void enableBatchMode( ) { mBatchMode = true; }
+			void disableBatchMode( ) { mBatchMode = false; }
+			bool isBatchMode() const { return mBatchMode; }
+
+		protected:
+			void firePropertyReceived( LLSelectNode const *aNode  )
+			{
+				for( std::set< nd::selection::PropertiesListener * >::iterator itr = mListener.begin(); itr != mListener.end(); ++itr )
+					(*itr)->onProperties( aNode );
+			}
+
+		private:
+			std::set< nd::selection::PropertiesListener * > mListener;
+			bool mBatchMode;
+		};
+	}
+}
+// </FS:ND>
+
+class LLSelectMgr : public LLEditMenuHandler, public LLSingleton<LLSelectMgr>, public nd::selection::PropertiesServer
 {
 public:
 	static BOOL					sRectSelectInclusive;	// do we need to surround an object to pick it?
@@ -461,7 +513,7 @@ public:
 	//
 	// *NOTE: You must hold on to the object selection handle, otherwise
 	// the objects will be automatically deselected in 1 frame.
-	LLObjectSelectionHandle selectObjectAndFamily(LLViewerObject* object, BOOL add_to_end = FALSE);
+	LLObjectSelectionHandle selectObjectAndFamily(LLViewerObject* object, BOOL add_to_end = FALSE, BOOL ignore_select_owned = FALSE);
 
 	// For when you want just a child object.
 	LLObjectSelectionHandle selectObjectOnly(LLViewerObject* object, S32 face = SELECT_ALL_TES);
@@ -517,6 +569,8 @@ public:
 
 	bool unlinkObjects();
 
+	void confirmUnlinkObjects(const LLSD& notification, const LLSD& response);
+
 	bool enableLinkObjects();
 
 	bool enableUnlinkObjects();
@@ -559,6 +613,7 @@ public:
 	////////////////////////////////////////////////////////////////
 	void saveSelectedObjectTransform(EActionType action_type);
 	void saveSelectedObjectColors();
+	void saveSelectedShinyColors();
 	void saveSelectedObjectTextures();
 
 	// Sets which texture channel to query for scale and rot of display
@@ -587,6 +642,7 @@ public:
 	void selectionSetColorOnly(const LLColor4 &color); // Set only the RGB channels
 	void selectionSetAlphaOnly(const F32 alpha); // Set only the alpha channel
 	void selectionRevertColors();
+	void selectionRevertShinyColors();
 	BOOL selectionRevertTextures();
 	void selectionSetBumpmap( U8 bumpmap );
 	void selectionSetTexGen( U8 texgen );
@@ -619,7 +675,7 @@ public:
 	void validateSelection();
 
 	// returns TRUE if it is possible to select this object
-	BOOL canSelectObject(LLViewerObject* object);
+	BOOL canSelectObject(LLViewerObject* object, BOOL ignore_select_owned = FALSE);
 
 	// Returns TRUE if the viewer has information on all selected objects
 	BOOL selectGetAllRootsValid();
@@ -769,6 +825,7 @@ private:
 	void sendListToRegions(	const std::string& message_name,
 							void (*pack_header)(void *user_data), 
 							void (*pack_body)(LLSelectNode* node, void *user_data), 
+							void (*log_func)(LLSelectNode* node, void *user_data), 
 							void *user_data,
 							ESendType send_type);
 
@@ -804,6 +861,9 @@ private:
 	static void packHingeHead(void *user_data);
 	static void packPermissionsHead(void* user_data);
 	static void packGodlikeHead(void* user_data);
+    static void logNoOp(LLSelectNode* node, void *user_data);
+    static void logAttachmentRequest(LLSelectNode* node, void *user_data);
+    static void logDetachRequest(LLSelectNode* node, void *user_data);
 	static bool confirmDelete(const LLSD& notification, const LLSD& response, LLObjectSelectionHandle handle);
 
 	// Get the first ID that matches test and whether or not all ids are identical in selected objects.

@@ -27,6 +27,7 @@
 #include "llviewerregion.h"
 
 #include "rlvhandler.h"
+#include "rlvhelper.h"
 #include "rlvinventory.h"
 #include "rlvlocks.h"
 #include "rlvui.h"
@@ -1629,8 +1630,25 @@ ERlvCmdRet RlvHandler::processForceCommand(const RlvCommand& rlvCmd) const
 		case RLV_BHVR_SIT:			// @sit:<option>=force
 			eRet = onForceSit(rlvCmd);
 			break;
-		case RLV_BHVR_ADJUSTHEIGHT:	// @adjustheight:<options>=force
-			eRet = RLV_RET_DEPRECATED;
+		case RLV_BHVR_ADJUSTHEIGHT:	// @adjustheight:<options>=force		- Checked: 2015-03-30 (RLVa-1.5.0)
+			{
+				RlvCommandOptionAdjustHeight rlvCmdOption(rlvCmd);
+				VERIFY_OPTION(rlvCmdOption.isValid());
+				if (isAgentAvatarValid())
+				{
+					F32 nValue = (rlvCmdOption.m_nPelvisToFoot - gAgentAvatarp->getPelvisToFoot()) * rlvCmdOption.m_nPelvisToFootDeltaMult;
+					nValue += rlvCmdOption.m_nPelvisToFootOffset;
+					if (gAgentAvatarp->getRegion()->avatarHoverHeightEnabled() || !gAgentAvatarp->isUsingServerBakes())
+					{
+						LLVector3 avOffset(0.0f, 0.0f, llclamp<F32>(nValue, MIN_HOVER_Z, MAX_HOVER_Z));
+						gSavedPerAccountSettings.setF32("AvatarHoverOffsetZ", avOffset.mV[VZ]);
+					}
+					else
+					{
+						eRet = RLV_RET_FAILED_DISABLED;
+					}
+				}
+			}
 			break;
 		case RLV_BHVR_TPTO:			// @tpto:<option>=force					- Checked: 2011-03-28 (RLVa-1.3.0f) | Modified: RLVa-1.3.0f
 			{
@@ -2032,15 +2050,11 @@ ERlvCmdRet RlvHandler::onGetAttach(const RlvCommand& rlvCmd, std::string& strRep
 			itAttach != gAgentAvatarp->mAttachmentPoints.end(); ++itAttach)
 	{
 		const LLViewerJointAttachment* pAttachPt = itAttach->second;
-		//<FS:TS> FIRE-11848 @getattach includes the LSL bridge
-		if (pAttachPt->getName() == FS_BRIDGE_ATTACHMENT_POINT_NAME)
-		{
-			continue;
-		}
-		//</FS:TS> FIRE-11848
 		if ( (0 == idxAttachPt) || (itAttach->first == idxAttachPt) )
 		{
-			bool fWorn = (pAttachPt->getNumObjects() > 0) && 
+			// Ansa: Do not include the bridge when checking for number of objects
+			S32 bridge_correct = (pAttachPt->getName() == FS_BRIDGE_ATTACHMENT_POINT_NAME && FSLSLBridge::instance().isBridgeValid()) ? 1 : 0;
+			bool fWorn = ((pAttachPt->getNumObjects() - bridge_correct) > 0) && 
 				( (!RlvSettings::getHideLockedAttach()) || (RlvForceWear::isForceDetachable(pAttachPt, true, rlvCmd.getObjectID())) );
 			strReply.push_back( (fWorn) ? '1' : '0' );
 		}
@@ -2063,19 +2077,17 @@ ERlvCmdRet RlvHandler::onGetAttachNames(const RlvCommand& rlvCmd, std::string& s
 			itAttach != gAgentAvatarp->mAttachmentPoints.end(); ++itAttach)
 	{
 		const LLViewerJointAttachment* pAttachPt = itAttach->second;
-		//<FS:TS> FIRE-11848 @getattach includes the LSL bridge
-		if (pAttachPt->getName() == FS_BRIDGE_ATTACHMENT_POINT_NAME)
-		{
-			continue;
-		}
-		//</FS:TS> FIRE-11848
 		if ( (RLV_ATTACHGROUP_INVALID == eAttachGroup) || (rlvAttachGroupFromIndex(pAttachPt->getGroup()) == eAttachGroup) )
 		{
 			bool fAdd = false;
 			switch (rlvCmd.getBehaviourType())
 			{
 				case RLV_BHVR_GETATTACHNAMES:		// Every attachment point that has an attached object
-					fAdd = (pAttachPt->getNumObjects() > 0);
+					// Ansa: Do not include the bridge when checking for number of objects
+					{
+						S32 bridge_correct = ((pAttachPt->getName() == FS_BRIDGE_ATTACHMENT_POINT_NAME && FSLSLBridge::instance().isBridgeValid()) ? 1 : 0);
+						fAdd = ((pAttachPt->getNumObjects() - bridge_correct) > 0);
+					}
 					break;
 				case RLV_BHVR_GETADDATTACHNAMES:	// Every attachment point that can be attached to (wear replace OR wear add)
 					fAdd = (gRlvAttachmentLocks.canAttach(pAttachPt) & RLV_WEAR);
@@ -2147,7 +2159,7 @@ ERlvCmdRet RlvHandler::onGetInvWorn(const RlvCommand& rlvCmd, std::string& strRe
 	// Collect everything @attachall would be attaching
 	LLInventoryModel::cat_array_t folders; LLInventoryModel::item_array_t items;
 	RlvWearableItemCollector f(pFolder, RlvForceWear::ACTION_WEAR_REPLACE, RlvForceWear::FLAG_MATCHALL);
-	gInventory.collectDescendentsIf(pFolder->getUUID(), folders, items, FALSE, f, TRUE);
+	gInventory.collectDescendentsIf(pFolder->getUUID(), folders, items, FALSE, f, true);
 
 	rlv_wear_info wi = {0};
 

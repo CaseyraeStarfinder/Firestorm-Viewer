@@ -33,12 +33,13 @@
 #include "llpanelpeople.h"				// "People" sidebar panel
 #include "llpanelwearing.h"				// "Current Outfit" sidebar panel
 #include "llparcel.h"
+#include "llpaneltopinfobar.h"
 #include "llsidepanelappearance.h"
 #include "lltabcontainer.h"
 #include "llteleporthistory.h"
-#include "llteleporthistorystorage.h"
 #include "lltoolmgr.h"
 #include "llviewerparcelmgr.h"
+#include "llviewerregion.h"
 #include "llvoavatar.h"
 #include "roles_constants.h"			// Group "powers"
 
@@ -133,7 +134,7 @@ void RlvUIEnabler::onToggleEdit()
 
 		// Hide the build floater if it's currently visible
 		if (LLFloaterReg::instanceVisible("build"))
-			LLToolMgr::instance().toggleBuildMode();
+			LLToolMgr::instance().toggleBuildMode(LLSD("toggleonly"));
 	}
 
 	// Start or stop filtering opening the beacons floater
@@ -280,8 +281,10 @@ void RlvUIEnabler::onToggleShowLoc()
 {
 	bool fEnable = !gRlvHandler.hasBehaviour(RLV_BHVR_SHOWLOC);
 
-	// RELEASE-RLVa: [SL-2.0.1] Check that the code below still evaluates to *only* LLNavigationBar::instance().mCmbLocation->refresh()
-	LLNavigationBar::instance().handleLoginComplete();
+	if (LLNavigationBar::instanceExists())
+		LLNavigationBar::instance().refreshLocationCtrl();
+	if (LLPanelTopInfoBar::instanceExists())
+		LLPanelTopInfoBar::instance().update();
 
 	if (!fEnable)
 	{
@@ -369,6 +372,18 @@ void RlvUIEnabler::onToggleShowMinimap()
 		// Reestablishing the visiblity connection will show the panel if needed so we only need to take care of hiding it when needed
 		if ( (!fEnable) && (pNetMapPanel->getVisible()) )
 			pNetMapPanel->setVisible(false);
+	}
+
+	// Break/reestablish the visibility connection for the radar panel embedded minimap instance
+	LLFloater* pRadarFloater = LLFloaterReg::getInstance("fs_radar");
+	LLPanel* pRadarNetMapPanel = (pRadarFloater) ? pRadarFloater->getChild<LLPanel>("minimaplayout", TRUE) : NULL;  //AO: firestorm specific
+	RLV_ASSERT( (pRadarFloater) && (pRadarNetMapPanel) );
+	if (pRadarNetMapPanel)
+	{
+		pRadarNetMapPanel->setMakeVisibleControlVariable( (fEnable) ? gSavedSettings.getControl("ShowRadarMinimap").get() : NULL);
+		// Reestablishing the visiblity connection will show the panel if needed so we only need to take care of hiding it when needed
+		if ( (!fEnable) && (pRadarNetMapPanel->getVisible()) )
+			pRadarNetMapPanel->setVisible(false);
 	}
 }
 

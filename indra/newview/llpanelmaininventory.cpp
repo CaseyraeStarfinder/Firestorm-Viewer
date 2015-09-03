@@ -56,6 +56,7 @@
 #include "llviewertexturelist.h"
 #include "llsidepanelinventory.h"
 #include "llfolderview.h"
+#include "llradiogroup.h"
 
 // <FS:AW opensim currency support>
 #include "lltrans.h"
@@ -91,11 +92,15 @@ public:
 	void updateElementsFromFilter();
 	BOOL getCheckShowEmpty();
 	BOOL getCheckSinceLogoff();
+	U32 getDateSearchDirection();
 
 	static void onTimeAgo(LLUICtrl*, void *);
 	static void onCloseBtn(void* user_data);
 	static void selectAllTypes(void* user_data);
 	static void selectNoTypes(void* user_data);
+
+	// <FS:Ansariel> FIRE-5160: Don't reset inventory filter when clearing search term
+	void onResetBtn();
 private:
 	LLPanelMainInventory*	mPanelMainInventory;
 	LLSpinCtrl*			mSpinSinceDays;
@@ -127,60 +132,65 @@ LLPanelMainInventory::LLPanelMainInventory(const LLPanel::Params& p)
 	mCommitCallbackRegistrar.add("Inventory.ResetFilters", boost::bind(&LLPanelMainInventory::resetFilters, this));
 	mCommitCallbackRegistrar.add("Inventory.Share",  boost::bind(&LLAvatarActions::shareWithAvatars, this));
 
-	// ## Zi: Filter Links Menu
+	// <FS:Zi> Filter Links Menu
 	mCommitCallbackRegistrar.add("Inventory.FilterLinks.Set", boost::bind(&LLPanelMainInventory::onFilterLinksChecked, this, _2));
 	mEnableCallbackRegistrar.add("Inventory.FilterLinks.Check", boost::bind(&LLPanelMainInventory::isFilterLinksChecked, this, _2));
-	// ## Zi: Filter Links Menu
+	// </FS:Zi> Filter Links Menu
 
-	// ## Zi: Extended Inventory Search
+	// <FS:Zi> Extended Inventory Search
 	mCommitCallbackRegistrar.add("Inventory.SearchTarget.Set", boost::bind(&LLPanelMainInventory::onSearchTargetChecked, this, _2));
 	mEnableCallbackRegistrar.add("Inventory.SearchTarget.Check", boost::bind(&LLPanelMainInventory::isSearchTargetChecked, this, _2));
-	// ## Zi: Extended Inventory Search
+	// </FS:Zi> Extended Inventory Search
 
-	// ## Zi: Sort By menu handlers
+	// <FS:Zi> Sort By menu handlers
 	// we set up our own handlers here because the gear menu handlers are only set up
 	// later in the code, so our XML based menus can't reach them yet.
 	mCommitCallbackRegistrar.add("Inventory.SortBy.Set", boost::bind(&LLPanelMainInventory::setSortBy, this, _2));
 	mEnableCallbackRegistrar.add("Inventory.SortBy.Check", boost::bind(&LLPanelMainInventory::isSortByChecked, this, _2));
-	// ## Zi: Sort By menu handlers
+	// </FS:Zi> Sort By menu handlers
+
+	// <FS:Ansariel> Add handler for being able to directly route to onCustomAction
+	mCommitCallbackRegistrar.add("Inventory.CustomAction", boost::bind(&LLPanelMainInventory::onCustomAction, this, _2));
 
 	mSavedFolderState = new LLSaveFolderState();
 	mSavedFolderState->setApply(FALSE);
 
-	// ## Zi: Filter dropdown
+	// <FS:Zi> Filter dropdown
 	// create name-to-number mapping for the dropdown filter
-	mFilterMap["filter_type_animations"]	=0x01 << LLInventoryType::IT_ANIMATION;
-	mFilterMap["filter_type_calling_cards"]	=0x01 << LLInventoryType::IT_CALLINGCARD;
-	mFilterMap["filter_type_clothing"]		=0x01 << LLInventoryType::IT_WEARABLE;
-	mFilterMap["filter_type_gestures"]		=0x01 << LLInventoryType::IT_GESTURE;
-	mFilterMap["filter_type_landmarks"]		=0x01 << LLInventoryType::IT_LANDMARK;
-	mFilterMap["filter_type_notecards"]		=0x01 << LLInventoryType::IT_NOTECARD;
-	mFilterMap["filter_type_objects"]		=0x01 << LLInventoryType::IT_OBJECT;
-	mFilterMap["filter_type_scripts"]		=0x01 << LLInventoryType::IT_LSL;
-	mFilterMap["filter_type_sounds"]		=0x01 << LLInventoryType::IT_SOUND;
-	mFilterMap["filter_type_textures"]		=0x01 << LLInventoryType::IT_TEXTURE;
-	mFilterMap["filter_type_snapshots"]		=0x01 << LLInventoryType::IT_SNAPSHOT;
-	mFilterMap["filter_type_meshes"]		=0x01 << LLInventoryType::IT_MESH;
+	mFilterMap["filter_type_animations"]	= 0x01 << LLInventoryType::IT_ANIMATION;
+	mFilterMap["filter_type_calling_cards"]	= 0x01 << LLInventoryType::IT_CALLINGCARD;
+	mFilterMap["filter_type_clothing"]		= 0x01 << LLInventoryType::IT_WEARABLE;
+	mFilterMap["filter_type_gestures"]		= 0x01 << LLInventoryType::IT_GESTURE;
+	mFilterMap["filter_type_landmarks"]		= 0x01 << LLInventoryType::IT_LANDMARK;
+	mFilterMap["filter_type_notecards"]		= 0x01 << LLInventoryType::IT_NOTECARD;
+	mFilterMap["filter_type_objects"]		= 0x01 << LLInventoryType::IT_OBJECT;
+	mFilterMap["filter_type_scripts"]		= 0x01 << LLInventoryType::IT_LSL;
+	mFilterMap["filter_type_sounds"]		= 0x01 << LLInventoryType::IT_SOUND;
+	mFilterMap["filter_type_textures"]		= 0x01 << LLInventoryType::IT_TEXTURE;
+	mFilterMap["filter_type_snapshots"]		= 0x01 << LLInventoryType::IT_SNAPSHOT;
+	mFilterMap["filter_type_meshes"]		= 0x01 << LLInventoryType::IT_MESH;
 
 	// initialize empty filter mask
-	mFilterMask=0;
+	mFilterMask = 0;
 	// add filter bits to the mask
-	for(std::map<std::string,U64>::iterator i=mFilterMap.begin();i!=mFilterMap.end();i++)
-		mFilterMask|=(*i).second;
-	// ## Zi: Filter dropdown
+	for (std::map<std::string, U64>::iterator it = mFilterMap.begin() ; it != mFilterMap.end(); ++it)
+	{
+		mFilterMask |= (*it).second;
+	}
+	// </FS:Zi> Filter dropdown
 }
 
 BOOL LLPanelMainInventory::postBuild()
 {
 	gInventory.addObserver(this);
 	
-	// ## Zi: Inventory Collapse and Expand Buttons
+	// <FS:Zi> Inventory Collapse and Expand Buttons
 	mCollapseBtn = getChild<LLButton>("collapse_btn");
 	mCollapseBtn->setClickedCallback(boost::bind(&LLPanelMainInventory::onCollapseButtonClicked, this));
 
 	mExpandBtn = getChild<LLButton>("expand_btn");
 	mExpandBtn->setClickedCallback(boost::bind(&LLPanelMainInventory::onExpandButtonClicked, this));
-	// ## Zi: Inventory Collapse and Expand Buttons
+	// </FS:Zi> Inventory Collapse and Expand Buttons
 
 	mItemcountText=getChild<LLTextBox>("ItemcountText");
 
@@ -211,7 +221,9 @@ BOOL LLPanelMainInventory::postBuild()
 		recent_items_panel->setSortOrder(gSavedSettings.getU32(LLInventoryPanel::RECENTITEMS_SORT_ORDER));
 		// </FS:Zi>
 		recent_items_panel->setShowFolderState(LLInventoryFilter::SHOW_NON_EMPTY_FOLDERS);
-		recent_items_panel->getFilter().markDefault();
+		LLInventoryFilter& recent_filter = recent_items_panel->getFilter();
+		recent_filter.setFilterObjectTypes(recent_filter.getFilterObjectTypes() & ~(0x1 << LLInventoryType::IT_CATEGORY));
+		recent_filter.markDefault();
 		recent_items_panel->setSelectCallback(boost::bind(&LLPanelMainInventory::onSelectionChange, this, recent_items_panel, _1, _2));
 	}
 
@@ -222,8 +234,9 @@ BOOL LLPanelMainInventory::postBuild()
 		worn_items_panel->setWorn(TRUE);
 		worn_items_panel->setSortOrder(gSavedSettings.getU32(LLInventoryPanel::DEFAULT_SORT_ORDER));
 		worn_items_panel->setShowFolderState(LLInventoryFilter::SHOW_NON_EMPTY_FOLDERS);
-		worn_items_panel->getFilter().setFilterObjectTypes(0xffffffff - (0x1 << LLInventoryType::IT_GESTURE));
-		worn_items_panel->getFilter().markDefault();
+		LLInventoryFilter& worn_filter = worn_items_panel->getFilter();
+		worn_filter.setFilterObjectTypes(0xffffffffffffffffULL & ~(0x1 << LLInventoryType::IT_GESTURE | 0x1 << LLInventoryType::IT_CATEGORY));
+		worn_filter.markDefault();
 
 		// <FS:ND> Do not go all crazy and recurse through the whole inventory
 		//		worn_items_panel->openAllFolders();
@@ -239,10 +252,9 @@ BOOL LLPanelMainInventory::postBuild()
 	// </FS:ND>
 
 	// Now load the stored settings from disk, if available.
-	std::ostringstream filterSaveName;
-	filterSaveName << gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, FILTERS_FILENAME);
-	LL_INFOS() << "LLPanelMainInventory::init: reading from " << filterSaveName.str() << LL_ENDL;
-	llifstream file(filterSaveName.str());
+	std::string filterSaveName(gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, FILTERS_FILENAME));
+	LL_INFOS() << "LLPanelMainInventory::init: reading from " << filterSaveName << LL_ENDL;
+	llifstream file(filterSaveName.c_str());
 	LLSD savedFilterState;
 	if (file.is_open())
 	{
@@ -267,6 +279,11 @@ BOOL LLPanelMainInventory::postBuild()
 				//recent_items_panel->getFilter().fromParams(p);
 				recent_items_panel->getFilter().fromParams(p.filter);
 				// </FS:Ansariel>
+
+				// </FS:Ansariel> Recent items panel doesn't filter empty folders until filter floater has been opened
+				LLInventoryFilter& recent_filter = recent_items_panel->getFilter();
+				recent_filter.setFilterObjectTypes(recent_filter.getFilterObjectTypes() & ~(0x1 << LLInventoryType::IT_CATEGORY));
+				// </FS:Ansariel>
 			}
 		}
 	}
@@ -277,11 +294,10 @@ BOOL LLPanelMainInventory::postBuild()
 		mFilterEditor->setCommitCallback(boost::bind(&LLPanelMainInventory::onFilterEdit, this, _2));
 	}
 
-	// ## Zi: Filter dropdown
-	mFilterComboBox=getChild<LLComboBox>("filter_combo_box");
-	if(mFilterComboBox)
-		mFilterComboBox->setCommitCallback(boost::bind(&LLPanelMainInventory::onFilterTypeSelected, this, _2));
-	// ## Zi: Filter dropdown
+	// <FS:Zi> Filter dropdown
+	mFilterComboBox = getChild<LLComboBox>("filter_combo_box");
+	mFilterComboBox->setCommitCallback(boost::bind(&LLPanelMainInventory::onFilterTypeSelected, this, _2));
+	// </FS:Zi> Filter dropdown
 
 	mGearMenuButton = getChild<LLMenuButton>("options_gear_btn");
 
@@ -353,21 +369,20 @@ LLPanelMainInventory::~LLPanelMainInventory( void )
 	if (sSaveFilters)
 	{
 	// </FS:Ansariel>
-	std::ostringstream filterSaveName;
-	filterSaveName << gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, FILTERS_FILENAME);
-	llofstream filtersFile(filterSaveName.str());
+	std::string filterSaveName(gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, FILTERS_FILENAME));
+	llofstream filtersFile(filterSaveName.c_str());
 	if(!LLSDSerialize::toPrettyXML(filterRoot, filtersFile))
 	{
-		// <FS:TM> VS2013 compile fix
-		//LL_WARNS() << "Could not write to filters save file " << filterSaveName << LL_ENDL;
-		LL_WARNS() << "Could not write to filters save file " << filterSaveName.str() << LL_ENDL;
+		LL_WARNS() << "Could not write to filters save file " << filterSaveName << LL_ENDL;
 	}
 	else
+    {
 		filtersFile.close();
+    }
 	// <FS:Ansariel> FIRE-12808: Don't save filters during settings restore
 	}
 	// </FS:Ansariel>
-
+    
 	gInventory.removeObserver(this);
 	delete mSavedFolderState;
 }
@@ -451,7 +466,7 @@ void LLPanelMainInventory::resetFilters()
 	setFilterTextFromFilter();
 }
 
-// ## Zi: Sort By menu handlers
+// <FS:Zi> Sort By menu handlers
 void LLPanelMainInventory::setSortBy(const LLSD& userdata)
 {
 	U32 sort_order_mask = getActivePanel()->getSortOrder();
@@ -520,7 +535,7 @@ BOOL LLPanelMainInventory::isSortByChecked(const LLSD& userdata)
 
 	return FALSE;
 }
-// ## Zi: Sort By menu handlers
+// </FS:Zi> Sort By menu handlers
 
 // static
 BOOL LLPanelMainInventory::filtersVisible(void* user_data)
@@ -535,30 +550,36 @@ void LLPanelMainInventory::onClearSearch()
 {
 	BOOL initially_active = FALSE;
 	LLFloater *finder = getFinder();
+// <FS:Ansariel> FIRE-5160: Don't reset inventory filter when clearing search term
+//	if (mActivePanel)
+//	{
+//		initially_active = mActivePanel->getFilter().isNotDefault();
+//		mActivePanel->setFilterSubString(LLStringUtil::null);
+//		// <FS:Ansariel>
+//		//mActivePanel->setFilterTypes(0xffffffffffffffffULL);
+//		if (mActivePanel->getName() == "Recent Items" || mActivePanel->getName() == "Worn Items")
+//		{
+//			mActivePanel->getFilter().resetDefault();
+//		}
+//		else
+//		{
+//			mActivePanel->setFilterTypes(0xffffffffffffffffULL);
+//		}
+//		// </FS:Ansariel>
+//
+//		// ## Zi: Filter Links Menu
+//		// We don't do this anymore, we have a menu option for it now. -Zi
+////		mActivePanel->setFilterLinks(LLInventoryFilter::FILTERLINK_INCLUDE_LINKS);
+//		// <FS:Zi> make sure the dropdown shows "All Types" once again
+//		LLInventoryFilter &filter = mActivePanel->getFilter();
+//		updateFilterDropdown(&filter);
+//		// </FS:Zi>
+//	}
 	if (mActivePanel)
 	{
-		initially_active = mActivePanel->getFilter().isNotDefault();
 		mActivePanel->setFilterSubString(LLStringUtil::null);
-		// <FS:Ansariel>
-		//mActivePanel->setFilterTypes(0xffffffffffffffffULL);
-		if (mActivePanel->getName() == "Worn Items")
-		{
-			mActivePanel->setFilterTypes(0xffffffff - (0x1 << LLInventoryType::IT_GESTURE));
-		}
-		else
-		{
-			mActivePanel->setFilterTypes(0xffffffffffffffffULL);
-		}
-		// </FS:Ansariel>
-
-		// ## Zi: Filter Links Menu
-		// We don't do this anymore, we have a menu option for it now. -Zi
-//		mActivePanel->setFilterLinks(LLInventoryFilter::FILTERLINK_INCLUDE_LINKS);
-		// <FS:Zi> make sure the dropdown shows "All Types" once again
-		LLInventoryFilter &filter = mActivePanel->getFilter();
-		updateFilterDropdown(&filter);
-		// </FS:Zi>
 	}
+// </FS:Ansariel>
 
 	if (finder)
 	{
@@ -811,7 +832,7 @@ BOOL LLPanelMainInventory::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 //			mFilterTabs->startDragAndDropDelayTimer();
 //		}
 //	}
-// [SL:KB] - Checked: UI-TabDndButtonCommit | Checked: 2011-06-16 (Catznip-2.6.0c) | Added: Catznip-2.6.0c
+// [SL:KB] - Checked: UI-InvPanelDnD | Checked: 2011-06-16 (Catznip-2.6)
 	LLInventoryPanel* pInvPanel = getActivePanel();
 	if ( (pInvPanel) && (pInvPanel->pointInView(x - pInvPanel->getRect().mLeft, y - pInvPanel->getRect().mBottom)) )
 	{
@@ -997,6 +1018,9 @@ BOOL LLFloaterInventoryFinder::postBuild()
 
 	childSetAction("Close", onCloseBtn, this);
 
+	// <FS:Ansariel> FIRE-5160: Don't reset inventory filter when clearing search term
+	getChild<LLButton>("btnReset")->setClickedCallback(boost::bind(&LLFloaterInventoryFinder::onResetBtn, this));
+
 	updateElementsFromFilter();
 	return TRUE;
 }
@@ -1008,8 +1032,52 @@ void LLFloaterInventoryFinder::onTimeAgo(LLUICtrl *ctrl, void *user_data)
 	if ( self->mSpinSinceDays->get() ||  self->mSpinSinceHours->get() )
 	{
 		self->getChild<LLUICtrl>("check_since_logoff")->setValue(false);
+
+		U32 days = (U32)self->mSpinSinceDays->get();
+		U32 hours = (U32)self->mSpinSinceHours->get();
+		if (hours >= 24)
+		{
+			// Try to handle both cases of spinner clicking and text input in a sensible fashion as best as possible.
+			// There is no way to tell if someone has clicked the spinner to get to 24 or input 24 manually, so in
+			// this case add to days.  Any value > 24 means they have input the hours manually, so do not add to the
+			// current day value.
+			if (24 == hours)  // Got to 24 via spinner clicking or text input of 24
+			{
+				days = days + hours / 24;
+			}
+			else	// Text input, so do not add to days
+			{ 
+				days = hours / 24;
+			}
+			hours = (U32)hours % 24;
+			self->mSpinSinceHours->setFocus(false);
+			self->mSpinSinceDays->setFocus(false);
+			self->mSpinSinceDays->set((F32)days);
+			self->mSpinSinceHours->set((F32)hours);
+			self->mSpinSinceHours->setFocus(true);
+		}
 	}
 }
+
+// <FS:Ansariel> FIRE-5160: Don't reset inventory filter when clearing search term
+void LLFloaterInventoryFinder::onResetBtn()
+{
+	LLInventoryPanel* panel = mPanelMainInventory->getPanel();
+	if (panel->getName() == "Recent Items" || panel->getName() == "Worn Items")
+	{
+		panel->getFilter().resetDefault();
+	}
+	else
+	{
+		panel->setFilterTypes(0xffffffffffffffffULL);
+	}
+
+	LLInventoryFilter &filter = panel->getFilter();
+	mPanelMainInventory->updateFilterDropdown(&filter);
+
+	updateElementsFromFilter();
+}
+// </FS:Ansariel>
 
 void LLFloaterInventoryFinder::changeFilter(LLInventoryFilter* filter)
 {
@@ -1027,6 +1095,7 @@ void LLFloaterInventoryFinder::updateElementsFromFilter()
 	std::string filter_string = mFilter->getFilterSubString();
 	LLInventoryFilter::EFolderShow show_folders = mFilter->getShowFolderState();
 	U32 hours = mFilter->getHoursAgo();
+	U32 date_search_direction = mFilter->getDateSearchDirection();
 
 	// update the ui elements
 	setTitle(mFilter->getName());
@@ -1048,6 +1117,7 @@ void LLFloaterInventoryFinder::updateElementsFromFilter()
 	getChild<LLUICtrl>("check_since_logoff")->setValue(mFilter->isSinceLogoff());
 	mSpinSinceHours->set((F32)(hours % 24));
 	mSpinSinceDays->set((F32)(hours / 24));
+	getChild<LLRadioGroup>("date_search_direction")->setSelectedIndex(date_search_direction);
 }
 
 void LLFloaterInventoryFinder::draw()
@@ -1131,9 +1201,9 @@ void LLFloaterInventoryFinder::draw()
 		filtered_by_all_types = FALSE;
 	}
 
-	if (!filtered_by_all_types)
+	if (!filtered_by_all_types || (mPanelMainInventory->getPanel()->getFilter().getFilterTypes() & LLInventoryFilter::FILTERTYPE_DATE))
 	{
-		// don't include folders in filter, unless I've selected everything
+		// don't include folders in filter, unless I've selected everything or filtering by date
 		filter &= ~(0x1 << LLInventoryType::IT_CATEGORY);
 	}
 
@@ -1148,17 +1218,23 @@ void LLFloaterInventoryFinder::draw()
 	}
 	U32 days = (U32)mSpinSinceDays->get();
 	U32 hours = (U32)mSpinSinceHours->get();
-	if (hours > 24)
+	if (hours >= 24)
 	{
-		days += hours / 24;
+		days = hours / 24;
 		hours = (U32)hours % 24;
+		// A UI element that has focus will not display a new value set to it
+		mSpinSinceHours->setFocus(false);
+		mSpinSinceDays->setFocus(false);
 		mSpinSinceDays->set((F32)days);
 		mSpinSinceHours->set((F32)hours);
+		mSpinSinceHours->setFocus(true);
 	}
 	hours += days * 24;
+
 	mPanelMainInventory->getPanel()->setHoursAgo(hours);
 	mPanelMainInventory->getPanel()->setSinceLogoff(getCheckSinceLogoff());
 	mPanelMainInventory->setFilterTextFromFilter();
+	mPanelMainInventory->getPanel()->setDateSearchDirection(getDateSearchDirection());
 
 	LLPanel::draw();
 }
@@ -1171,6 +1247,11 @@ BOOL LLFloaterInventoryFinder::getCheckShowEmpty()
 BOOL LLFloaterInventoryFinder::getCheckSinceLogoff()
 {
 	return getChild<LLUICtrl>("check_since_logoff")->getValue();
+}
+
+U32 LLFloaterInventoryFinder::getDateSearchDirection()
+{
+	return 	getChild<LLRadioGroup>("date_search_direction")->getSelectedIndex();
 }
 
 void LLFloaterInventoryFinder::onCloseBtn(void* user_data)
@@ -1421,14 +1502,12 @@ void LLPanelMainInventory::onCustomAction(const LLSD& userdata)
 		const LLUUID& item_id = static_cast<LLFolderViewModelItemInventory*>(current_item->getViewModelItem())->getUUID();
 		const std::string &item_name = current_item->getViewModelItem()->getName();
 		mFilterSubString = item_name;
-		LLInventoryFilter &filter = mActivePanel->getFilter();
-		filter.setFilterSubString(item_name);
-		mFilterEditor->setText(item_name);
 
+		LLInventoryFilter &filter = mActivePanel->getFilter();
+		filter.setFindAllLinksMode(item_name, item_id);
+
+		mFilterEditor->setText(item_name);
 		mFilterEditor->setFocus(TRUE);
-		filter.setFilterUUID(item_id);
-		filter.setShowFolderState(LLInventoryFilter::SHOW_NON_EMPTY_FOLDERS);
-		filter.setFilterLinks(LLInventoryFilter::FILTERLINK_ONLY_LINKS);
 	}
 
 	// <FS:Ansariel> Inventory Links Replace

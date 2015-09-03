@@ -1,4 +1,4 @@
-First, make sure gcc-4.4 and g++-4.4 are installed.
+First, make sure gcc-4.6 and g++-4.6 are installed.
 
 32bit build platforms are better tested at this point and strongly recommended.
 
@@ -27,7 +27,6 @@ To build firestorm:
 	autobuild build -c ReleaseFS                        
 
 Other examples:
-
 	autobuild configure -c ReleaseFS  		    # basic configuration step, don't build, just configure
 	autobuild configure -c ReleaseFS -- --clean	    # clean the output area first, then configure
 	autobuild configure -c ReleaseFS -- --chan Private-Yourname   # configure with a custom channel
@@ -41,10 +40,7 @@ Typical LL autobuild configure options should also work, as long as they don't d
 already doing.
 
 Logs:
-
         Look for logs in build-linux-i686/logs
 
 Output:
-
         Look for output in build-linux-i686/newview/Release
-

@@ -257,7 +257,8 @@ std::string build_extensions_string(LLFilePicker::ELoadFilter filter)
 #endif
 	case LLFilePicker::FFLOAD_XML:
 	    return XML_EXTENSIONS;
-	case LLFilePicker::FFLOAD_ALL:
+    case LLFilePicker::FFLOAD_ALL:
+    case LLFilePicker::FFLOAD_EXE:
 		return ALL_FILE_EXTENSIONS;
 #endif
     default:
@@ -611,9 +612,9 @@ class LLFileUploadBulk : public view_listener_t
 				0,
 				LLFolderType::FT_NONE,
 				LLInventoryType::IT_NONE,
-				LLFloaterPerms::getNextOwnerPerms(),
-				LLFloaterPerms::getGroupPerms(),
-				LLFloaterPerms::getEveryonePerms(),
+				LLFloaterPerms::getNextOwnerPerms("Uploads"),
+				LLFloaterPerms::getGroupPerms("Uploads"),
+				LLFloaterPerms::getEveryonePerms("Uploads"),
 				display_name,
 				callback,
 				expected_upload_cost,
@@ -656,8 +657,10 @@ class LLFileEnableCloseWindow : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		bool new_value = NULL != gFloaterView->getFrontmostClosableFloater();
-		return new_value;
+		bool frontmost_fl_exists = (NULL != gFloaterView->getFrontmostClosableFloater());
+		bool frontmost_snapshot_fl_exists = (NULL != gSnapshotFloaterView->getFrontmostClosableFloater());
+
+		return frontmost_fl_exists || frontmost_snapshot_fl_exists;
 	}
 };
 
@@ -665,7 +668,22 @@ class LLFileCloseWindow : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		LLFloater::closeFrontmostFloater();
+		bool frontmost_fl_exists = (NULL != gFloaterView->getFrontmostClosableFloater());
+		LLFloater* snapshot_floater = gSnapshotFloaterView->getFrontmostClosableFloater();
+
+		if(snapshot_floater && (!frontmost_fl_exists || snapshot_floater->hasFocus()))
+		{
+			snapshot_floater->closeFloater();
+			if (gFocusMgr.getKeyboardFocus() == NULL)
+			{
+				gFloaterView->focusFrontFloater();
+			}
+		}
+		else
+		{
+			LLFloater::closeFrontmostFloater();
+		}
+		if (gMenuHolder) gMenuHolder->hideMenus();
 		return true;
 	}
 };
@@ -688,6 +706,7 @@ class LLFileCloseAllWindows : public view_listener_t
 		bool app_quitting = false;
 		gFloaterView->closeAllChildren(app_quitting);
 		LLFloaterSnapshot::getInstance()->closeFloater(app_quitting);
+		if (gMenuHolder) gMenuHolder->hideMenus();
 		return true;
 	}
 };
@@ -1201,9 +1220,9 @@ void upload_done_callback(
 			0,
 			LLFolderType::FT_NONE,
 			LLInventoryType::IT_NONE,
-			PERM_NONE,
-			PERM_NONE,
-			PERM_NONE,
+			LLFloaterPerms::getNextOwnerPerms("Uploads"),
+			LLFloaterPerms::getGroupPerms("Uploads"),
+			LLFloaterPerms::getEveryonePerms("Uploads"),
 			display_name,
 			callback,
 			expected_upload_cost, // assuming next in a group of uploads is of roughly the same type, i.e. same upload cost

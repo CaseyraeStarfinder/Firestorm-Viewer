@@ -348,8 +348,9 @@ BOOL LLBreastMotion::onUpdate(F32 time, U8* joint_mask)
 		if (mBreastParamsDriven[i])
 		{
 			mCharacter->setVisualParamWeight(mBreastParamsDriven[i],
-											 new_local_pt[i],
-											 FALSE);
+											 // <FS:Ansariel> [Legacy Bake]
+											 //new_local_pt[i]);
+											 new_local_pt[i], FALSE);
 		}
 	}
 

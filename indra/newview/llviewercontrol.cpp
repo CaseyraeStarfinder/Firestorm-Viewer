@@ -69,7 +69,10 @@
 #include "llnavigationbar.h"
 #include "llfloatertools.h"
 #include "llpaneloutfitsinventory.h"
-#include "llpanellogin.h"
+// <FS:Ansariel> [FS Login Panel]
+//#include "llpanellogin.h"
+#include "fspanellogin.h"
+// </FS:Ansariel> [FS Login Panel]
 #include "llpaneltopinfobar.h"
 #include "llspellcheck.h"
 #include "llslurl.h"
@@ -89,6 +92,8 @@
 #include "llpanelplaces.h"
 #include "llstatusbar.h"
 #include "NACLantispam.h"
+#include "llviewerkeyboard.h"
+#include "llviewerregion.h"
 
 // Third party library includes
 #include <boost/algorithm/string.hpp>
@@ -574,20 +579,31 @@ bool handleVelocityInterpolate(const LLSD& newvalue)
 	return true;
 }
 
-// ## Zi: Moved Avatar Z offset from RLVa to here
+// <FS:Zi> Moved Avatar Z offset from RLVa to here
 bool handleAvatarZOffsetChanged(const LLSD& sdValue)
 {
 	if (isAgentAvatarValid())
 	{
-		gAgentAvatarp->computeBodySize();
+		if (gAgent.getRegion()->avatarHoverHeightEnabled())
+		{
+			LLVector3 avOffset(0.0f, 0.0f, llclamp<F32>(sdValue.asReal(), MIN_HOVER_Z, MAX_HOVER_Z));
+			gAgentAvatarp->setHoverOffset(avOffset, true);
+		}
+		else if (!gAgentAvatarp->isUsingServerBakes())
+		{
+			gAgentAvatarp->computeBodySize();
+		}
 	}
 	return true;
 }
-// ## Zi: Moved Avatar Z offset from RLVa to here
+// </FS:Zi> Moved Avatar Z offset from RLVa to here
 
 bool handleForceShowGrid(const LLSD& newvalue)
 {
-	LLPanelLogin::updateServer( );
+	// <FS:Ansariel> [FS Login Panel]
+	//LLPanelLogin::updateServer( );
+	FSPanelLogin::updateServer( );
+	// </FS:Ansariel> [FS Login Panel]
 	return true;
 }
 
@@ -777,7 +793,6 @@ static void handleDecimalPrecisionChanged(const LLSD& newvalue)
 // <FS:CR> FIRE-6659: Legacy "Resident" name toggle
 void handleLegacyTrimOptionChanged(const LLSD& newvalue)
 {
-	gSavedSettings.setBOOL("FSTrimLegacyNames", newvalue.asBoolean());
 	LLAvatarName::setTrimResidentSurname(newvalue.asBoolean());
 	LLAvatarNameCache::cleanupClass();
 	LLVOAvatar::invalidateNameTags();
@@ -787,7 +802,6 @@ void handleLegacyTrimOptionChanged(const LLSD& newvalue)
 
 void handleUsernameFormatOptionChanged(const LLSD& newvalue)
 {
-	gSavedSettings.setBOOL("FSNameTagShowLegacyUsernames", newvalue.asBoolean());
 	LLAvatarName::setUseLegacyFormat(newvalue.asBoolean());
 	LLAvatarNameCache::cleanupClass();
 	LLVOAvatar::invalidateNameTags();
@@ -795,6 +809,23 @@ void handleUsernameFormatOptionChanged(const LLSD& newvalue)
 	FSRadar::getInstance()->updateNames();
 }
 // </FS:CR>
+
+// <FS:Ansariel> Allow instant change of keyboard layout
+void handleKeyboardLayoutChanged(const LLSD& newvalue)
+{
+	std::string keyBindingFileName("keys.xml");
+	if (newvalue.asBoolean())
+	{
+		keyBindingFileName = "keys_azerty.xml";
+	}
+
+	std::string key_bindings_file = gDirUtilp->findFile(keyBindingFileName,
+														gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, ""),
+														gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, ""));
+
+	gViewerKeyboard.loadBindingsXML(key_bindings_file);
+}
+// </FS:Ansariel>
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -959,8 +990,7 @@ void settings_setup_listeners()
 	gSavedSettings.getControl("SpellCheck")->getSignal()->connect(boost::bind(&handleSpellCheckChanged));
 	gSavedSettings.getControl("SpellCheckDictionary")->getSignal()->connect(boost::bind(&handleSpellCheckChanged));
 	gSavedSettings.getControl("LoginLocation")->getSignal()->connect(boost::bind(&handleLoginLocationChanged));
-	// <FS:CR> FIRE-9759 - Temporarily remove AvatarZOffset since it's broken
-	//gSavedPerAccountSettings.getControl("AvatarZOffset")->getSignal()->connect(boost::bind(&handleAvatarZOffsetChanged, _2)); // ## Zi: Moved Avatar Z offset from RLVa to here
+	gSavedPerAccountSettings.getControl("AvatarHoverOffsetZ")->getSignal()->connect(boost::bind(&handleAvatarZOffsetChanged, _2)); // <FS:Zi> Moved Avatar Z offset from RLVa to here
 	// <FS:Zi> Is done inside XUI now, using visibility_control
 	// gSavedSettings.getControl("ShowNavbarFavoritesPanel")->getSignal()->connect(boost::bind(&toggle_show_favorites_panel, _2));
 	// </FS:Zi>
@@ -976,9 +1006,6 @@ void settings_setup_listeners()
 
 	// <FS:Ansariel> Clear places / teleport history search filter
 	gSavedSettings.getControl("FSUseStandaloneTeleportHistoryFloater")->getSignal()->connect(boost::bind(&handleUseStandaloneTeleportHistoryFloaterChanged));
-
-	// <FS:Ansariel> Tofu's SSR
-	gSavedSettings.getControl("FSRenderSSR")->getSignal()->connect(boost::bind(&handleSetShaderChanged, _2));
 	
 	// <FS:CR> Pose stand ground lock
 	gSavedSettings.getControl("FSPoseStandLock")->getSignal()->connect(boost::bind(&handleSetPoseStandLock, _2));
@@ -994,6 +1021,10 @@ void settings_setup_listeners()
 
 	gSavedSettings.getControl("FSNameTagShowLegacyUsernames")->getCommitSignal()->connect(boost::bind(&handleUsernameFormatOptionChanged, _2));
 	gSavedSettings.getControl("FSTrimLegacyNames")->getCommitSignal()->connect(boost::bind(&handleLegacyTrimOptionChanged, _2));
+
+	gSavedSettings.getControl("FSUseAzertyKeyboardLayout")->getCommitSignal()->connect(boost::bind(&handleKeyboardLayoutChanged, _2));
+
+	gSavedSettings.getControl(RLV_SETTING_MAIN)->getSignal()->connect(boost::bind(&RlvSettings::onChangedSettingMain, _2));
 }
 
 #if TEST_CACHED_CONTROL

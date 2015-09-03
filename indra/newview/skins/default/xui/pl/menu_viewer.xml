@@ -3,17 +3,15 @@
 	<menu label="Awatar" name="Me">
 		<menu_item_call label="Zarządzaj kontem" name="Manage Account"/>
 		<menu_item_call label="Skrzynka nadawcza kupca..." name="MerchantOutbox"/>
+		<menu_item_call label="Moje rzeczy na Marketplace" name="MarketplaceListings"/>
 		<menu_item_call label="Kup L$" name="Buy and Sell L$"/>
-		<menu_item_call label="Ustawienia" name="Preferences"/>
-		<menu_item_call label="Przyciski na paskach" name="Toolbar Buttons"/>
-		<menu_item_call label="Mój Profil" name="Profile"/>
-		<menu_item_call label="Miejsca..." name="Picks"/>
-		<menu_item_call label="Wyślij na Facebooka..." name="PostToFacebook"/>
-		<menu_item_call label="Mój wygląd" name="ChangeOutfit"/>
-		<menu_item_call label="Zrób zdjęcie" name="Take Snapshot"/>
 		<menu_item_check label="Moja Szafa" name="Inventory"/>
 		<menu_item_check label="Moja Szafa" name="ShowSidetrayInventory"/>
-		<menu_item_check label="Ustawienia ruchu" name="Movement Controls"/>
+		<menu_item_call label="Miejsca" name="Picks"/>
+		<menu_item_call label="Przygody" name="Experiences"/>
+		<menu_item_call label="Mój Profil" name="Profile"/>
+		<menu_item_call label="Mój wygląd" name="ChangeOutfit"/>
+		<menu_item_call label="Biblioteka awatarów" name="Avatar Picker"/>
 		<menu label="Ruch" name="Movement">
 			<menu_item_call label="Usiądź" name="Sit Down Here"/>
 			<menu_item_check label="Zacznij latać" name="Fly"/>
@@ -23,6 +21,7 @@
 			<menu_item_check label="Unieruchom" name="Move Lock"/>
 			<menu_item_check label="Szybki skok" name="Avatar Ignore Prejump"/>
 		</menu>
+		<menu_item_check label="Ustawienia ruchu" name="Movement Controls"/>
 		<menu_item_check label="Ustawienia kamery" name="Camera Controls"/>
 		<menu label="Naprawa awatara" name="avhealth">
 			<menu_item_call label="Zatrzymaj animacje" name="Stop Animating My Avatar"/>
@@ -32,22 +31,17 @@
 			<menu_item_call label="Resetuj do domyślnego męskiego awatara (Character Test)" name="ResetDefaultAvM"/>
 			<menu_item_call label="Resetuj do domyślnego żeńskiego awatara (Character Test)" name="ResetDefaultAvF"/>
 			<menu_item_check label="Pokaż obciążenia renderowania dla awatarów (zamiennik ARC)" name="Avatar Rendering Cost"/>
+			<menu_item_call label="Miernik lagów" name="Lag Meter"/>
 			<menu_item_call label="Stwórz na nowo Most LSL" name="Recreate LSL Bridge"/>
 		</menu>
-		<menu_item_call label="Śledzenie napiwków" name="money_tracker"/>
+		<menu_item_call label="Zrób zdjęcie" name="Take Snapshot"/>
+		<menu_item_call label="Śledzenie transakcji" name="money_tracker"/>
 		<menu_item_call label="Podest do pozowania" name="pose_stand"/>
-		<menu label="Załaduj" name="Upload">
-			<menu_item_call label="Teksturę ([COST])..." name="Upload Image"/>
-			<menu_item_call label="Dźwięk ([COST])..." name="Upload Sound"/>
-			<menu_item_call label="Animację ([COST])..." name="Upload Animation"/>
-			<menu_item_call label="Model meszowy..." name="Upload Model"/>
-			<menu_item_call label="Zbiór wielu plików..." name="Bulk Upload"/>
-			<menu_item_call label="Ustaw domyślne uprawnienia ładowania" name="perm prefs"/>
-			<menu_item_call label="Importuj zbiór części..." name="import linkset"/>
-		</menu>
+		<menu_item_call label="Ustawienia" name="Preferences"/>
+		<menu_item_call label="Przyciski na paskach" name="Toolbar Buttons"/>
+		<menu_item_check label="Pokaż dodatki HUD" name="Show HUD Attachments"/>
 		<menu_item_call label="Zażądaj statusu administratora" name="Request Admin Options"/>
 		<menu_item_call label="Porzuć status administratora" name="Leave Admin Options"/>
-		<menu_item_check label="Pokaż dodatki HUD" name="Show HUD Attachments"/>
 		<menu_item_call label="Wyłącz [APP_NAME]" name="Quit"/>
 	</menu>
 	<menu label="Komunikacja" name="Communicate">
@@ -57,6 +51,7 @@
 			<menu_item_check label="Autoodpowiedź" name="Set Autorespond"/>
 			<menu_item_check label="Autoodpowiedź dla nieznajomych" name="Set Autorespond to non-friends"/>
 			<menu_item_check label="Odrzucaj propozycje i prośby o teleport" name="Automatically reject teleport offers"/>
+			<menu_item_check label="Odrzucaj zaproszenia do grup" name="Reject all group invites"/>
 		</menu>
 		<menu_item_call label="Znajomi" name="My Friends"/>
 		<menu_item_check label="Kontakty" name="Contacts"/>
@@ -81,8 +76,10 @@
 		<menu_item_check label="Radar" name="Radar"/>
 		<menu_item_call label="Historia teleportacji" name="Teleport History"/>
 		<menu_item_check label="Landmarki" name="Places"/>
+		<menu_item_call label="Cele podróży" name="Destinations"/>
 		<menu_item_check label="Minimapa" name="Mini-Map"/>
 		<menu_item_check label="Mapa Świata" name="World Map"/>
+		<menu_item_check label="Śledzenie Regionów" name="Region Tracker"/>
 		<menu_item_call label="Zapamiętaj to miejsce (LM)" name="Create Landmark Here"/>
 		<menu_item_call label="Profil miejsca" name="Place Profile"/>
 		<menu_item_call label="O działce" name="About Land"/>
@@ -189,6 +186,7 @@
 			<menu_item_check label="Pokaż zaawansowane uprawnienia" name="DebugPermissions"/>
 			<menu_item_check label="Wybierz tylko moje obiekty" name="Select Only My Objects"/>
 			<menu_item_check label="Wybierz tylko obiekty przesuwalne" name="Select Only Movable Objects"/>
+			<menu_item_check label="Wybierz tylko obiekty kopiowalne" name="Select Only Copyable Objects"/>
 			<menu_item_check label="Dołącz obiekty, których właścicielem jest grupa" name="Include Group-Owned Objects"/>
 			<menu_item_check label="Wybierz przez otoczenie" name="Select By Surrounding"/>
 			<menu_item_check label="Pokaż kontury selekcji" name="Show Selection Outlines"/>
@@ -198,7 +196,8 @@
 			<menu_item_check label="Przyciągaj do siatki" name="Snap to Grid"/>
 			<menu_item_call label="Przeciągnij obiekt XY do siatki" name="Snap Object XY to Grid"/>
 			<menu_item_call label="Wybierz zaznaczenie siatki" name="Use Selection for Grid"/>
-			<menu_item_call label="Opcje siatki" name="Grid Options"/>
+			<menu_item_call label="Opcje siatki..." name="Grid Options"/>
+			<menu_item_call label="Ustaw domyślne uprawnienia..." name="Set default permissions"/>
 		</menu>
 		<menu label="Załaduj" name="Upload">
 			<menu_item_call label="Teksturę ([COST])..." name="Upload Image"/>
@@ -206,7 +205,6 @@
 			<menu_item_call label="Animację ([COST])..." name="Upload Animation"/>
 			<menu_item_call label="Model meszowy..." name="Upload Model"/>
 			<menu_item_call label="Zbiór wielu plików ([COST] za plik)..." name="Bulk Upload"/>
-			<menu_item_call label="Ustaw domyślne uprawnienia ładowania" name="perm prefs"/>
 			<menu_item_call label="Importuj zbiór części..." name="import linkset"/>
 		</menu>
 		<menu_item_call label="Cofnij" name="Undo"/>
@@ -277,6 +275,7 @@
 		<menu_item_check label="Zdjęcie wysokiej jakości" name="HighResSnapshot"/>
 		<menu_item_check label="Wykonuj zdjęcia bez efektu dźwiękowego i animacji" name="QuietSnapshotsToDisk"/>
 		<menu label="Narzędzia wydajności" name="Performance Tools">
+			<menu_item_call label="Miernik lagów" name="Lag Meter"/>
 			<menu_item_check label="Statystyki ogólne" name="Statistics Bar"/>
 			<menu_item_check label="Statystyki obciążenia sceny" name="Scene Load Statistics"/>
 			<menu_item_check label="Pokaż wartość renderowania awatara" name="Avatar Rendering Cost"/>
@@ -326,7 +325,6 @@
 		<menu_item_check label="Wygładzanie ruchu myszki" name="Mouse Smoothing"/>
 		<menu_item_call label="Cofnij dodatkom zezwolenia kontroli przycisków" name="Release Keys"/>
 		<menu label="Skróty" name="Shortcuts">
-			<menu_item_call label="Załaduj teksturę ([COST])..." name="Upload Image"/>
 			<menu_item_check label="Wyszukiwarka" name="Search"/>
 			<menu_item_check label="Pokazuj menu Zaawansowane" name="Show Advanced Menu - legacy shortcut"/>
 			<menu_item_check label="Teleportuj po podwójnym kliknięciu" name="DoubleClick Teleport"/>
@@ -359,7 +357,7 @@
 			<menu_item_check label="Statystyki sceny" name="Scene Statistics"/>
 			<menu_item_check label="Monitor obciążenia sceny" name="Scene Loading Monitor"/>
 			<menu_item_call label="Konsola debugowania dla ładowania tekstur" name="Texture Fetch Debug Console"/>
-			<menu_item_call label="Konsola debugowania regionu" name="Region Debug Console"/>
+			<menu_item_check label="Konsola debugowania regionu" name="Region Debug Console"/>
 			<menu_item_call label="Info o regionie do konsoli debugowania" name="Region Info to Debug Console"/>
 			<menu_item_call label="Info o grupie do konsoli debugowania" name="Group Info to Debug Console"/>
 			<menu_item_call label="Info o możliwościach do konsoli debugowania" name="Capabilities Info to Debug Console"/>
@@ -373,6 +371,7 @@
 			<menu_item_check label="Pokaż czas" name="Show Time"/>
 			<menu_item_check label="Pokazuj koszt transakcji ładowania pliku" name="Show Upload Transaction"/>
 			<menu_item_check label="Pokaż informacje o teksturach" name="Show Texture Info"/>
+			<menu_item_call label="Zużycie pamięci wideo (VRAM) na obiekt" name="VRAM usage per object"/>
 			<menu_item_check label="Pokaż informacje o renderowaniu awatarów" name="Show Avatar Render Info"/>
 			<menu_item_check label="Pokaż informacje o renderowaniu ogólnym" name="Show Render Info"/>
 			<menu_item_check label="Pokaż macierze" name="Show Matrices"/>
@@ -416,6 +415,7 @@
 			<menu_item_check label="Poziomy detali" name="LOD Info"/>
 			<menu_item_check label="Kolejka budowania" name="Build Queue"/>
 			<menu_item_check label="Światła" name="Lights"/>
+			<menu_item_check label="Cząsteczki" name="Particles"/>
 			<menu_item_check label="Szkielet kolizji" name="Collision Skeleton"/>
 			<menu_item_check label="Stawy" name="Joints"/>
 			<menu_item_check label="Promienie" name="Raycast"/>
@@ -451,7 +451,6 @@
 			<menu_item_check label="Renderowania przyłączonego światła" name="Render Attached Lights"/>
 			<menu_item_check label="Renderowanie przyłączonych cząsteczek" name="Render Attached Particles"/>
 			<menu_item_check label="Wyświetlaj obiekty odblaskowe" name="Hover Glow Objects"/>
-			<menu_item_call label="Wyczyść natychmiast pamięć podręczną" name="Cache Clear"/>
 		</menu>
 		<menu label="Sieć" name="Network">
 			<menu_item_check label="Zatrzymaj awatara" name="AgentPause"/>

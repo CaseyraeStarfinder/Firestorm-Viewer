@@ -66,9 +66,6 @@
 // <FS:TT> Client LSL Bridge
 #include "fslslbridge.h"
 
-// When uploading multiple files, don't display any of them when uploading more than this number.
-static const S32 FILE_COUNT_DISPLAY_THRESHOLD = 5;
-
 void dialog_refresh_all();
 
 void on_new_single_inventory_upload_complete(
@@ -238,37 +235,57 @@ LLAssetUploadResponder::~LLAssetUploadResponder()
 }
 
 // virtual
-void LLAssetUploadResponder::errorWithContent(U32 statusNum, const std::string& reason, const LLSD& content)
+void LLAssetUploadResponder::httpFailure()
 {
-	LL_INFOS() << "LLAssetUploadResponder::error [status:" 
-			<< statusNum << "]: " << content << LL_ENDL;
-	LLSD args;
-	switch(statusNum)
+	// *TODO: Add adaptive retry policy?
+	LL_WARNS() << dumpResponse() << LL_ENDL;
+	std::string reason;
+	if (isHttpClientErrorStatus(getStatus()))
 	{
-		case 400:
-			args["FILE"] = (mFileName.empty() ? mVFileID.asString() : mFileName);
-			args["REASON"] = "Error in upload request.  Please visit "
+		reason = "Error in upload request.  Please visit "
 				"http://www.firestormviewer.org/support for help fixing this problem.";
-			LLNotificationsUtil::add("CannotUploadReason", args);
-			break;
-		case 500:
-		default:
-			args["FILE"] = (mFileName.empty() ? mVFileID.asString() : mFileName);
-			args["REASON"] = "The server is experiencing unexpected "
-				"difficulties.";
-			LLNotificationsUtil::add("CannotUploadReason", args);
-			break;
 	}
+	else
+	{
+		reason = "The server is experiencing unexpected "
+			"difficulties.";
+	}
+	LLSD args;
+	args["FILE"] = (mFileName.empty() ? mVFileID.asString() : mFileName);
+	args["REASON"] = reason;
+	LLNotificationsUtil::add("CannotUploadReason", args);
+
+	// unfreeze script preview
+	if(mAssetType == LLAssetType::AT_LSL_TEXT)
+	{
+		LLPreviewLSL* preview = LLFloaterReg::findTypedInstance<LLPreviewLSL>("preview_script", mPostData["item_id"]);
+		if (preview)
+		{
+			LLSD errors;
+			// <FS:Ansariel> Translation format fix
+			//errors.append(LLTrans::getString("UploadFailed") + reason);
+			errors.append(LLTrans::getString("UploadFailed", args));
+			// </FS:Ansariel>
+			preview->callbackLSLCompileFailed(errors);
+		}
+	}
+
 	LLUploadDialog::modalUploadFinished();
 	LLFilePicker::instance().reset();  // unlock file picker when bulk upload fails
 }
 
 //virtual 
-void LLAssetUploadResponder::result(const LLSD& content)
+void LLAssetUploadResponder::httpSuccess()
 {
+	const LLSD& content = getContent();
+	if (!content.isMap())
+	{
+		failureResult(HTTP_INTERNAL_ERROR, "Malformed response contents", content);
+		return;
+	}
 	LL_DEBUGS() << "LLAssetUploadResponder::result from capabilities" << LL_ENDL;
 
-	std::string state = content["state"];
+	const std::string& state = content["state"].asStringRef();
 
 	if (state == "upload")
 	{
@@ -293,7 +310,7 @@ void LLAssetUploadResponder::result(const LLSD& content)
 
 void LLAssetUploadResponder::uploadUpload(const LLSD& content)
 {
-	std::string uploader = content["uploader"];
+	const std::string& uploader = content["uploader"].asStringRef();
 	if (mFileName.empty())
 	{
 		LLHTTPClient::postFile(uploader, mVFileID, mAssetType, this);
@@ -306,15 +323,35 @@ void LLAssetUploadResponder::uploadUpload(const LLSD& content)
 
 void LLAssetUploadResponder::uploadFailure(const LLSD& content)
 {
+	LL_WARNS() << dumpResponse() << LL_ENDL;
+
+	// unfreeze script preview
+	if(mAssetType == LLAssetType::AT_LSL_TEXT)
+	{
+		LLPreviewLSL* preview = LLFloaterReg::findTypedInstance<LLPreviewLSL>("preview_script", mPostData["item_id"]);
+		if (preview)
+		{
+			LLSD errors;
+			// <FS:Ansariel> Translation format fix
+			//errors.append(LLTrans::getString("UploadFailed") + content["message"].asString());
+			LLStringUtil::format_map_t args;
+			args["REASON"] = content["message"].asString();
+			errors.append(LLTrans::getString("UploadFailed", args));
+			// </FS:Ansariel>
+			preview->callbackLSLCompileFailed(errors);
+		}
+	}
+
 	// remove the "Uploading..." message
 	LLUploadDialog::modalUploadFinished();
+
 	LLFloater* floater_snapshot = LLFloaterReg::findInstance("snapshot");
 	if (floater_snapshot)
 	{
 		floater_snapshot->notify(LLSD().with("set-finished", LLSD().with("ok", false).with("msg", "inventory")));
 	}
 	
-	std::string reason = content["state"];
+	const std::string& reason = content["state"].asStringRef();
 	// deal with L$ errors
 	if (reason == "insufficient funds")
 	{
@@ -353,9 +390,9 @@ LLNewAgentInventoryResponder::LLNewAgentInventoryResponder(
 }
 
 // virtual
-void LLNewAgentInventoryResponder::errorWithContent(U32 statusNum, const std::string& reason, const LLSD& content)
+void LLNewAgentInventoryResponder::httpFailure()
 {
-	LLAssetUploadResponder::errorWithContent(statusNum, reason, content);
+	LLAssetUploadResponder::httpFailure();
 	//LLImportColladaAssetCache::getInstance()->assetUploaded(mVFileID, LLUUID(), FALSE);
 }
 
@@ -456,58 +493,6 @@ void LLNewAgentInventoryResponder::uploadComplete(const LLSD& content)
 	}
 
 	//LLImportColladaAssetCache::getInstance()->assetUploaded(mVFileID, content["new_asset"], TRUE);
-}
-
-LLSendTexLayerResponder::LLSendTexLayerResponder(const LLSD& post_data,
-												 const LLUUID& vfile_id,
-												 LLAssetType::EType asset_type,
-												 LLBakedUploadData * baked_upload_data) : 
-	LLAssetUploadResponder(post_data, vfile_id, asset_type),
-	mBakedUploadData(baked_upload_data)
-{
-}
-
-LLSendTexLayerResponder::~LLSendTexLayerResponder()
-{
-	// mBakedUploadData is normally deleted by calls to LLViewerTexLayerSetBuffer::onTextureUploadComplete() below
-	if (mBakedUploadData)
-	{	// ...but delete it in the case where uploadComplete() is never called
-		delete mBakedUploadData;
-		mBakedUploadData = NULL;
-	}
-}
-
-
-// Baked texture upload completed
-void LLSendTexLayerResponder::uploadComplete(const LLSD& content)
-{
-	LLUUID item_id = mPostData["item_id"];
-
-	std::string result = content["state"];
-	LLUUID new_id = content["new_asset"];
-
-	LL_INFOS() << "result: " << result << " new_id: " << new_id << LL_ENDL;
-	if (result == "complete"
-		&& mBakedUploadData != NULL)
-	{	// Invoke 
-		LLViewerTexLayerSetBuffer::onTextureUploadComplete(new_id, (void*) mBakedUploadData, 0, LL_EXSTAT_NONE);
-		mBakedUploadData = NULL;	// deleted in onTextureUploadComplete()
-	}
-	else
-	{	// Invoke the original callback with an error result
-		LLViewerTexLayerSetBuffer::onTextureUploadComplete(new_id, (void*) mBakedUploadData, -1, LL_EXSTAT_NONE);
-		mBakedUploadData = NULL;	// deleted in onTextureUploadComplete()
-	}
-}
-
-void LLSendTexLayerResponder::errorWithContent(U32 statusNum, const std::string& reason, const LLSD& content)
-{
-	LL_INFOS() << "LLSendTexLayerResponder error [status:"
-			<< statusNum << "]: " << content << LL_ENDL;
-	
-	// Invoke the original callback with an error result
-	LLViewerTexLayerSetBuffer::onTextureUploadComplete(LLUUID(), (void*) mBakedUploadData, -1, LL_EXSTAT_NONE);
-	mBakedUploadData = NULL;	// deleted in onTextureUploadComplete()
 }
 
 LLUpdateAgentInventoryResponder::LLUpdateAgentInventoryResponder(
@@ -617,9 +602,10 @@ void LLUpdateAgentInventoryResponder::uploadComplete(const LLSD& content)
 			  }
 		  }
 		// <FS:TT> Client LSL Bridge
-		if (FSLSLBridge::instance().canUseBridge())
+		FSLSLBridge& fs_bridge = FSLSLBridge::instance();
+		if (fs_bridge.canUseBridge() && fs_bridge.getBridgeCreating())
 		{
-			FSLSLBridge::instance().checkBridgeScriptName(mFileName);
+			fs_bridge.checkBridgeScriptName(mFileName);
 		}
 		// </FS:TT>
 		  break;
@@ -660,13 +646,13 @@ void LLUpdateAgentInventoryResponder::uploadFailure(const LLSD& content)
 		LLAssetUploadResponder::uploadFailure(content);
 }
 
-void LLUpdateAgentInventoryResponder::error(U32 statusNum, const std::string& reason)
+void LLUpdateAgentInventoryResponder::httpFailure()
 {
-	LLAssetUploadResponder::error(statusNum, reason);
+	LLAssetUploadResponder::httpFailure();
 	if (!mErrorCallback.empty())
 	{
 		// Clear the filename if the error callback returns false (prevents parent's destructor from deleting the file)
-		if (!mErrorCallback(mFileName, statusNum, reason))
+		if (!mErrorCallback(mFileName))
 			mFileName.clear();
 	}
 }
@@ -741,10 +727,10 @@ void LLUpdateTaskInventoryResponder::uploadComplete(const LLSD& content)
 		  }
 		  else
 		  {
-			  // <FS:Ansariel> FIRE-511 / VWR-27512: Can't open script editors from objects individually
-			  //LLLiveLSLEditor* preview = LLFloaterReg::findTypedInstance<LLLiveLSLEditor>("preview_scriptedit", LLSD(item_id));
-			  LLLiveLSLEditor* preview = LLFloaterReg::findTypedInstance<LLLiveLSLEditor>("preview_scriptedit", LLSD().with("xoredid", item_id ^ task_id).with("assetid", item_id));
-			  // </FS:Ansariel>
+			  LLSD floater_key;
+			  floater_key["taskid"] = task_id;
+			  floater_key["itemid"] = item_id;
+			  LLLiveLSLEditor* preview = LLFloaterReg::findTypedInstance<LLLiveLSLEditor>("preview_scriptedit", floater_key);
 			  if (preview)
 			  {
 				  // Bytecode save completed
@@ -1084,19 +1070,14 @@ LLNewAgentInventoryVariablePriceResponder::~LLNewAgentInventoryVariablePriceResp
 	delete mImpl;
 }
 
-void LLNewAgentInventoryVariablePriceResponder::errorWithContent(
-	U32 statusNum,
-	const std::string& reason,
-	const LLSD& content)
+void LLNewAgentInventoryVariablePriceResponder::httpFailure()
 {
-	LL_DEBUGS() 
-		<< "LLNewAgentInventoryVariablePrice::error " << statusNum 
-		<< " reason: " << reason << LL_ENDL;
+	const LLSD& content = getContent();
+	LL_WARNS("Upload") << dumpResponse() << LL_ENDL;
 
-	if ( content.has("error") )
+	static const std::string _ERROR = "error";
+	if ( content.has(_ERROR) )
 	{
-		static const std::string _ERROR = "error";
-
 		mImpl->onTransportError(content[_ERROR]);
 	}
 	else
@@ -1105,8 +1086,14 @@ void LLNewAgentInventoryVariablePriceResponder::errorWithContent(
 	}
 }
 
-void LLNewAgentInventoryVariablePriceResponder::result(const LLSD& content)
+void LLNewAgentInventoryVariablePriceResponder::httpSuccess()
 {
+	const LLSD& content = getContent();
+	if (!content.isMap())
+	{
+		failureResult(HTTP_INTERNAL_ERROR, "Malformed response contents", content);
+		return;
+	}
 	// Parse out application level errors and the appropriate
 	// responses for them
 	static const std::string _ERROR = "error";
@@ -1122,6 +1109,7 @@ void LLNewAgentInventoryVariablePriceResponder::result(const LLSD& content)
 	// Check for application level errors
 	if ( content.has(_ERROR) )
 	{
+		LL_WARNS("Upload") << dumpResponse() << LL_ENDL;
 		onApplicationLevelError(content[_ERROR]);
 		return;
 	}
@@ -1165,6 +1153,7 @@ void LLNewAgentInventoryVariablePriceResponder::result(const LLSD& content)
 	}
 	else
 	{
+		LL_WARNS("Upload") << dumpResponse() << LL_ENDL;
 		onApplicationLevelError("");
 	}
 }
@@ -1237,4 +1226,58 @@ void LLNewAgentInventoryVariablePriceResponder::showConfirmationDialog(
 	}
 }
 
+// <FS:Ansariel> [Legacy Bake]
+//-----------------------------------------------------------------------------
+// Legacy baking
+//-----------------------------------------------------------------------------
+LLSendTexLayerResponder::LLSendTexLayerResponder(const LLSD& post_data,
+												 const LLUUID& vfile_id,
+												 LLAssetType::EType asset_type,
+												 LLBakedUploadData * baked_upload_data) : 
+	LLAssetUploadResponder(post_data, vfile_id, asset_type),
+	mBakedUploadData(baked_upload_data)
+{
+}
+
+LLSendTexLayerResponder::~LLSendTexLayerResponder()
+{
+	// mBakedUploadData is normally deleted by calls to LLViewerTexLayerSetBuffer::onTextureUploadComplete() below
+	if (mBakedUploadData)
+	{	// ...but delete it in the case where uploadComplete() is never called
+		delete mBakedUploadData;
+		mBakedUploadData = NULL;
+	}
+}
+
+// Baked texture upload completed
+void LLSendTexLayerResponder::uploadComplete(const LLSD& content)
+{
+	LLUUID item_id = mPostData["item_id"];
+
+	std::string result = content["state"];
+	LLUUID new_id = content["new_asset"];
+
+	LL_INFOS() << "result: " << result << " new_id: " << new_id << LL_ENDL;
+	if (result == "complete"
+		&& mBakedUploadData != NULL)
+	{	// Invoke 
+		LLViewerTexLayerSetBuffer::onTextureUploadComplete(new_id, (void*) mBakedUploadData, 0, LL_EXSTAT_NONE);
+		mBakedUploadData = NULL;	// deleted in onTextureUploadComplete()
+	}
+	else
+	{	// Invoke the original callback with an error result
+		LLViewerTexLayerSetBuffer::onTextureUploadComplete(new_id, (void*) mBakedUploadData, -1, LL_EXSTAT_NONE);
+		mBakedUploadData = NULL;	// deleted in onTextureUploadComplete()
+	}
+}
+
+void LLSendTexLayerResponder::httpFailure()
+{
+	LL_WARNS() << dumpResponse() << LL_ENDL;
+	
+	// Invoke the original callback with an error result
+	LLViewerTexLayerSetBuffer::onTextureUploadComplete(LLUUID(), (void*) mBakedUploadData, -1, LL_EXSTAT_NONE);
+	mBakedUploadData = NULL;	// deleted in onTextureUploadComplete()
+}
+// </FS:Ansariel> [Legacy Bake]
 

@@ -536,6 +536,10 @@ LLIMModel::LLIMSession::LLIMSession(const LLUUID& session_id, const std::string&
 	mName(name),
 	mType(type),
 	mHasOfflineMessage(has_offline_msg),
+// [SL:KB] - Patch: Chat-GroupSnooze | Checked: 2012-08-01 (Catznip-3.3)
+	mCloseAction(CLOSE_DEFAULT),
+	mSnoozeTime(-1),
+// [/SL:KB]
 	mParticipantUnreadMessageCount(0),
 	mNumUnread(0),
 	mOtherParticipantID(other_participant_id),
@@ -548,6 +552,7 @@ LLIMModel::LLIMSession::LLIMSession(const LLUUID& session_id, const std::string&
 	mOtherParticipantIsAvatar(true),
 	mStartCallOnInitialize(false),
 	mStartedAsIMCall(voice),
+	mIsDNDsend(false),
 	mAvatarNameCacheConnection()
 {
 	// set P2P type by default
@@ -1172,7 +1177,7 @@ void LLIMModel::sendNoUnreadMessages(const LLUUID& session_id)
 
 // <FS:Ansariel> Added is_announcement parameter
 //bool LLIMModel::addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text) {
-bool LLIMModel::addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text, BOOL is_announcement /* = FALSE */) {
+bool LLIMModel::addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text, bool is_announcement /* = false */) {
 	
 	LLIMSession* session = findIMSession(session_id);
 
@@ -1258,7 +1263,7 @@ bool LLIMModel::proccessOnlineOfflineNotification(
 //bool LLIMModel::addMessage(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, 
 //						   const std::string& utf8_text, bool log2file /* = true */) { 
 bool LLIMModel::addMessage(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, 
-						   const std::string& utf8_text, bool log2file /* = true */, BOOL is_announcement /* = FALSE */) { 
+						   const std::string& utf8_text, bool log2file /* = true */, bool is_announcement /* = false */, bool keyword_alert_performed /* = false */) { 
 
 	LLIMSession* session = addMessageSilently(session_id, from, from_id, utf8_text, log2file, is_announcement);
 	if (!session) return false;
@@ -1279,7 +1284,8 @@ bool LLIMModel::addMessage(const LLUUID& session_id, const std::string& from, co
 	arg["from_id"] = from_id;
 	arg["time"] = LLLogChat::timestamp(false);
 	arg["session_type"] = session->mSessionType;
-	arg["is_announcement"] = is_announcement; // Ansariel: Indicator if it's an announcement
+	arg["is_announcement"] = is_announcement; // <FS:Ansariel> Indicator if it's an announcement
+	arg["keyword_alert_performed"] = keyword_alert_performed; // <FS:Ansariel> Pass info if keyword alert has been performed
 	mNewMsgSignal(arg);
 
 	return true;
@@ -1289,7 +1295,7 @@ bool LLIMModel::addMessage(const LLUUID& session_id, const std::string& from, co
 //LLIMModel::LLIMSession* LLIMModel::addMessageSilently(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, 
 //													 const std::string& utf8_text, bool log2file /* = true */)
 LLIMModel::LLIMSession* LLIMModel::addMessageSilently(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, 
-													 const std::string& utf8_text, bool log2file /* = true */, BOOL is_announcement /* = FALSE */)
+													 const std::string& utf8_text, bool log2file /* = true */, bool is_announcement /* = false */)
 {
 	LLIMSession* session = findIMSession(session_id);
 
@@ -1510,8 +1516,15 @@ void deliverMessage(const std::string& utf8_text,
 		gAgent.sendReliableMessage();
 	}
 
+	bool is_group_chat = false;
+	LLIMModel::LLIMSession* session = LLIMModel::getInstance()->findIMSession(im_session_id);
+	if(session)
+	{
+		is_group_chat = session->isGroupSessionType();
+	}
+
 	// If there is a mute list and this is not a group chat...
-	if ( LLMuteList::getInstance() )
+	if ( LLMuteList::getInstance() && !is_group_chat)
 	{
 		// ... the target should not be in our mute list for some message types.
 		// Auto-remove them if present.
@@ -1618,7 +1631,7 @@ void LLIMModel::sendMessage(const std::string& utf8_text,
 
 	if (is_not_group_id)
 	{
-		LLIMModel::LLIMSession* session = LLIMModel::getInstance()->findIMSession(im_session_id);
+		LLIMModel::LLIMSession* session = LLIMModel::getInstance()->findIMSession(im_session_id); // <FS:Ansariel> Re-added; required because of FIRE-787
 		if( session == 0)//??? shouldn't really happen
 		{
 			LLRecentPeople::instance().add(other_participant_id);
@@ -1627,7 +1640,7 @@ void LLIMModel::sendMessage(const std::string& utf8_text,
 		// IM_SESSION_INVITE means that this is an Ad-hoc incoming chat
 		//		(it can be also Group chat but it is checked above)
 		// In this case mInitialTargetIDs contains Ad-hoc session ID and it should not be added
-		// to Recent People to prevent showing of an item with (???)(???). See EXT-8246.
+		// to Recent People to prevent showing of an item with (?? ?)(?? ?), sans the spaces. See EXT-8246.
 		// Concrete participants will be added into this list once they sent message in chat.
 		if (IM_SESSION_INVITE == dialog) return;
 			
@@ -1734,6 +1747,7 @@ void start_deprecated_conference_chat(
 
 class LLStartConferenceChatResponder : public LLHTTPClient::Responder
 {
+	LOG_CLASS(LLStartConferenceChatResponder);
 public:
 	LLStartConferenceChatResponder(
 		const LLUUID& temp_session_id,
@@ -1747,10 +1761,12 @@ public:
 		mAgents = agents_to_invite;
 	}
 
-	virtual void errorWithContent(U32 statusNum, const std::string& reason, const LLSD& content)
+protected:
+	virtual void httpFailure()
 	{
 		//try an "old school" way.
-		if ( statusNum == 400 )
+		// *TODO: What about other error status codes?  4xx 5xx?
+		if ( getStatus() == HTTP_BAD_REQUEST )
 		{
 			start_deprecated_conference_chat(
 				mTempSessionID,
@@ -1759,8 +1775,7 @@ public:
 				mAgents);
 		}
 
-		LL_WARNS() << "LLStartConferenceChatResponder error [status:"
-				<< statusNum << "]: " << content << LL_ENDL;
+		LL_WARNS() << dumpResponse() << LL_ENDL;
 
 		//else throw an error back to the client?
 		//in theory we should have just have these error strings
@@ -1852,6 +1867,7 @@ bool LLIMModel::sendStartSession(
 class LLViewerChatterBoxInvitationAcceptResponder :
 	public LLHTTPClient::Responder
 {
+	LOG_CLASS(LLViewerChatterBoxInvitationAcceptResponder);
 public:
 	LLViewerChatterBoxInvitationAcceptResponder(
 		const LLUUID& session_id,
@@ -1861,8 +1877,15 @@ public:
 		mInvitiationType = invitation_type;
 	}
 
-	void result(const LLSD& content)
+private:
+	void httpSuccess()
 	{
+		const LLSD& content = getContent();
+		if (!content.isMap())
+		{
+			failureResult(HTTP_INTERNAL_ERROR, "Malformed response contents", content);
+			return;
+		}
 		if ( gIMMgr)
 		{
 			LLIMSpeakerMgr* speaker_mgr = LLIMModel::getInstance()->getSpeakerManager(mSessionID);
@@ -1907,19 +1930,17 @@ public:
 		}
 	}
 
-	void errorWithContent(U32 statusNum, const std::string& reason, const LLSD& content)
+	void httpFailure()
 	{
-		LL_WARNS() << "LLViewerChatterBoxInvitationAcceptResponder error [status:"
-				<< statusNum << "]: " << content << LL_ENDL;
+		LL_WARNS() << dumpResponse() << LL_ENDL;
 		//throw something back to the viewer here?
 		if ( gIMMgr )
 		{
 			gIMMgr->clearPendingAgentListUpdates(mSessionID);
 			gIMMgr->clearPendingInvitation(mSessionID);
-			if ( 404 == statusNum )
+			if ( HTTP_NOT_FOUND == getStatus() )
 			{
-				std::string error_string;
-				error_string = "session_does_not_exist_error";
+				static const std::string error_string("session_does_not_exist_error");
 				gIMMgr->showSessionStartError(error_string, mSessionID);
 			}
 		}
@@ -2932,7 +2953,8 @@ void LLIMMgr::addMessage(
 	const LLUUID& region_id,
 	const LLVector3& position,
 	bool link_name, // If this is true, then we insert the name and link it to a profile
-	BOOL is_announcement) // <FS:Ansariel> Special parameter indicating announcements
+	bool is_announcement, // <FS:Ansariel> Special parameter indicating announcements
+	bool keyword_alert_performed) // <FS:Ansariel> Pass info if keyword alert has been performed
 {
 	LLUUID other_participant_id = target_id;
 
@@ -3067,18 +3089,24 @@ void LLIMMgr::addMessage(
 		}
 
 		// <FS:PP> Option to automatically ignore and leave all conference (ad-hoc) chats
-		if (dialog != IM_NOTHING_SPECIAL && !is_group_chat && gSavedSettings.getBOOL("FSIgnoreAdHocSessions") && !from_linden)
+		static LLCachedControl<bool> ignoreAdHocSessions(gSavedSettings, "FSIgnoreAdHocSessions");
+		if (dialog != IM_NOTHING_SPECIAL && !is_group_chat && ignoreAdHocSessions && !from_linden)
 		{
-			LL_INFOS() << "Ignoring conference (ad-hoc) chat from " << new_session_id.asString() << LL_ENDL;
-			if (!gIMMgr->leaveSession(new_session_id))
+			static LLCachedControl<bool> dontIgnoreAdHocFromFriends(gSavedSettings, "FSDontIgnoreAdHocFromFriends");
+			if (!dontIgnoreAdHocFromFriends || (dontIgnoreAdHocFromFriends && LLAvatarTracker::instance().getBuddyInfo(other_participant_id) == NULL))
 			{
-				LL_WARNS() << "Ad-hoc session " << new_session_id.asString() << " does not exist." << LL_ENDL;
+				static LLCachedControl<bool> reportIgnoredAdHocSession(gSavedSettings, "FSReportIgnoredAdHocSession");
+				LL_INFOS() << "Ignoring conference (ad-hoc) chat from " << new_session_id.asString() << LL_ENDL;
+				if (!gIMMgr->leaveSession(new_session_id))
+				{
+					LL_WARNS() << "Ad-hoc session " << new_session_id.asString() << " does not exist." << LL_ENDL;
+				}
+				else if (reportIgnoredAdHocSession)
+				{
+					reportToNearbyChat(LLTrans::getString("IgnoredAdHocSession"));
+				}
+				return;
 			}
-			if (gSavedSettings.getBOOL("FSReportIgnoredAdHocSession"))
-			{
-				reportToNearbyChat(LLTrans::getString("IgnoredAdHocSession"));
-			}
-			return;
 		}
 		// </FS:PP>
 
@@ -3148,7 +3176,7 @@ void LLIMMgr::addMessage(
 	{
 		// <FS:Ansariel> Added is_announcement parameter
 		//LLIMModel::instance().addMessage(new_session_id, from, other_participant_id, msg);
-		LLIMModel::instance().addMessage(new_session_id, from, other_participant_id, msg, true, is_announcement);
+		LLIMModel::instance().addMessage(new_session_id, from, other_participant_id, msg, true, is_announcement, keyword_alert_performed);
 	}
 
 	// Open conversation floater if offline messages are present
@@ -3381,7 +3409,30 @@ bool LLIMMgr::leaveSession(const LLUUID& session_id)
 	LLIMModel::LLIMSession* im_session = LLIMModel::getInstance()->findIMSession(session_id);
 	if (!im_session) return false;
 
-	LLIMModel::getInstance()->sendLeaveSession(session_id, im_session->mOtherParticipantID);
+// [SL:KB] - Patch: Chat-GroupSnooze | Checked: 2012-06-16 (Catznip-3.3)
+	// Only group sessions can be snoozed
+	if ( (im_session->isGroupSessionType()) && (LLIMModel::LLIMSession::CLOSE_SNOOZE == im_session->mCloseAction) )
+	{
+		static LLCachedControl<S32> s_nSnoozeTime(gSavedSettings, "GroupSnoozeTime", 900);
+		snoozed_sessions_t::iterator itSession = mSnoozedSessions.find(session_id);
+		F64 expirationTime = LLTimer::getTotalSeconds() + F64(s_nSnoozeTime);
+		if (im_session->mSnoozeTime > -1)
+		{
+			expirationTime = LLTimer::getTotalSeconds() + F64(im_session->mSnoozeTime);
+			im_session->mSnoozeTime = -1;
+		}
+
+		if (mSnoozedSessions.end() != itSession)
+			itSession->second = expirationTime;
+		else
+			mSnoozedSessions.insert(std::pair<LLUUID, F64>(session_id, expirationTime));
+	}
+	else
+	{
+		LLIMModel::getInstance()->sendLeaveSession(session_id, im_session->mOtherParticipantID);
+	}
+// [/SL:KB]
+//	LLIMModel::getInstance()->sendLeaveSession(session_id, im_session->mOtherParticipantID);
 	gIMMgr->removeSession(session_id);
 	return true;
 }
@@ -3491,6 +3542,24 @@ void LLIMMgr::inviteToSession(
 			if (gAgent.isDoNotDisturb() && !isRejectGroupCall && !isRejectNonFriendCall && !isRejectAdHocCall && !isRejectP2PCall)
 			// </FS:PP>
 			{
+				if (!hasSession(session_id) && (type == IM_SESSION_P2P_INVITE))
+				{
+					std::string fixed_session_name = caller_name;
+					if(!session_name.empty() && session_name.size()>1)
+					{
+						fixed_session_name = session_name;
+					}
+					else
+					{
+						LLAvatarName av_name;
+						if (LLAvatarNameCache::get(caller_id, &av_name))
+						{
+							fixed_session_name = av_name.getDisplayName();
+						}
+					}
+					LLIMModel::getInstance()->newSession(session_id, fixed_session_name, IM_NOTHING_SPECIAL, caller_id, false, false);
+				}
+
 				LLSD args;
 				addSystemMessage(session_id, "you_auto_rejected_call", args);
 				send_do_not_disturb_message(gMessageSystem, caller_id, session_id);
@@ -3545,6 +3614,44 @@ BOOL LLIMMgr::hasSession(const LLUUID& session_id)
 {
 	return LLIMModel::getInstance()->findIMSession(session_id) != NULL;
 }
+
+// [SL:KB] - Patch: Chat-GroupSnooze | Checked: 2012-06-16 (Catznip-3.3)
+bool LLIMMgr::checkSnoozeExpiration(const LLUUID& session_id) const
+{
+	snoozed_sessions_t::const_iterator itSession = mSnoozedSessions.find(session_id);
+	return (mSnoozedSessions.end() != itSession) && (itSession->second <= LLTimer::getTotalSeconds());
+}
+
+bool LLIMMgr::isSnoozedSession(const LLUUID& session_id) const
+{
+	return (mSnoozedSessions.end() != mSnoozedSessions.find(session_id));
+}
+
+bool LLIMMgr::restoreSnoozedSession(const LLUUID& session_id)
+{
+	snoozed_sessions_t::iterator itSession = mSnoozedSessions.find(session_id);
+	if (mSnoozedSessions.end() != itSession)
+	{
+		mSnoozedSessions.erase(itSession);
+
+		LLGroupData groupData;
+		if (gAgent.getGroupData(session_id, groupData))
+		{
+			gIMMgr->addSession(groupData.mName, IM_SESSION_INVITE, session_id);
+
+			uuid_vec_t ids;
+			LLIMModel::sendStartSession(session_id, session_id, ids, IM_SESSION_GROUP_START);
+
+			if (!gAgent.isDoNotDisturb() && gSavedSettings.getU32("PlayModeUISndNewIncomingGroupIMSession") != 0)
+			{
+				make_ui_sound("UISndNewIncomingGroupIMSession");
+			}
+			return true;
+		}
+	}
+	return false;
+}
+// [/SL:KB]
 
 void LLIMMgr::clearPendingInvitation(const LLUUID& session_id)
 {
@@ -3749,6 +3856,38 @@ bool LLIMMgr::isVoiceCall(const LLUUID& session_id)
 	return im_session->mStartedAsIMCall;
 }
 
+void LLIMMgr::updateDNDMessageStatus()
+{
+	if (LLIMModel::getInstance()->mId2SessionMap.empty()) return;
+
+	std::map<LLUUID, LLIMModel::LLIMSession*>::const_iterator it = LLIMModel::getInstance()->mId2SessionMap.begin();
+	for (; it != LLIMModel::getInstance()->mId2SessionMap.end(); ++it)
+	{
+		LLIMModel::LLIMSession* session = (*it).second;
+
+		if (session->isP2P())
+		{
+			setDNDMessageSent(session->mSessionID,false);
+		}
+	}
+}
+
+bool LLIMMgr::isDNDMessageSend(const LLUUID& session_id)
+{
+	LLIMModel::LLIMSession* im_session = LLIMModel::getInstance()->findIMSession(session_id);
+	if (!im_session) return false;
+
+	return im_session->mIsDNDsend;
+}
+
+void LLIMMgr::setDNDMessageSent(const LLUUID& session_id, bool is_send)
+{
+	LLIMModel::LLIMSession* im_session = LLIMModel::getInstance()->findIMSession(session_id);
+	if (!im_session) return;
+
+	im_session->mIsDNDsend = is_send;
+}
+
 void LLIMMgr::addNotifiedNonFriendSessionID(const LLUUID& session_id)
 {
 	mNotifiedNonFriendSessions.insert(session_id);
@@ -3872,8 +4011,8 @@ void LLIMMgr::processIMTypingCore(const LLIMInfo* im_info, BOOL typing)
 				im_info->mParentEstateID,
 				im_info->mRegionID,
 				im_info->mPosition,
-				false, // <-- Wow! This parameter is never handled!!!
-				TRUE
+				false,
+				true
 				);
 		}
 
@@ -3937,8 +4076,8 @@ void LLIMMgr::processIMTypingCore(const LLIMInfo* im_info, BOOL typing)
 				im_info->mParentEstateID,
 				im_info->mRegionID,
 				im_info->mPosition,
-				false, // <-- Wow! This parameter is never handled!!!
-				TRUE
+				false,
+				true
 				);
 
 				// <FS:Ansariel> Send inventory item on autoresponse
@@ -3960,7 +4099,7 @@ void LLIMMgr::processIMTypingCore(const LLIMInfo* im_info, BOOL typing)
 								im_info->mRegionID,
 								im_info->mPosition,
 								false,
-								TRUE);
+								true);
 						LLGiveInventory::doGiveInventoryItem(im_info->mFromID, item, session_id);
 					}
 				}

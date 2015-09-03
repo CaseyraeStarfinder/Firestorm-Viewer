@@ -454,7 +454,7 @@ bool LLFloaterIMSession::canAddSelectedToChat(const uuid_vec_t& uuids)
 {
 	if (!mSession
 		|| mDialog == IM_SESSION_GROUP_START
-		|| mDialog == IM_SESSION_INVITE && gAgent.isInGroup(mSessionID))
+		|| (mDialog == IM_SESSION_INVITE && gAgent.isInGroup(mSessionID)))
 	{
 		return false;
 	}
@@ -837,7 +837,7 @@ bool LLFloaterIMSession::toggle(const LLUUID& session_id)
 			floater->setVisible(false);
 			return false;
 		}
-		else if(floater && (!floater->isDocked() || floater->getVisible() && !floater->hasFocus()))
+		else if(floater && ((!floater->isDocked() || floater->getVisible()) && !floater->hasFocus()))
 		{
 			floater->setVisible(TRUE);
 			floater->setFocus(TRUE);
@@ -985,8 +985,7 @@ void LLFloaterIMSession::onInputEditorFocusReceived( LLFocusableElement* caller,
 	// Allow enabling the LLFloaterIMSession input editor only if session can accept text
 	LLIMModel::LLIMSession* im_session =
 		LLIMModel::instance().findIMSession(self->mSessionID);
-	//TODO: While disabled lllineeditor can receive focus we need to check if it is enabled (EK)
-	if( im_session && im_session->mTextIMPossible && self->mInputEditor->getEnabled())
+	if( im_session && im_session->mTextIMPossible && !self->mInputEditor->getReadOnly())
 	{
 		//in disconnected state IM input editor should be disabled
 		self->mInputEditor->setEnabled(!gDisconnected);
@@ -1239,16 +1238,17 @@ BOOL LLFloaterIMSession::isInviteAllowed() const
 
 class LLSessionInviteResponder : public LLHTTPClient::Responder
 {
+	LOG_CLASS(LLSessionInviteResponder);
 public:
 	LLSessionInviteResponder(const LLUUID& session_id)
 	{
 		mSessionID = session_id;
 	}
 
-	void errorWithContent(U32 statusNum, const std::string& reason, const LLSD& content)
+protected:
+	void httpFailure()
 	{
-		LL_WARNS() << "Error inviting all agents to session [status:" 
-				<< statusNum << "]: " << content << LL_ENDL;
+		LL_WARNS() << "Error inviting all agents to session " << dumpResponse() << LL_ENDL;
 		//throw something back to the viewer here?
 	}
 

@@ -1,5 +1,16 @@
 <llsd>
     <map>
+    <key>AvatarHoverOffsetZ</key>
+    <map>
+      <key>Comment</key>
+      <string>After-everything-else fixup for avatar Z position.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+        <real>0.0</real>
+    </map>
     <key>RLVaLoginLastLocation</key>
         <map>
         <key>Comment</key>
@@ -97,7 +108,7 @@
         <key>Type</key>
             <string>Boolean</string>
         <key>Value</key>
-            <integer>true</integer>
+            <integer>1</integer>
     </map>   
     <key>FSAutorespondMode</key>
         <map>
@@ -158,6 +169,17 @@
         <map>
         <key>Comment</key>
             <string>Does user's auto response to non-friends mode message differ from default?</string>
+        <key>Persist</key>
+            <integer>1</integer>
+        <key>Type</key>
+            <string>Boolean</string>
+        <key>Value</key>
+            <integer>0</integer>
+        </map>
+    <key>FSRejectAllGroupInvitesMode</key>
+        <map>
+        <key>Comment</key>
+            <string>Has the user selected reject all group invites mode?</string>
         <key>Persist</key>
             <integer>1</integer>
         <key>Type</key>
@@ -328,6 +350,8 @@
         <key>Type</key>
             <string>U32</string>
         <key>Value</key>
+            <integer>0</integer>
+        <key>Backup</key>
             <integer>0</integer>
         </map>
     <key>LastPostcardRecipient</key>
@@ -515,7 +539,7 @@
         <key>Type</key>
              <string>Boolean</string>
         <key>Value</key>
-             <integer>0</integer>
+             <integer>1</integer>
         </map>
     <!-- End of back compatibility settings -->
     
@@ -643,6 +667,28 @@
 		<key>Value</key>
 			<integer>0</integer>
 	</map>
+	<key>FSKeywordMatchWholeWords</key>
+	<map>
+		<key>Comment</key>
+			<string>Keywords will only match whole words</string>
+		<key>Persist</key>
+			<integer>1</integer>
+		<key>Type</key>
+			<string>Boolean</string>
+		<key>Value</key>
+			<integer>0</integer>
+	</map>
+	<key>FSKeywordSpeakersName</key>
+	<map>
+		<key>Comment</key>
+			<string>Look for Keywords in the names of speakers</string>
+		<key>Persist</key>
+			<integer>1</integer>
+		<key>Type</key>
+			<string>Boolean</string>
+		<key>Value</key>
+			<integer>0</integer>
+	</map>
 	<key>FSKeywords</key>
 	<map>
 		<key>Comment</key>
@@ -652,7 +698,7 @@
 		<key>Type</key>
 			<string>String</string>
 		<key>Value</key>
-			<string></string>
+			<string/>
 	</map>
 	<key>FSKeywordChangeColor</key>
 	<map>
@@ -691,9 +737,9 @@
 	    <string>Color4</string>
 	    <key>Value</key>
 	    <array>
-	    <real>1</real>
-	    <real>0</real>
-	    <real>0</real>
+	    <real>1.0</real>
+	    <real>0.0</real>
+	    <real>0.0</real>
 	    <real>1.0</real>
 	</array>
 	</map>
@@ -765,63 +811,6 @@
         </map>
     <!-- End of Firestorm settings -->
 
-    <!-- Settings imported from Exodus -->
-    <key>ExodusFlickrToken</key>
-        <map>
-        <key>Comment</key>
-            <string>Flickr OAuth Token</string>
-        <key>Persist</key>
-            <integer>1</integer>
-        <key>Type</key>
-            <string>String</string>
-        <key>Value</key>
-            <string></string>
-        </map>
-    <key>ExodusFlickrTokenSecret</key>
-        <map>
-        <key>Comment</key>
-            <string>Flickr OAuth Token Secret</string>
-        <key>Persist</key>
-            <integer>1</integer>
-        <key>Type</key>
-            <string>String</string>
-        <key>Value</key>
-            <string></string>
-        </map>
-    <key>ExodusFlickrNSID</key>
-        <map>
-        <key>Comment</key>
-            <string>Flickr User ID</string>
-        <key>Persist</key>
-            <integer>1</integer>
-        <key>Type</key>
-            <string>String</string>
-        <key>Value</key>
-            <string></string>
-        </map>
-    <key>ExodusFlickrUsername</key>
-        <map>
-        <key>Comment</key>
-            <string>Flickr Username</string>
-        <key>Persist</key>
-            <integer>1</integer>
-        <key>Type</key>
-            <string>String</string>
-        <key>Value</key>
-            <string></string>
-        </map>
-    <key>ExodusFlickrFullName</key>
-        <map>
-        <key>Comment</key>
-            <string>Flickr Username</string>
-        <key>Persist</key>
-            <integer>1</integer>
-        <key>Type</key>
-            <string>String</string>
-        <key>Value</key>
-            <string></string>
-        </map>
-    <!-- End of settings imported from Exodus -->
     <key>FSStoredCameraPos</key>
         <map>
         <key>Comment</key>
@@ -861,7 +850,7 @@
         <key>Type</key>
             <string>String</string>
         <key>Value</key>
-            <string></string>
+            <string/>
         </map>
     <key>FSAutoresponseItemUUID</key>
         <map>
@@ -895,6 +884,88 @@
                 <string>String</string>
             <key>Value</key>
                 <string/>
+        </map>
+	<key>FSllOwnerSayToScriptDebugWindow</key>
+		<map>
+			<key>Comment</key>
+				<string>Show llOwnerSays in script debug window instead of local chat</string>
+			<key>Persist</key>
+				<integer>1</integer>
+			<key>Type</key>
+				<string>Boolean</string>
+			<key>Value</key>
+				<integer>0</integer>
+		</map>
+    <!-- Settings imported from Exodus -->
+    <key>ExodusFlickrToken</key>
+        <map>
+        <key>Comment</key>
+            <string>Flickr OAuth Token</string>
+        <key>Persist</key>
+            <integer>1</integer>
+        <key>Type</key>
+            <string>String</string>
+        <key>Value</key>
+            <string/>
+        </map>
+    <key>ExodusFlickrTokenSecret</key>
+        <map>
+        <key>Comment</key>
+            <string>Flickr OAuth Token Secret</string>
+        <key>Persist</key>
+            <integer>1</integer>
+        <key>Type</key>
+            <string>String</string>
+        <key>Value</key>
+            <string/>
+        </map>
+    <key>ExodusFlickrNSID</key>
+        <map>
+        <key>Comment</key>
+            <string>Flickr User ID</string>
+        <key>Persist</key>
+            <integer>1</integer>
+        <key>Type</key>
+            <string>String</string>
+        <key>Value</key>
+            <string/>
+        </map>
+    <key>ExodusFlickrUsername</key>
+        <map>
+        <key>Comment</key>
+            <string>Flickr Username</string>
+        <key>Persist</key>
+            <integer>1</integer>
+        <key>Type</key>
+            <string>String</string>
+        <key>Value</key>
+            <string/>
+        </map>
+    <key>ExodusFlickrFullName</key>
+        <map>
+        <key>Comment</key>
+            <string>Flickr Username</string>
+        <key>Persist</key>
+            <integer>1</integer>
+        <key>Type</key>
+            <string>String</string>
+        <key>Value</key>
+            <string/>
+        </map>
+    <!-- End of settings imported from Exodus -->
+    <key>layout_size_chat_bar_stack</key>
+        <map>
+        <key>Backup</key>
+            <boolean>1</boolean>
+        <key>Comment</key>
+            <string>Fractional size for layout panel chat_bar_stack</string>
+        <key>Type</key>
+            <string>LLSD</string>
+        <key>Value</key>
+            <array>
+                <integer>400</integer>
+                <integer>600</integer>
+            </array>
         </map>
 
     </map>

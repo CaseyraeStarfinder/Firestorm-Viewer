@@ -75,7 +75,6 @@
 #include "llviewerwindow.h"
 
 // Constants
-static const S32 LANDMARK_FOLDERS_MENU_WIDTH = 250;
 static const F32 PLACE_INFO_UPDATE_INTERVAL = 3.0;
 static const std::string AGENT_INFO_TYPE			= "agent";
 static const std::string CREATE_LANDMARK_INFO_TYPE	= "create_landmark";
@@ -181,8 +180,7 @@ public:
 protected:
 	/*virtual*/ void done()
 	{
-		mPlaces->showAddedLandmarkInfo(mAdded);
-		mAdded.clear();
+		mPlaces->showAddedLandmarkInfo(gInventory.getAddedIDs());
 	}
 
 private:
@@ -230,7 +228,7 @@ public:
 			LLRemoteParcelInfoProcessor::getInstance()->sendParcelInfoRequest(parcel_id);
 		}
 	}
-	/*virtual*/ void setErrorStatus(U32 status, const std::string& reason)
+	/*virtual*/ void setErrorStatus(S32 status, const std::string& reason)
 	{
 		// <FS:Ansariel> Don't error out because of a HTTP error!
 		//LL_ERRS() << "Can't complete remote parcel request. Http Status: "
@@ -1142,9 +1140,9 @@ void LLPanelPlaces::changedGlobalPos(const LLVector3d &global_pos)
 	updateVerbs();
 }
 
-void LLPanelPlaces::showAddedLandmarkInfo(const uuid_vec_t& items)
+void LLPanelPlaces::showAddedLandmarkInfo(const uuid_set_t& items)
 {
-	for (uuid_vec_t::const_iterator item_iter = items.begin();
+	for (uuid_set_t::const_iterator item_iter = items.begin();
 		 item_iter != items.end();
 		 ++item_iter)
 	{

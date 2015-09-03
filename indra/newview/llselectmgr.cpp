@@ -52,6 +52,7 @@
 // viewer includes
 #include "llagent.h"
 #include "llagentcamera.h"
+#include "llattachmentsmgr.h"
 #include "llaudioengine.h" // <FS:PP> For object deletion sound
 #include "llviewerwindow.h"
 #include "lldrawable.h"
@@ -111,9 +112,7 @@ LLViewerObject* getSelectedParentObject(LLViewerObject *object) ;
 // Consts
 //
 
-const S32 NUM_SELECTION_UNDO_ENTRIES = 200;
 const F32 SILHOUETTE_UPDATE_THRESHOLD_SQUARED = 0.02f;
-const S32 MAX_ACTION_QUEUE_SIZE = 20;
 const S32 MAX_SILS_PER_FRAME = 50;
 const S32 MAX_OBJECTS_PER_PACKET = 254;
 // For linked sets
@@ -382,7 +381,7 @@ LLObjectSelectionHandle LLSelectMgr::selectObjectOnly(LLViewerObject* object, S3
 //-----------------------------------------------------------------------------
 // Select the object, parents and children.
 //-----------------------------------------------------------------------------
-LLObjectSelectionHandle LLSelectMgr::selectObjectAndFamily(LLViewerObject* obj, BOOL add_to_end)
+LLObjectSelectionHandle LLSelectMgr::selectObjectAndFamily(LLViewerObject* obj, BOOL add_to_end, BOOL ignore_select_owned)
 {
 	llassert( obj );
 
@@ -399,7 +398,7 @@ LLObjectSelectionHandle LLSelectMgr::selectObjectAndFamily(LLViewerObject* obj, 
 		return NULL;
 	}
 
-	if (!canSelectObject(obj))
+	if (!canSelectObject(obj,ignore_select_owned))
 	{
 		//make_ui_sound("UISndInvalidOp");
 		return NULL;
@@ -490,6 +489,9 @@ LLObjectSelectionHandle LLSelectMgr::selectObjectAndFamily(const std::vector<LLV
 		object->addThisAndNonJointChildren(objects);
 		addAsFamily(objects);
 
+		if( isBatchMode() )
+			continue;
+
 		// Stop the object from moving (this anticipates changes on the
 		// simulator in LLTask::userSelect)
 		object->setVelocity(LLVector3::zero);
@@ -497,6 +499,14 @@ LLObjectSelectionHandle LLSelectMgr::selectObjectAndFamily(const std::vector<LLV
 		//object->setAngularVelocity(LLVector3::zero);
 		object->resetRot();
 	}
+
+	if( isBatchMode() )
+	{
+		mShowSelection = FALSE;
+		sendSelect();
+		return mSelectedObjects;
+	}
+
 
 	updateSelectionCenter();
 	saveSelectedObjectTransform(SELECT_ACTION_TYPE_PICK);
@@ -644,8 +654,31 @@ bool LLSelectMgr::linkObjects()
 
 bool LLSelectMgr::unlinkObjects()
 {
+	S32 min_objects_for_confirm = gSavedSettings.getS32("MinObjectsForUnlinkConfirm");
+	S32 unlink_object_count = mSelectedObjects->getObjectCount(); // clears out nodes with NULL objects
+	if (unlink_object_count >= min_objects_for_confirm
+		&& unlink_object_count > mSelectedObjects->getRootObjectCount())
+	{
+		// total count > root count means that there are childer inside and that there are linksets that will be unlinked
+		LLNotificationsUtil::add("ConfirmUnlink", LLSD(), LLSD(), boost::bind(&LLSelectMgr::confirmUnlinkObjects, this, _1, _2));
+		return true;
+	}
+
 	LLSelectMgr::getInstance()->sendDelink();
 	return true;
+}
+
+void LLSelectMgr::confirmUnlinkObjects(const LLSD& notification, const LLSD& response)
+{
+	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
+	// if Cancel pressed
+	if (option == 1)
+	{
+		return;
+	}
+
+	LLSelectMgr::getInstance()->sendDelink();
+	return;
 }
 
 // in order to link, all objects must have the same owner, and the
@@ -1031,6 +1064,13 @@ void LLSelectMgr::highlightObjectOnly(LLViewerObject *objectp, LLColor4 const &a
 		return;
 	}
 
+	// <FS:Ansariel> FIRE-14593: Option to select only copyable objects
+	if (!objectp->permCopy() && gSavedSettings.getBOOL("FSSelectCopyableOnly"))
+	{
+		return;
+	}
+	// </FS:Ansariel>
+
 	// <FS:Ansariel> FIRE-304: Option to exclude group owned objects
 	if (objectp->permGroupOwner() && !gSavedSettings.getBOOL("FSSelectIncludeGroupOwned"))
 	{
@@ -1322,6 +1362,8 @@ void LLSelectMgr::getGrid(LLVector3& origin, LLQuaternion &rotation, LLVector3 &
 			{
 				// this means this object *has* to be an attachment
 				LLXform* attachment_point_xform = first_object->getRootEdit()->mDrawable->mXform.getParent();
+				// <FS:Ansariel> Crash fix for FIRE-15206
+				if (!attachment_point_xform) break;
 				mGridOrigin = attachment_point_xform->getWorldPosition();
 				mGridRotation = attachment_point_xform->getWorldRotation();
 				mGridScale = LLVector3(1.f, 1.f, 1.f) * gSavedSettings.getF32("GridResolution");
@@ -1818,6 +1860,40 @@ void LLSelectMgr::selectionRevertColors()
 	} setfunc(mSelectedObjects);
 	getSelection()->applyToTEs(&setfunc);
 	
+	LLSelectMgrSendFunctor sendfunc;
+	getSelection()->applyToObjects(&sendfunc);
+}
+
+void LLSelectMgr::selectionRevertShinyColors()
+{
+	struct f : public LLSelectedTEFunctor
+	{
+		LLObjectSelectionHandle mSelectedObjects;
+		f(LLObjectSelectionHandle sel) : mSelectedObjects(sel) {}
+		bool apply(LLViewerObject* object, S32 te)
+		{
+			if (object->permModify())
+			{
+				LLSelectNode* nodep = mSelectedObjects->findNode(object);
+				if (nodep && te < (S32)nodep->mSavedShinyColors.size())
+				{
+					LLColor4 color = nodep->mSavedShinyColors[te];
+					// update viewer side color in anticipation of update from simulator
+					LLMaterialPtr old_mat = object->getTE(te)->getMaterialParams();
+					if (!old_mat.isNull())
+					{
+						LLMaterialPtr new_mat = gFloaterTools->getPanelFace()->createDefaultMaterial(old_mat);
+						new_mat->setSpecularLightColor(color);
+						object->getTE(te)->setMaterialParams(new_mat);
+						LLMaterialMgr::getInstance()->put(object->getID(), te, *new_mat);
+					}
+				}
+			}
+			return true;
+		}
+	} setfunc(mSelectedObjects);
+	getSelection()->applyToTEs(&setfunc);
+
 	LLSelectMgrSendFunctor sendfunc;
 	getSelection()->applyToObjects(&sendfunc);
 }
@@ -2368,6 +2444,7 @@ void LLSelectMgr::selectionSetIncludeInSearch(bool include_in_search)
 		"ObjectIncludeInSearch",
 		packAgentAndSessionID,
 		packObjectIncludeInSearch, 
+        logNoOp,
 		&include_in_search,
 		SEND_ONLY_ROOTS);
 }
@@ -2417,6 +2494,7 @@ void LLSelectMgr::selectionSetClickAction(U8 action)
 	sendListToRegions("ObjectClickAction",
 					  packAgentAndSessionID,
 					  packObjectClickAction, 
+                      logNoOp,
 					  &action,
 					  SEND_INDIVIDUALS);
 }
@@ -2452,7 +2530,7 @@ void LLSelectMgr::sendGodlikeRequest(const std::string& request, const std::stri
 	}
 	else
 	{
-		sendListToRegions(message_type, packGodlikeHead, packObjectIDAsParam, &data, SEND_ONLY_ROOTS);
+		sendListToRegions(message_type, packGodlikeHead, packObjectIDAsParam, logNoOp, &data, SEND_ONLY_ROOTS);
 	}
 }
 
@@ -2478,6 +2556,23 @@ void LLSelectMgr::packGodlikeHead(void* user_data)
 		msg->nextBlock("ParamList");
 		msg->addString("Parameter", data->second);
 	}
+}
+
+// static
+void LLSelectMgr::logNoOp(LLSelectNode* node, void *)
+{
+}
+
+// static
+void LLSelectMgr::logAttachmentRequest(LLSelectNode* node, void *)
+{
+    LLAttachmentsMgr::instance().onAttachmentRequested(node->mItemID);
+}
+
+// static
+void LLSelectMgr::logDetachRequest(LLSelectNode* node, void *)
+{
+    LLAttachmentsMgr::instance().onDetachRequested(node->mItemID);
 }
 
 // static
@@ -3596,10 +3691,11 @@ bool LLSelectMgr::confirmDelete(const LLSD& notification, const LLSD& response, 
 			// attempt to derez into the trash.
 			LLDeRezInfo info(DRD_TRASH, trash_id);
 			LLSelectMgr::getInstance()->sendListToRegions("DeRezObject",
-										  packDeRezHeader,
-										  packObjectLocalID,
-										  (void*) &info,
-										  SEND_ONLY_ROOTS);
+                                                          packDeRezHeader,
+                                                          packObjectLocalID,
+                                                          logNoOp,
+                                                          (void*) &info,
+                                                          SEND_ONLY_ROOTS);
 			// VEFFECT: Delete Object - one effect for all deletes
 			if (LLSelectMgr::getInstance()->mSelectedObjects->mSelectType != SELECT_TYPE_HUD)
 			{
@@ -3638,6 +3734,7 @@ void LLSelectMgr::selectForceDelete()
 		"ObjectDelete",
 		packDeleteHeader,
 		packObjectLocalID,
+        logNoOp,
 		(void*)TRUE,
 		SEND_ONLY_ROOTS);
 }
@@ -3811,7 +3908,7 @@ void LLSelectMgr::selectDuplicate(const LLVector3& offset, BOOL select_copy)
 	data.offset = offset;
 	data.flags = (select_copy ? FLAGS_CREATE_SELECTED : 0x0);
 
-	sendListToRegions("ObjectDuplicate", packDuplicateHeader, packDuplicate, &data, SEND_ONLY_ROOTS);
+	sendListToRegions("ObjectDuplicate", packDuplicateHeader, packDuplicate, logNoOp, &data, SEND_ONLY_ROOTS);
 
 	if (select_copy)
 	{
@@ -3866,7 +3963,7 @@ void LLSelectMgr::repeatDuplicate()
 	data.offset = LLVector3::zero;
 	data.flags = 0x0;
 
-	sendListToRegions("ObjectDuplicate", packDuplicateHeader, packDuplicate, &data, SEND_ONLY_ROOTS);
+	sendListToRegions("ObjectDuplicate", packDuplicateHeader, packDuplicate, logNoOp, &data, SEND_ONLY_ROOTS);
 
 	// move current selection based on delta from duplication position and update duplication position
 	for (LLObjectSelection::root_iterator iter = getSelection()->root_begin();
@@ -3945,7 +4042,7 @@ void LLSelectMgr::selectDuplicateOnRay(const LLVector3 &ray_start_region,
 	data.mFlags				= (select_copy ? FLAGS_CREATE_SELECTED : 0x0);
 
 	sendListToRegions("ObjectDuplicateOnRay", 
-		packDuplicateOnRayHead, packObjectLocalID, &data, SEND_ONLY_ROOTS);
+                      packDuplicateOnRayHead, packObjectLocalID, logNoOp, &data, SEND_ONLY_ROOTS);
 
 	if (select_copy)
 	{
@@ -4008,6 +4105,7 @@ void LLSelectMgr::sendMultipleUpdate(U32 type)
 		"MultipleObjectUpdate",
 		packAgentAndSessionID,
 		packMultipleUpdate,
+        logNoOp,
 		&type,
 		send_type);
 }
@@ -4071,7 +4169,7 @@ void LLSelectMgr::sendOwner(const LLUUID& owner_id,
 	data.group_id = group_id;
 	data.override = override;
 
-	sendListToRegions("ObjectOwner", packOwnerHead, packObjectLocalID, &data, SEND_ONLY_ROOTS);
+	sendListToRegions("ObjectOwner", packOwnerHead, packObjectLocalID, logNoOp, &data, SEND_ONLY_ROOTS);
 }
 
 // static
@@ -4095,7 +4193,7 @@ void LLSelectMgr::packOwnerHead(void *user_data)
 void LLSelectMgr::sendGroup(const LLUUID& group_id)
 {
 	LLUUID local_group_id(group_id);
-	sendListToRegions("ObjectGroup", packAgentAndSessionAndGroupID, packObjectLocalID, &local_group_id, SEND_ONLY_ROOTS);
+	sendListToRegions("ObjectGroup", packAgentAndSessionAndGroupID, packObjectLocalID, logNoOp, &local_group_id, SEND_ONLY_ROOTS);
 }
 
 
@@ -4119,7 +4217,7 @@ void LLSelectMgr::sendBuy(const LLUUID& buyer_id, const LLUUID& category_id, con
 	LLBuyData buy;
 	buy.mCategoryID = category_id;
 	buy.mSaleInfo = sale_info;
-	sendListToRegions("ObjectBuy", packAgentGroupAndCatID, packBuyObjectIDs, &buy, SEND_ONLY_ROOTS);
+	sendListToRegions("ObjectBuy", packAgentGroupAndCatID, packBuyObjectIDs, logNoOp, &buy, SEND_ONLY_ROOTS);
 }
 
 // static
@@ -4163,7 +4261,7 @@ void LLSelectMgr::selectionSetObjectPermissions(U8 field,
 	data.mMask = mask;
 	data.mOverride = override;
 
-	sendListToRegions("ObjectPermissions", packPermissionsHead, packPermissions, &data, SEND_ONLY_ROOTS);
+	sendListToRegions("ObjectPermissions", packPermissionsHead, packPermissions, logNoOp, &data, SEND_ONLY_ROOTS);
 }
 
 void LLSelectMgr::packPermissionsHead(void* user_data)
@@ -4206,6 +4304,7 @@ void LLSelectMgr::deselectAll()
 		"ObjectDeselect",
 		packAgentAndSessionID,
 		packObjectLocalID,
+        logNoOp,
 		NULL,
 		SEND_INDIVIDUALS);
 
@@ -4236,6 +4335,7 @@ void LLSelectMgr::deselectAllForStandingUp()
 		"ObjectDeselect",
 		packAgentAndSessionID,
 		packObjectLocalID,
+        logNoOp,
 		NULL,
 		SEND_INDIVIDUALS);
 
@@ -4355,6 +4455,7 @@ void LLSelectMgr::selectionSetObjectName(const std::string& name)
 		sendListToRegions("ObjectName",
 						  packAgentAndSessionID,
 						  packObjectName,
+                          logNoOp,
 						  (void*)(&name_copy),
 						  SEND_ONLY_ROOTS);
 	}
@@ -4366,6 +4467,7 @@ void LLSelectMgr::selectionSetObjectName(const std::string& name)
 		sendListToRegions("ObjectName",
 						  packAgentAndSessionID,
 						  packObjectName,
+                          logNoOp,
 						  (void*)(&name_copy),
 						  SEND_INDIVIDUALS);
 	}
@@ -4384,6 +4486,7 @@ void LLSelectMgr::selectionSetObjectDescription(const std::string& desc)
 		sendListToRegions("ObjectDescription",
 						  packAgentAndSessionID,
 						  packObjectDescription,
+                          logNoOp,
 						  (void*)(&desc_copy),
 						  SEND_ONLY_ROOTS);
 	}
@@ -4395,6 +4498,7 @@ void LLSelectMgr::selectionSetObjectDescription(const std::string& desc)
 		sendListToRegions("ObjectDescription",
 						  packAgentAndSessionID,
 						  packObjectDescription,
+                          logNoOp,
 						  (void*)(&desc_copy),
 						  SEND_INDIVIDUALS);
 	}
@@ -4408,6 +4512,7 @@ void LLSelectMgr::selectionSetObjectCategory(const LLCategory& category)
 	sendListToRegions("ObjectCategory",
 					  packAgentAndSessionID,
 					  packObjectCategory,
+                      logNoOp,
 					  (void*)(&category),
 					  SEND_ONLY_ROOTS);
 }
@@ -4417,6 +4522,7 @@ void LLSelectMgr::selectionSetObjectSaleInfo(const LLSaleInfo& sale_info)
 	sendListToRegions("ObjectSaleInfo",
 					  packAgentAndSessionID,
 					  packObjectSaleInfo,
+                      logNoOp,
 					  (void*)(&sale_info),
 					  SEND_ONLY_ROOTS);
 }
@@ -4450,6 +4556,7 @@ void LLSelectMgr::sendAttach(U8 attachment_point, bool replace)
 			"ObjectAttach",
 			packAgentIDAndSessionAndAttachment, 
 			packObjectIDAndRotation, 
+            logAttachmentRequest,
 			&attachment_point, 
 			SEND_ONLY_ROOTS );
 		if (!build_mode)
@@ -4470,6 +4577,7 @@ void LLSelectMgr::sendDetach()
 		"ObjectDetach",
 		packAgentAndSessionID,
 		packObjectLocalID,
+        logDetachRequest,
 		NULL,
 		SEND_ONLY_ROOTS );
 }
@@ -4486,6 +4594,7 @@ void LLSelectMgr::sendDropAttachment()
 		"ObjectDrop",
 		packAgentAndSessionID,
 		packObjectLocalID,
+        logDetachRequest,
 		NULL,
 		SEND_ONLY_ROOTS);
 }
@@ -4505,6 +4614,7 @@ void LLSelectMgr::sendLink()
 		"ObjectLink",
 		packAgentAndSessionID,
 		packObjectLocalID,
+        logNoOp,
 		NULL,
 		SEND_ONLY_ROOTS);
 }
@@ -4542,6 +4652,7 @@ void LLSelectMgr::sendDelink()
 		"ObjectDelink",
 		packAgentAndSessionID,
 		packObjectLocalID,
+        logNoOp,
 		NULL,
 		SEND_INDIVIDUALS);
 }
@@ -4594,6 +4705,7 @@ void LLSelectMgr::sendSelect()
 		"ObjectSelect",
 		packAgentAndSessionID,
 		packObjectLocalID,
+        logNoOp,
 		NULL,
 		SEND_INDIVIDUALS);
 }
@@ -4635,6 +4747,19 @@ void LLSelectMgr::saveSelectedObjectColors()
 		}
 	} func;
 	getSelection()->applyToNodes(&func);	
+}
+
+void LLSelectMgr::saveSelectedShinyColors()
+{
+	struct f : public LLSelectedNodeFunctor
+	{
+		virtual bool apply(LLSelectNode* node)
+		{
+			node->saveShinyColors();
+			return true;
+		}
+	} func;
+	getSelection()->applyToNodes(&func);
 }
 
 void LLSelectMgr::saveSelectedObjectTextures()
@@ -4732,11 +4857,18 @@ struct LLSelectMgrApplyFlags : public LLSelectedObjectFunctor
 	BOOL mState;
 	virtual bool apply(LLViewerObject* object)
 	{
-		if ( object->permModify() &&	// preemptive permissions check
-			 object->isRoot()) 		// don't send for child objects
+		if ( object->permModify())
 		{
-			object->setFlags( mFlags, mState);
-		}
+			if (object->isRoot()) 		// don't send for child objects
+			{
+				object->setFlags( mFlags, mState);
+			}
+			else if (FLAGS_WORLD & mFlags && ((LLViewerObject*)object->getRoot())->isSelected())
+			{
+				// FLAGS_WORLD are shared by all items in linkset
+				object->setFlagsWithoutUpdate(FLAGS_WORLD & mFlags, mState);
+			}
+		};
 		return true;
 	}
 };
@@ -4982,6 +5114,7 @@ void LLSelectMgr::packPermissions(LLSelectNode* node, void *user_data)
 void LLSelectMgr::sendListToRegions(const std::string& message_name,
 									void (*pack_header)(void *user_data), 
 									void (*pack_body)(LLSelectNode* node, void *user_data), 
+                                    void (*log_func)(LLSelectNode* node, void *user_data), 
 									void *user_data,
 									ESendType send_type)
 {
@@ -5103,6 +5236,8 @@ void LLSelectMgr::sendListToRegions(const std::string& message_name,
 		{
 			// add another instance of the body of the data
 			(*pack_body)(node, user_data);
+            // do any related logging
+            (*log_func)(node, user_data);
 			++objects_sent;
 			++objects_in_this_packet;
 
@@ -5336,6 +5471,10 @@ void LLSelectMgr::processObjectProperties(LLMessageSystem* msg, void** user_data
 			node->mInventorySerial = inv_serial;
 			node->mSitName.assign(sit_name);
 			node->mTouchName.assign(touch_name);
+
+			// <FS:ND> Fire for any observer interested in object properties
+			LLSelectMgr::instance().firePropertyReceived( node );
+			// </FS:ND>
 		}
 	}
 
@@ -5913,6 +6052,7 @@ LLSelectNode::LLSelectNode(LLViewerObject* object, BOOL glow)
 	mCreationDate(0)
 {
 	saveColors();
+	saveShinyColors();
 }
 
 LLSelectNode::LLSelectNode(const LLSelectNode& nodep)
@@ -5957,6 +6097,11 @@ LLSelectNode::LLSelectNode(const LLSelectNode& nodep)
 	for (color_iter = nodep.mSavedColors.begin(); color_iter != nodep.mSavedColors.end(); ++color_iter)
 	{
 		mSavedColors.push_back(*color_iter);
+	}
+	mSavedShinyColors.clear();
+	for (color_iter = nodep.mSavedShinyColors.begin(); color_iter != nodep.mSavedShinyColors.end(); ++color_iter)
+	{
+		mSavedShinyColors.push_back(*color_iter);
 	}
 	
 	saveTextures(nodep.mSavedTextures);
@@ -6037,6 +6182,26 @@ void LLSelectNode::saveColors()
 		{
 			const LLTextureEntry* tep = mObject->getTE(i);
 			mSavedColors.push_back(tep->getColor());
+		}
+	}
+}
+
+void LLSelectNode::saveShinyColors()
+{
+	if (mObject.notNull())
+	{
+		mSavedShinyColors.clear();
+		for (S32 i = 0; i < mObject->getNumTEs(); i++)
+		{
+			const LLMaterialPtr mat = mObject->getTE(i)->getMaterialParams();
+			if (!mat.isNull())
+			{
+				mSavedShinyColors.push_back(mat->getSpecularLightColor());
+			}
+			else
+			{
+				mSavedShinyColors.push_back(LLColor4::white);
+			}
 		}
 	}
 }
@@ -6774,7 +6939,7 @@ void LLSelectMgr::undo()
 {
 	BOOL select_linked_set = !gSavedSettings.getBOOL("EditLinkedParts");
 	LLUUID group_id(gAgent.getGroupID());
-	sendListToRegions("Undo", packAgentAndSessionAndGroupID, packObjectID, &group_id, select_linked_set ? SEND_ONLY_ROOTS : SEND_CHILDREN_FIRST);
+	sendListToRegions("Undo", packAgentAndSessionAndGroupID, packObjectID, logNoOp, &group_id, select_linked_set ? SEND_ONLY_ROOTS : SEND_CHILDREN_FIRST);
 }
 
 //-----------------------------------------------------------------------------
@@ -6792,7 +6957,7 @@ void LLSelectMgr::redo()
 {
 	BOOL select_linked_set = !gSavedSettings.getBOOL("EditLinkedParts");
 	LLUUID group_id(gAgent.getGroupID());
-	sendListToRegions("Redo", packAgentAndSessionAndGroupID, packObjectID, &group_id, select_linked_set ? SEND_ONLY_ROOTS : SEND_CHILDREN_FIRST);
+	sendListToRegions("Redo", packAgentAndSessionAndGroupID, packObjectID, logNoOp, &group_id, select_linked_set ? SEND_ONLY_ROOTS : SEND_CHILDREN_FIRST);
 }
 
 //-----------------------------------------------------------------------------
@@ -6901,29 +7066,38 @@ void LLSelectMgr::validateSelection()
 	getSelection()->applyToObjects(&func);	
 }
 
-BOOL LLSelectMgr::canSelectObject(LLViewerObject* object)
+BOOL LLSelectMgr::canSelectObject(LLViewerObject* object, BOOL ignore_select_owned)
 {
 	// Never select dead objects
 	if (!object || object->isDead())
 	{
 		return FALSE;
 	}
-	
+
 	if (mForceSelection)
 	{
 		return TRUE;
 	}
 
-	if ((gSavedSettings.getBOOL("SelectOwnedOnly") && !object->permYouOwner()) ||
-		(gSavedSettings.getBOOL("SelectMovableOnly") && (!object->permMove() ||  object->isPermanentEnforced())))
+	if(!ignore_select_owned)
 	{
-		// only select my own objects
+		if ((gSavedSettings.getBOOL("SelectOwnedOnly") && !object->permYouOwner()) ||
+				(gSavedSettings.getBOOL("SelectMovableOnly") && (!object->permMove() ||  object->isPermanentEnforced())))
+		{
+			// only select my own objects
+			return FALSE;
+		}
+	}
+	// <FS:Ansariel> FIRE-14593: Option to select only copyable objects
+	if (!object->permCopy() && gSavedSettings.getBOOL("FSSelectCopyableOnly"))
+	{
 		return FALSE;
 	}
+	// </FS:Ansariel>
 
 	// Can't select orphans
 	if (object->isOrphaned()) return FALSE;
-	
+
 	// Can't select avatars
 	if (object->isAvatar()) return FALSE;
 
@@ -7015,16 +7189,61 @@ S32 LLObjectSelection::getNumNodes()
 	return mList.size();
 }
 
+// <FS:Zi> Fix for crash while selecting objects with derendered child prims
+bool LLObjectSelection::checkNode(LLSelectNode* nodep)
+{
+	if(nodep)
+	{
+		if(nodep->getObject())
+		{
+			if(!nodep->getObject()->isDead())
+			{
+				return true;
+			}
+			else
+			{
+				LL_WARNS("LLObjectSelection") << "skipping dead node object" << LL_ENDL;
+			}
+		}
+		else
+		{
+			LL_WARNS("LLObjectSelection") << "skipping NULL node object pointer" << LL_ENDL;
+		}
+		mFailedNodesList.push_back(nodep);
+	}
+	else
+	{
+		LL_WARNS("LLObjectSelection") << "skipping NULL node" << LL_ENDL;
+	}
+
+	return false;
+}
+	// </FS:Zi>
+
 void LLObjectSelection::addNode(LLSelectNode *nodep)
 {
-	llassert_always(nodep->getObject() && !nodep->getObject()->isDead());
+	// <FS:Zi> Fix for crash while selecting objects with derendered child prims
+	// llassert_always(nodep->getObject() && !nodep->getObject()->isDead());
+	if(!checkNode(nodep))
+	{
+		return;
+	}
+	// </FS:Zi>
+
 	mList.push_front(nodep);
 	mSelectNodeMap[nodep->getObject()] = nodep;
 }
 
 void LLObjectSelection::addNodeAtEnd(LLSelectNode *nodep)
 {
-	llassert_always(nodep->getObject() && !nodep->getObject()->isDead());
+	// <FS:Zi> Fix for crash while selecting objects with derendered child prims
+	// llassert_always(nodep->getObject() && !nodep->getObject()->isDead());
+	if(!checkNode(nodep))
+	{
+		return;
+	}
+	// </FS:Zi>
+
 	mList.push_back(nodep);
 	mSelectNodeMap[nodep->getObject()] = nodep;
 }
@@ -7052,6 +7271,11 @@ void LLObjectSelection::deleteAllNodes()
 	mList.clear();
 	mSelectNodeMap.clear();
 	mPrimaryObject = NULL;
+
+	// <FS:Zi> Fix for crash while selecting objects with derendered child prims
+	std::for_each(mFailedNodesList.begin(),mFailedNodesList.end(),DeletePointer());
+	mFailedNodesList.clear();
+	// </FS:Zi>
 }
 
 LLSelectNode* LLObjectSelection::findNode(LLViewerObject* objectp)

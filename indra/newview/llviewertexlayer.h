@@ -47,8 +47,10 @@ public:
 	virtual ~LLViewerTexLayerSet();
 
 	/*virtual*/void				requestUpdate();
+	// <FS:Ansariel> [Legacy Bake]
 	void						requestUpload();
 	void						cancelUpload();
+	// </FS:Ansariel> [Legacy Bake]
 	BOOL						isLocalTextureDataAvailable() const;
 	BOOL						isLocalTextureDataFinal() const;
 	void						updateComposite();
@@ -114,7 +116,8 @@ protected:
 	virtual void			preRender(BOOL clear_depth) { preRenderTexLayerSet(); }
 	virtual void			postRender(BOOL success) { postRenderTexLayerSet(success); }
 	virtual BOOL			render() { return renderTexLayerSet(); }
-	
+
+// <FS:Ansariel> [Legacy Bake]
 	//--------------------------------------------------------------------
 	// Uploads
 	//--------------------------------------------------------------------
@@ -139,6 +142,7 @@ private:
 	LLFrameTimer    		mNeedsUploadTimer; 				// Tracks time since upload was requested and performed.
 	S32						mUploadFailCount;				// Number of consecutive upload failures
 	LLFrameTimer    		mUploadRetryTimer; 				// Tracks time since last upload failure.
+// </FS:Ansariel> [Legacy Bake]
 
 	//--------------------------------------------------------------------
 	// Updates
@@ -156,7 +160,7 @@ private:
 	LLFrameTimer    		mNeedsUpdateTimer; 				// Tracks time since update was requested and performed.
 };
 
-
+// <FS:Ansariel> [Legacy Bake]
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // LLBakedUploadData
 //
@@ -175,6 +179,7 @@ struct LLBakedUploadData
    	const U64					mStartTime;	// for measuring baked texture upload time
    	const bool					mIsHighestRes; // whether this is a "final" bake, or intermediate low res
 };
+// </FS:Ansariel> [Legacy Bake]
 
 #endif  // LL_VIEWER_TEXLAYER_H
 

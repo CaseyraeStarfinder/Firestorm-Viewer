@@ -181,8 +181,6 @@ private:
 	LLButton*					mToggleOverlapButton;				// button to togle overlap panel/highlighting
 	LLComboBox*					mLanguageSelection;					// combo box for primary language selection
 	LLComboBox*					mLanguageSelection_2;				// combo box for secondary language selection
-	// [FS:CR] Unused 2013.12.7
-	//LLScrollContainer*			mOverlapScrollView;					// overlapping elements scroll container
 	S32							mLastDisplayedX, mLastDisplayedY;	// stored position of last floater so the new one opens up in the same place
 	std::string 				mDelim;								// the OS-specific delimiter character (/ or \) (*TODO: this shouldn't be needed, right?)
 
@@ -1050,12 +1048,11 @@ void LLFloaterUIPreview::onClickEditFloater()
 // Respond to button click to browse for an executable with which to edit XML files
 void LLFloaterUIPreview::onClickBrowseForEditor()
 {
-	// create load dialog box
-	LLFilePicker::ELoadFilter type = (LLFilePicker::ELoadFilter)((intptr_t)((void*)LLFilePicker::FFLOAD_ALL));	// nothing for *.exe so just use all
+	// Let the user choose an executable through the file picker dialog box
 	LLFilePicker& picker = LLFilePicker::instance();
-	if (!picker.getOpenFile(type))	// user cancelled -- do nothing
+    if (!picker.getOpenFile(LLFilePicker::FFLOAD_EXE))
 	{
-		return;
+		return; // user cancelled -- do nothing
 	}
 
 	// put the selected path into text field

@@ -58,7 +58,7 @@ public:
 
 	void	processParcelInfo(const LLParcelData& parcel_data);
 	void	setParcelID(const LLUUID& parcel_id);
-	void	setErrorStatus(U32 status, const std::string& reason);
+	void	setErrorStatus(S32 status, const std::string& reason);
 
 protected:
 	LLVector3d	mPosGlobal;
@@ -87,6 +87,8 @@ public:
 	/*virtual*/ BOOL handleHover(S32 x, S32 y, MASK mask);
 	/*virtual*/ BOOL handleScrollWheel(S32 x, S32 y, S32 clicks);
 	/*virtual*/ void draw();
+
+	/*virtual*/ void onFocusLost();
 
 	// methods for dealing with inventory. The observe() method is
 	// called during program startup. inventoryUpdated() will be
@@ -151,6 +153,8 @@ protected:
 	void			onShowTargetBtn();
 	void			onShowAgentBtn();
 	void			onCopySLURL();
+	// <FS:Ansariel> Alchemy region tracker
+	void			onTrackRegion();
 
 	void			centerOnTarget(BOOL animate);
 	void			updateLocation();

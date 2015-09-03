@@ -115,10 +115,12 @@
 #include "llspellcheck.h"
 #include "llscenemonitor.h"
 #include "llavatarrenderinfoaccountant.h"
+#include "lllocalbitmaps.h"
 
 // Linden library includes
 #include "llavatarnamecache.h"
 #include "lldiriterator.h"
+#include "llexperiencecache.h"
 #include "llimagej2c.h"
 #include "llmemory.h"
 #include "llprimitive.h"
@@ -246,6 +248,9 @@
 #include "llviewereventrecorder.h"
 
 #include "llleapmotioncontroller.h"
+#if HAS_GROWL
+#include "growlmanager.h"
+#endif
 
 
 // *FIX: These extern globals should be cleaned up.
@@ -262,8 +267,6 @@
 // define a self-registering event API object
 #include "llappviewerlistener.h"
 
-#include "nd/ndmallocstats.h" // <FS:ND/> collect stats about memory allocations
-#include "nd/ndallocstats.h" // <FS:ND/> collect stats about memory allocations
 #include "nd/ndoctreelog.h" // <FS:ND/> Octree operation logging.
 #include "nd/ndetw.h" // <FS:ND/> Windows Event Tracing, does nothing on OSX/Linux.
 
@@ -758,6 +761,8 @@ LLAppViewer::LLAppViewer()
 	mLogoutRequestSent(false),
 	// <FS:Ansariel> MaxFPS Viewer-Chui merge error
 	//mYieldTime(-1),
+	mLastAgentControlFlags(0),
+	mLastAgentForceUpdate(0),
 	mMainloopTimeout(NULL),
 	mAgentRegionLastAlive(false),
 	mRandomizeFramerate(LLCachedControl<bool>(gSavedSettings,"Randomize Framerate", FALSE)),
@@ -830,6 +835,15 @@ public:
 	}
 };
 
+namespace {
+// With Xcode 6, _exit() is too magical to use with boost::bind(), so provide
+// this little helper function.
+void fast_exit(int rc)
+{
+	_exit(rc);
+}
+}
+
 bool LLAppViewer::init()
 {	
 	// <FS:ND> Breakpad merge, setup minidump type from Catznip.
@@ -843,8 +857,6 @@ bool LLAppViewer::init()
 
 	// </FS:ND>
 
-	nd::allocstats::startUp(); // <FS:ND/> start collecting alloc stats
-	nd::mallocstats::startUp(); // <FS:ND/> start collecting alloc stats
 	nd::octree::debug::setOctreeLogFilename( gDirUtilp->getExpandedFilename(LL_PATH_LOGS, "octree.log" ) ); // <FS:ND/> Filename to log octree options to.
 	nd::etw::init(); // <FS:ND/> Init event tracing.
 
@@ -977,10 +989,10 @@ bool LLAppViewer::init()
 	S32 rc(gSavedSettings.getS32("QAModeTermCode"));
 	if (rc >= 0)
 	{
-		// QAModeTermCode set, terminate with that rc on LL_ERRS. Use _exit()
-		// rather than exit() because normal cleanup depends too much on
-		// successful startup!
-		//LLError::setFatalFunction(boost::bind(_exit, rc));
+		// QAModeTermCode set, terminate with that rc on LL_ERRS. Use
+		// fast_exit() rather than exit() because normal cleanup depends too
+		// much on successful startup!
+		LLError::setFatalFunction(boost::bind(fast_exit, rc));
 	}
 
     mAlloc.setProfilingEnabled(gSavedSettings.getBOOL("MemProfiling"));
@@ -1340,6 +1352,8 @@ bool LLAppViewer::init()
 	}
 	catch (LLProtectedDataException ex)
 	{
+		// <FS:Ansariel> Write exception message to log
+		LL_WARNS() << "Error initializing SecHandlers: " << ex.getMessage() << LL_ENDL;
 	  LLNotificationsUtil::add("CorruptedProtectedDataStore");
 	}
 	LLHTTPClient::setCertVerifyCallback(secapiSSLCertVerifyCallback);
@@ -1403,6 +1417,9 @@ bool LLAppViewer::init()
 
 	// initializing the settings sanity checker
 	SanityCheck::instance().init();
+
+	// <FS:Ansariel> Init debug rects
+	LLView::sDebugRects = gSavedSettings.getBOOL("DebugViews");
 
 	return true;
 }
@@ -1956,11 +1973,6 @@ void LLAppViewer::flushVFSIO()
 
 bool LLAppViewer::cleanup()
 {
-	// <FS:ND> stop collection stats
-	nd::allocstats::tearDown();
-	nd::mallocstats::tearDown();
-	// </FS:ND>
-
 	LLLeapMotionController::getInstance()->cleanup(); // <FS:ND/> shutdown leap support
 
 	//ditch LLVOAvatarSelf instance
@@ -1971,22 +1983,19 @@ bool LLAppViewer::cleanup()
 	// workaround for DEV-35406 crash on shutdown
 	LLEventPumps::instance().reset();
 
+#if HAS_GROWL
+	GrowlManager::destroyManager();
+#endif
+
 	//dump scene loading monitor results
 	LLSceneMonitor::instance().dumpToFile(gDirUtilp->getExpandedFilename(LL_PATH_LOGS, "scene_monitor_results.csv"));
 
-	if (LLFastTimerView::sAnalyzePerformance)
-	{
-		LL_INFOS() << "Analyzing performance" << LL_ENDL;
-		std::string baseline_name = LLTrace::BlockTimer::sLogName + "_baseline.slp";
-		std::string current_name  = LLTrace::BlockTimer::sLogName + ".slp"; 
-		std::string report_name   = LLTrace::BlockTimer::sLogName + "_report.csv";
-
-		LLFastTimerView::doAnalysis(
-			gDirUtilp->getExpandedFilename(LL_PATH_LOGS, baseline_name),
-			gDirUtilp->getExpandedFilename(LL_PATH_LOGS, current_name),
-			gDirUtilp->getExpandedFilename(LL_PATH_LOGS, report_name));		
-	}
-	LLMetricPerformanceTesterBasic::cleanClass();
+	// There used to be an 'if (LLFastTimerView::sAnalyzePerformance)' block
+	// here, completely redundant with the one that occurs later in this same
+	// function. Presumably the duplication was due to an automated merge gone
+	// bad. Not knowing which instance to prefer, we chose to retain the later
+	// one because it happens just after mFastTimerLogThread is deleted. This
+	// comment is in case we guessed wrong, so we can move it here instead.
 
 	// remove any old breakpad minidump files from the log directory
 	if (! isError())
@@ -2092,7 +2101,9 @@ bool LLAppViewer::cleanup()
 #if 0 // this seems to get us stuck in an infinite loop...
 	gTransferManager.cleanup();
 #endif
-	
+
+	LLLocalBitmapMgr::cleanupClass();
+
 	// Note: this is where gWorldMap used to be deleted.
 
 	// Note: this is where gHUDManager used to be deleted.
@@ -2120,9 +2131,11 @@ bool LLAppViewer::cleanup()
 	{
 		// shut down the streaming audio sub-subsystem first, in case it relies on not outliving the general audio subsystem.
 
-		LLStreamingAudioInterface *sai = gAudiop->getStreamingAudioImpl();
-		delete sai;
-		gAudiop->setStreamingAudioImpl(NULL);
+		// <FS> FMOD fixes
+		//LLStreamingAudioInterface *sai = gAudiop->getStreamingAudioImpl();
+		//delete sai;
+		//gAudiop->setStreamingAudioImpl(NULL);
+		// </FS>
 
 		// shut down the audio subsystem
         gAudiop->shutdown();
@@ -2398,6 +2411,9 @@ bool LLAppViewer::cleanup()
 	// Non-LLCurl libcurl library
 	mAppCoreHttp.cleanup();
 
+	// NOTE The following call is not thread safe. 
+	ll_cleanup_ares();
+
 	LLFilePickerThread::cleanupClass();
 
 	//MUST happen AFTER LLCurl::cleanupClass
@@ -2409,7 +2425,7 @@ bool LLAppViewer::cleanup()
     sImageDecodeThread = NULL;
 	delete mFastTimerLogThread;
 	mFastTimerLogThread = NULL;
-	
+
 	if (LLFastTimerView::sAnalyzePerformance)
 	{
 		LL_INFOS() << "Analyzing performance" << LL_ENDL;
@@ -2492,6 +2508,8 @@ bool LLAppViewer::cleanup()
 	LLPrivateMemoryPoolManager::destroyClass() ;
 
 	ll_close_fail_log();
+
+	LLError::LLCallStacks::cleanup();
 
 	removeMarkerFiles();
 	
@@ -3626,8 +3644,8 @@ void LLAppViewer::initUpdater()
 	U32 check_period = gSavedSettings.getU32("UpdaterServiceCheckPeriod");
 	bool willing_to_test;
 	LL_DEBUGS("UpdaterService") << "channel " << channel << LL_ENDL;
-	static const boost::regex is_test_channel("\\bTest$");
-	if (boost::regex_search(channel, is_test_channel)) 
+
+	if (LLVersionInfo::TEST_VIEWER == LLVersionInfo::getViewerMaturity()) 
 	{
 		LL_INFOS("UpdaterService") << "Test build: overriding willing_to_test by sending testno" << LL_ENDL;
 		willing_to_test = false;
@@ -3717,19 +3735,22 @@ bool LLAppViewer::initWindow()
 	LL_INFOS("AppInit") << "gViewerwindow created." << LL_ENDL;
 
 	// Need to load feature table before cheking to start watchdog.
-	bool use_watchdog = false;
-	int watchdog_enabled_setting = gSavedSettings.getS32("WatchdogEnabled");
-	if (watchdog_enabled_setting == -1)
-	{
-		use_watchdog = !LLFeatureManager::getInstance()->isFeatureAvailable("WatchdogDisabled");
-	}
-	else
-	{
-		// The user has explicitly set this setting; always use that value.
-		use_watchdog = bool(watchdog_enabled_setting);
-	}
+	// <FS:Ansariel> Fix Watchdog settings/feature table mess
+	//bool use_watchdog = false;
+	//int watchdog_enabled_setting = gSavedSettings.getS32("WatchdogEnabled");
+	//if (watchdog_enabled_setting == -1)
+	//{
+	//	use_watchdog = !LLFeatureManager::getInstance()->isFeatureAvailable("WatchdogDisabled");
+	//}
+	//else
+	//{
+	//	// The user has explicitly set this setting; always use that value.
+	//	use_watchdog = bool(watchdog_enabled_setting);
+	//}
 
-	if (use_watchdog)
+	//if (use_watchdog)
+	if (gSavedSettings.getS32("WatchdogEnabled"))
+	// </FS:Ansariel>
 	{
 		LLWatchdog::getInstance()->init(watchdog_killer_callback);
 	}
@@ -3745,7 +3766,8 @@ bool LLAppViewer::initWindow()
 #ifdef LL_DARWIN
     //Satisfy both MAINT-3135 (OSX 10.6 and earlier) MAINT-3288 (OSX 10.7 and later)
    if (getOSInfo().mMajorVer == 10 && getOSInfo().mMinorVer < 7)
-       gViewerWindow->getWindow()->setOldResize(true);
+		if ( getOSInfo().mMinorVer == 6 && getOSInfo().mBuild < 8 )
+       		gViewerWindow->getWindow()->setOldResize(true);
 #endif
     
 	if (gSavedSettings.getBOOL("WindowMaximized"))
@@ -3822,7 +3844,7 @@ void LLAppViewer::writeDebugInfo(bool isStatic)
         : getDynamicDebugFile() );
     
 	LL_INFOS() << "Opening debug file " << *debug_filename << LL_ENDL;
-	llofstream out_file(*debug_filename);
+	llofstream out_file(debug_filename->c_str());
     
     isStatic ?  LLSDSerialize::toPrettyXML(gDebugInfo, out_file)
              :  LLSDSerialize::toPrettyXML(gDebugInfo["Dynamic"], out_file);
@@ -3874,10 +3896,13 @@ LLSD LLAppViewer::getViewerInfo() const
 	info["FONT_SIZE"] = gSavedSettings.getF32("FSFontSizeAdjustment");
 	info["FONT_SCREEN_DPI"] = gSavedSettings.getF32("FontScreenDPI");
 
+	// <FS:PP> FIRE-15714: UI Scaling in SysInfo
+	info["UI_SCALE_FACTOR"] = gSavedSettings.getF32("UIScaleFactor");
+
 	//[FIRE-3923 : SJ] Added Drawdistance, bandwidth and LOD to info
 	info["DRAW_DISTANCE"] = gSavedSettings.getF32("RenderFarClip");
 	info["BANDWIDTH"] = gSavedSettings.getF32("ThrottleBandwidthKBPS");
-	info["LOD"] =gSavedSettings.getF32("RenderVolumeLODFactor");
+	info["LOD"] = gSavedSettings.getF32("RenderVolumeLODFactor");
 
 	//[FIRE 3113 : SJ] Added Settingsfile to info
 	info["MODE"] = "Unknown Mode";
@@ -3887,6 +3912,7 @@ LLSD LLAppViewer::getViewerInfo() const
 	else if (sessionSettingsFile == "settings_v3.xml") info["MODE"] = "Viewer 3";
 	else if (sessionSettingsFile == "settings_hybrid.xml") info["MODE"] = "Hybrid";
 	else if (sessionSettingsFile == "settings_latency.xml") info["MODE"] = "Latency";
+	else if (sessionSettingsFile == "settings_text.xml") info["MODE"] = "Text";
 
 	// return a URL to the release notes for this viewer, such as:
 	// http://wiki.secondlife.com/wiki/Release_Notes/Second Life Beta Viewer/2.1.0.123456
@@ -3967,27 +3993,32 @@ LLSD LLAppViewer::getViewerInfo() const
 	// TODO: Implement media plugin version query
 	info["QT_WEBKIT_VERSION"] = "4.7.1 (version number hard-coded)";
 
+	// <FS:ND> Use the total accumulated samples.
+	//S32 packets_in = LLViewerStats::instance().getRecording().getSum(LLStatViewer::PACKETS_IN);
+	//if (packets_in > 0)
+	//{
+	//	info["PACKETS_LOST"] = LLViewerStats::instance().getRecording().getSum(LLStatViewer::PACKETS_LOST);
+	//	info["PACKETS_IN"] = packets_in;
+	//	info["PACKETS_PCT"] = 100.f*info["PACKETS_LOST"].asReal() / info["PACKETS_IN"].asReal();
+	//}
 	if (gPacketsIn > 0)
 	{
-		// <FS:ND> Use the total accumulated samples.
-
-		// LLTrace::Recording& last_frame = LLTrace::get_frame_recording().getLastRecording();
-		// info["PACKETS_LOST"] = last_frame.getSum(LLStatViewer::PACKETS_LOST);
-		// info["PACKETS_IN"] = last_frame.getSum(LLStatViewer::PACKETS_IN);
-
-		info["PACKETS_LOST"] = LLStatViewer::PACKETS_LOST.getTotalSamples();
-		info["PACKETS_IN"] = LLStatViewer::PACKETS_IN.getTotalSamples();
-
-		// </FS:ND>
+		info["PACKETS_LOST"] = S32(LLStatViewer::PACKETS_LOST.getTotalSamples());
+		info["PACKETS_IN"] = S32(LLStatViewer::PACKETS_IN.getTotalSamples());
 
 		info["PACKETS_PCT"] = 100.f*info["PACKETS_LOST"].asReal() / info["PACKETS_IN"].asReal();
 	}
+	// </FS:ND>
 
 	if (mServerReleaseNotesURL.empty())
 	{
 		if (gAgent.getRegion())
 		{
 			info["SERVER_RELEASE_NOTES_URL"] = LLTrans::getString("RetrievingData");
+		}
+		else
+		{
+			info["SERVER_RELEASE_NOTES_URL"] = LLTrans::getString("NotConnected");
 		}
 	}
 	else if (LLStringUtil::startsWith(mServerReleaseNotesURL, "http")) // it's an URL
@@ -4464,7 +4495,7 @@ void LLAppViewer::handleViewerCrash()
 	{
 		std::string filename;
 		filename = gDirUtilp->getExpandedFilename(LL_PATH_DUMP, "stats.log");
-		llofstream file(filename, llofstream::binary);
+		llofstream file(filename.c_str(), std::ios_base::binary);
 		if(file.good())
 		{
 			LL_INFOS() << "Handle viewer crash generating stats log." << LL_ENDL;
@@ -5092,6 +5123,10 @@ bool LLAppViewer::initCache()
 	}
 	// </FS:Ansariel>
 
+	// <FS:ND> For Windows, purging the cache can take an extraordinary amount of time. Rename the cache dir and purge it using another thread.
+	startCachePurge();
+	// </FS:ND>
+
 	LLSplashScreen::update(LLTrans::getString("StartupInitializingTextureCache"));
 	
 	// Init the texture cache
@@ -5432,17 +5467,22 @@ void LLAppViewer::loadNameCache()
 	std::string filename =
 		gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "avatar_name_cache.xml");
 	LL_INFOS("AvNameCache") << filename << LL_ENDL;
-	llifstream name_cache_stream(filename);
+	llifstream name_cache_stream(filename.c_str());
 	if(name_cache_stream.is_open())
 	{
-		LLAvatarNameCache::importFile(name_cache_stream);
+		if ( ! LLAvatarNameCache::importFile(name_cache_stream))
+        {
+            LL_WARNS("AppInit") << "removing invalid '" << filename << "'" << LL_ENDL;
+            name_cache_stream.close();
+            LLFile::remove(filename);
+        }
 	}
 
 	if (!gCacheName) return;
 
 	std::string name_cache;
 	name_cache = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "name.cache");
-	llifstream cache_file(name_cache);
+	llifstream cache_file(name_cache.c_str());
 	if(cache_file.is_open())
 	{
 		if(gCacheName->importFile(cache_file)) return;
@@ -5450,26 +5490,54 @@ void LLAppViewer::loadNameCache()
 }
 
 void LLAppViewer::saveNameCache()
-	{
+{
 	// display names cache
 	std::string filename =
 		gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "avatar_name_cache.xml");
-	llofstream name_cache_stream(filename);
+	llofstream name_cache_stream(filename.c_str());
 	if(name_cache_stream.is_open())
 	{
 		LLAvatarNameCache::exportFile(name_cache_stream);
-}
-
-	if (!gCacheName) return;
-
-	std::string name_cache;
-	name_cache = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "name.cache");
-	llofstream cache_file(name_cache);
-	if(cache_file.is_open())
-	{
-		gCacheName->exportFile(cache_file);
+    }
+    
+    // real names cache
+	if (gCacheName)
+    {
+        std::string name_cache;
+        name_cache = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "name.cache");
+        llofstream cache_file(name_cache.c_str());
+        if(cache_file.is_open())
+        {
+            gCacheName->exportFile(cache_file);
+        }
 	}
 }
+
+
+void LLAppViewer::saveExperienceCache()
+{
+	std::string filename =
+		gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "experience_cache.xml");
+	LL_INFOS("ExperienceCache") << "Saving " << filename << LL_ENDL;
+	llofstream cache_stream(filename.c_str());
+	if(cache_stream.is_open())
+	{
+		LLExperienceCache::exportFile(cache_stream);
+	}
+}
+
+void LLAppViewer::loadExperienceCache()
+{
+	std::string filename =
+		gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "experience_cache.xml");
+	LL_INFOS("ExperienceCache") << "Loading " << filename << LL_ENDL;
+	llifstream cache_stream(filename.c_str());
+	if(cache_stream.is_open())
+	{
+		LLExperienceCache::importFile(cache_stream);
+	}
+}
+
 
 /*!	@brief		This class is an LLFrameTimer that can be created with
 				an elapsed time that starts counting up from the given value
@@ -5608,23 +5676,25 @@ void LLAppViewer::idle()
 			gAgentPilot.updateTarget();
 			gAgent.autoPilot(&yaw);
 		}
-    
-	    static LLFrameTimer agent_update_timer;
-	    static U32 				last_control_flags;
-    
-	    //	When appropriate, update agent location to the simulator.
-	    F32 agent_update_time = agent_update_timer.getElapsedTimeF32();
-	    BOOL flags_changed = gAgent.controlFlagsDirty() || (last_control_flags != gAgent.getControlFlags());
-		    
-	    if (flags_changed || (agent_update_time > (1.0f / (F32) AGENT_UPDATES_PER_SECOND)))
-	    {
-		    LL_RECORD_BLOCK_TIME(FTM_AGENT_UPDATE);
-		    // Send avatar and camera info
-		    last_control_flags = gAgent.getControlFlags();
+
+		static LLFrameTimer agent_update_timer;
+
+		// When appropriate, update agent location to the simulator.
+		F32 agent_update_time = agent_update_timer.getElapsedTimeF32();
+		F32 agent_force_update_time = mLastAgentForceUpdate + agent_update_time;
+		BOOL force_update = gAgent.controlFlagsDirty()
+							|| (mLastAgentControlFlags != gAgent.getControlFlags())
+							|| (agent_force_update_time > (1.0f / (F32) AGENT_FORCE_UPDATES_PER_SECOND));
+		if (force_update || (agent_update_time > (1.0f / (F32) AGENT_UPDATES_PER_SECOND)))
+		{
+			LL_RECORD_BLOCK_TIME(FTM_AGENT_UPDATE);
+			// Send avatar and camera info
+			mLastAgentControlFlags = gAgent.getControlFlags();
+			mLastAgentForceUpdate = force_update ? 0 : agent_force_update_time;
 			if(!gAgent.getPhantom())
-				send_agent_update(TRUE);
-		    agent_update_timer.reset();
-	    }
+				send_agent_update(force_update);
+			agent_update_timer.reset();
+		}
 	}
 
 	//////////////////////////////////////
@@ -5639,7 +5709,7 @@ void LLAppViewer::idle()
 		static LLFrameStatsTimer viewer_stats_timer(SEND_STATS_PERIOD);
 
 		// Update session stats every large chunk of time
-		// *FIX: (???) SAMANTHA
+		// *FIX: (?) SAMANTHA
 		if (viewer_stats_timer.getElapsedTimeF32() >= SEND_STATS_PERIOD && !gDisconnected)
 		{
 			LL_INFOS() << "Transmitting sessions stats" << LL_ENDL;
@@ -5680,7 +5750,7 @@ void LLAppViewer::idle()
 	    // floating throughout the various object lists.
 	    //
 		idleNameCache();
-    
+		idleExperienceCache();
 		idleNetwork();
 	    	        
 
@@ -6126,6 +6196,22 @@ void LLAppViewer::idleNameCache()
 	LLAvatarNameCache::idle();
 }
 
+void LLAppViewer::idleExperienceCache()
+{
+	LLViewerRegion* region = gAgent.getRegion();
+	if (!region) return;
+	
+	std::string lookup_url=region->getCapability("GetExperienceInfo"); 
+	if(!lookup_url.empty() && *lookup_url.rbegin() != '/')
+	{
+		lookup_url += '/';
+	}
+	
+	LLExperienceCache::setLookupURL(lookup_url);
+
+	LLExperienceCache::idle();
+}
+
 //
 // Handle messages, and all message related stuff
 //
@@ -6191,7 +6277,7 @@ void LLAppViewer::idleNetwork()
 		}
 
 		// Handle per-frame message system processing.
-		gMessageSystem->processAcks();
+		gMessageSystem->processAcks(gSavedSettings.getF32("AckCollectTime"));
 
 #ifdef TIME_THROTTLE_MESSAGES
 		if (total_time >= CheckMessagesMaxTime)
@@ -6296,6 +6382,7 @@ void LLAppViewer::disconnectViewer()
 	}
 
 	saveNameCache();
+	saveExperienceCache();
 
 	// close inventory interface, close all windows
 	LLFloaterInventory::cleanup();

@@ -31,8 +31,10 @@
 #include "llsidetraypanelcontainer.h"
 
 #include "llfloatersnapshot.h" // FIXME: create a snapshot model
-
-// <FS:Zi> This file is not used in Firestorm
+#include "llfloaterreg.h"
+#include "llfloaterfacebook.h"
+#include "llfloaterflickr.h"
+#include "llfloatertwitter.h"
 
 /**
  * Provides several ways to save a snapshot.
@@ -46,6 +48,7 @@ class LLPanelSnapshotOptions
 public:
 	LLPanelSnapshotOptions();
 	~LLPanelSnapshotOptions();
+	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void onOpen(const LLSD& key);
 	/*virtual*/ void onEconomyDataChange() { updateUploadCost(); }
 
@@ -56,9 +59,9 @@ private:
 	void onSaveToEmail();
 	void onSaveToInventory();
 	void onSaveToComputer();
-	// <exodus>
-	void onSaveToFlickr();
-	// </exodus>
+	void onSendToFacebook();
+	void onSendToTwitter();
+	void onSendToFlickr();
 };
 
 static LLPanelInjector<LLPanelSnapshotOptions> panel_class("llpanelsnapshotoptions");
@@ -69,17 +72,21 @@ LLPanelSnapshotOptions::LLPanelSnapshotOptions()
 	mCommitCallbackRegistrar.add("Snapshot.SaveToEmail",		boost::bind(&LLPanelSnapshotOptions::onSaveToEmail,		this));
 	mCommitCallbackRegistrar.add("Snapshot.SaveToInventory",	boost::bind(&LLPanelSnapshotOptions::onSaveToInventory,	this));
 	mCommitCallbackRegistrar.add("Snapshot.SaveToComputer",		boost::bind(&LLPanelSnapshotOptions::onSaveToComputer,	this));
-	// <exodus>
-	mCommitCallbackRegistrar.add("Snapshot.SaveToFlickr",		boost::bind(&LLPanelSnapshotOptions::onSaveToFlickr,	this)
-		);
-	// </exodus>
-
+	mCommitCallbackRegistrar.add("Snapshot.SendToFacebook",		boost::bind(&LLPanelSnapshotOptions::onSendToFacebook, this));
+	mCommitCallbackRegistrar.add("Snapshot.SendToTwitter",		boost::bind(&LLPanelSnapshotOptions::onSendToTwitter, this));
+	mCommitCallbackRegistrar.add("Snapshot.SendToFlickr",		boost::bind(&LLPanelSnapshotOptions::onSendToFlickr, this));
 	LLGlobalEconomy::Singleton::getInstance()->addObserver(this);
 }
 
 LLPanelSnapshotOptions::~LLPanelSnapshotOptions()
 {
 	LLGlobalEconomy::Singleton::getInstance()->removeObserver(this);
+}
+
+// virtual
+BOOL LLPanelSnapshotOptions::postBuild()
+{
+	return LLPanel::postBuild();
 }
 
 // virtual
@@ -104,11 +111,8 @@ void LLPanelSnapshotOptions::openPanel(const std::string& panel_name)
 	}
 
 	parent->openPanel(panel_name);
-	// <exodus>
-	// Order switched so onOpen can affect floater state.
-	LLFloaterSnapshot::postPanelSwitch();
 	parent->getCurrentPanel()->onOpen(LLSD());
-	// </exodus>
+	LLFloaterSnapshot::postPanelSwitch();
 }
 
 void LLPanelSnapshotOptions::onSaveToProfile()
@@ -131,9 +135,38 @@ void LLPanelSnapshotOptions::onSaveToComputer()
 	openPanel("panel_snapshot_local");
 }
 
-// <exodus>
-void LLPanelSnapshotOptions::onSaveToFlickr()
+void LLPanelSnapshotOptions::onSendToFacebook()
 {
-	openPanel("panel_snapshot_flickr");
+	LLFloaterReg::hideInstance("snapshot");
+
+	LLFloaterFacebook* facebook_floater = dynamic_cast<LLFloaterFacebook*>(LLFloaterReg::getInstance("facebook"));
+	if (facebook_floater)
+	{
+		facebook_floater->showPhotoPanel();
+	}
+	LLFloaterReg::showInstance("facebook");
 }
-// </exodus>
+
+void LLPanelSnapshotOptions::onSendToTwitter()
+{
+	LLFloaterReg::hideInstance("snapshot");
+
+	LLFloaterTwitter* twitter_floater = dynamic_cast<LLFloaterTwitter*>(LLFloaterReg::getInstance("twitter"));
+	if (twitter_floater)
+	{
+		twitter_floater->showPhotoPanel();
+	}
+	LLFloaterReg::showInstance("twitter");
+}
+
+void LLPanelSnapshotOptions::onSendToFlickr()
+{
+	LLFloaterReg::hideInstance("snapshot");
+
+	LLFloaterFlickr* flickr_floater = dynamic_cast<LLFloaterFlickr*>(LLFloaterReg::getInstance("flickr"));
+	if (flickr_floater)
+	{
+		flickr_floater->showPhotoPanel();
+	}
+	LLFloaterReg::showInstance("flickr");
+}

@@ -43,6 +43,8 @@
 #include "fsfloaterim.h"
 #include "llvoiceclient.h"
 #include "lltoolbarview.h"
+#include "llchiclet.h"
+#include "llchicletbar.h"
 
 static const F32 VOICE_STATUS_UPDATE_INTERVAL = 1.0f;
 
@@ -78,6 +80,9 @@ BOOL FSFloaterIMContainer::postBuild()
 	mNewMessageConnection = LLIMModel::instance().mNewMsgSignal.connect(boost::bind(&FSFloaterIMContainer::onNewMessageReceived, this, _1));
 	// Do not call base postBuild to not connect to mCloseSignal to not close all floaters via Close button
 	// mTabContainer will be initialized in LLMultiFloater::addChild()
+
+	mTabContainer->setAllowRearrange(true);
+	mTabContainer->setRearrangeCallback(boost::bind(&FSFloaterIMContainer::onIMTabRearrange, this, _1, _2));
 
 	mActiveVoiceUpdateTimer.setTimerExpirySec(VOICE_STATUS_UPDATE_INTERVAL);
 	mActiveVoiceUpdateTimer.start();
@@ -139,6 +144,23 @@ void FSFloaterIMContainer::initTabs()
 	}
 }
 
+// [SL:KB] - Patch: UI-TabRearrange | Checked: 2012-05-05 (Catznip-3.3.0)
+void FSFloaterIMContainer::onIMTabRearrange(S32 tab_index, LLPanel* tab_panel)
+{
+	LLFloater* pIMFloater = dynamic_cast<LLFloater*>(tab_panel);
+	if (!pIMFloater)
+		return;
+
+	const LLUUID& idSession = pIMFloater->getKey().asUUID();
+	if (idSession.isNull())
+		return;
+
+	LLChicletPanel* pChicletPanel = LLChicletBar::instance().getChicletPanel();
+	LLChiclet* pIMChiclet = pChicletPanel->findChiclet<LLChiclet>(idSession);
+	pChicletPanel->setChicletIndex(pIMChiclet, tab_index - mTabContainer->getNumLockedTabs());
+}
+// [/SL:KB]
+
 void FSFloaterIMContainer::onOpen(const LLSD& key)
 {
 	LLMultiFloater::onOpen(key);
@@ -147,6 +169,21 @@ void FSFloaterIMContainer::onOpen(const LLSD& key)
 	if (active_floater && !active_floater->hasFocus())
 	{
 		mTabContainer->setFocus(TRUE);
+	}
+}
+
+void FSFloaterIMContainer::onClose(bool app_quitting)
+{
+	if (app_quitting)
+	{
+		for (S32 i = 0; i < mTabContainer->getTabCount(); ++i)
+		{
+			FSFloaterIM* floater = dynamic_cast<FSFloaterIM*>(mTabContainer->getPanelByIndex(i));
+			if (floater)
+			{
+				floater->onClose(app_quitting);
+			}
+		}
 	}
 }
 
@@ -198,6 +235,39 @@ void FSFloaterIMContainer::addFloater(LLFloater* floaterp,
 		floaterp->setCanClose(FALSE);
 		return;
 	}
+	else
+	{
+// [SL:KB] - Patch: UI-TabRearrange | Checked: 2012-06-22 (Catznip-3.3.0)
+		// If we're redocking a torn off IM floater, return it back to its previous place
+		if ( (floaterp->isTornOff()) && (LLTabContainer::END == insertion_point) )
+		{
+			LLChicletPanel* pChicletPanel = LLChicletBar::instance().getChicletPanel();
+
+			LLIMChiclet* pChiclet = pChicletPanel->findChiclet<LLIMChiclet>(floaterp->getKey());
+			S32 idxChiclet = pChicletPanel->getChicletIndex(pChiclet);
+			if ( (idxChiclet > 0) && (idxChiclet < pChicletPanel->getChicletCount()) )
+			{
+				// Look for the first IM session to the left of this one
+				while (--idxChiclet >= 0)
+				{
+					if (pChiclet = dynamic_cast<LLIMChiclet*>(pChicletPanel->getChiclet(idxChiclet)))
+					{
+						FSFloaterIM* pFloater = FSFloaterIM::findInstance(pChiclet->getSessionId());
+						if (pFloater)
+						{
+							insertion_point = (LLTabContainer::eInsertionPoint)(mTabContainer->getIndexForPanel(pFloater) + 1);
+							break;
+						}
+					}
+				}
+			}
+			else 
+			{
+				insertion_point = (0 == idxChiclet) ? LLTabContainer::START : LLTabContainer::END;
+			}
+		}
+// [/SL:KB]
+	}
 
 	LLMultiFloater::addFloater(floaterp, select_added_floater, insertion_point);
 
@@ -209,22 +279,35 @@ void FSFloaterIMContainer::addFloater(LLFloater* floaterp,
 // [SL:KB] - Patch: Chat-NearbyChatBar | Checked: 2011-12-11 (Catznip-3.2.0d) | Added: Catznip-3.2.0d
 void FSFloaterIMContainer::removeFloater(LLFloater* floaterp)
 {
-	// <FS:ND>  old code from FS
-	if (floaterp->getName() == "nearby_chat")
+	const std::string floater_name = floaterp->getName();
+	std::string setting_name = "";
+	bool needs_unlock = false;
+	if (floater_name == "nearby_chat")
 	{
-		// only my friends floater now locked
-		mTabContainer->lockTabs(mTabContainer->getNumLockedTabs() - 1);
-		gSavedSettings.setBOOL("ChatHistoryTornOff", TRUE);
+		setting_name = "ChatHistoryTornOff";
+		needs_unlock = true;
+	}
+	else if (floater_name == "imcontacts")
+	{
+		setting_name = "ContactsTornOff";
+		needs_unlock = true;
+	}
+
+	if (needs_unlock)
+	{
+		// Calling lockTabs with 0 will lock ALL tabs - need to call unlockTabs instead!
+		S32 num_locked_tabs = mTabContainer->getNumLockedTabs();
+		if (num_locked_tabs > 1)
+		{
+			mTabContainer->lockTabs(num_locked_tabs - 1);
+		}
+		else
+		{
+			mTabContainer->unlockTabs();
+		}
+		gSavedSettings.setBOOL(setting_name, TRUE);
 		floaterp->setCanClose(TRUE);
 	}
-	else if (floaterp->getName() == "imcontacts")
-	{
-		// only chat floater now locked
-		mTabContainer->lockTabs(mTabContainer->getNumLockedTabs() - 1);
-		gSavedSettings.setBOOL("ContactsTornOff", TRUE);
-		floaterp->setCanClose(TRUE);
-	}
-	// </FS:ND>
 	LLMultiFloater::removeFloater(floaterp);
 }
 // [/SL:KB]

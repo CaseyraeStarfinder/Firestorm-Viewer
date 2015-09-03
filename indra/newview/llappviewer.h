@@ -123,6 +123,9 @@ public:
     void loadNameCache();
     void saveNameCache();
 
+	void loadExperienceCache();
+	void saveExperienceCache();
+
 	void removeMarkerFiles();
 	
 	void removeDumpDir();
@@ -245,6 +248,7 @@ private:
     void idle(); 
     void idleShutdown();
 	// update avatar SLID and display name caches
+	void idleExperienceCache();
 	void idleNameCache();
     void idleNetwork();
 
@@ -304,6 +308,8 @@ private:
     bool mLogoutRequestSent;			// Disconnect message sent to simulator, no longer safe to send messages to the sim.
 	// <FS:Ansariel> MaxFPS Viewer-Chui merge error
     //S32 mYieldTime;
+	U32 mLastAgentControlFlags;
+	F32 mLastAgentForceUpdate;
 	struct SettingsFiles* mSettingsLocationList;
 
 	LLWatchdogTimeout* mMainloopTimeout;
@@ -344,10 +350,16 @@ public:
 	void setSaveSettingsOnExit(bool state) {mSaveSettingsOnExit = state; };
 	bool mSaveSettingsOnExit;
 	// </FS:Zi>
+
+// <FS:ND> For Windows, purging the cache can take an extraordinary amount of time. Rename the cache dir and purge it using another thread.
+private:
+	virtual void startCachePurge() {}
+// </FS:ND>
 };
 
 // consts from viewer.h
 const S32 AGENT_UPDATES_PER_SECOND  = 10;
+const S32 AGENT_FORCE_UPDATES_PER_SECOND  = 1;
 
 // Globals with external linkage. From viewer.h
 // *NOTE:Mani - These will be removed as the Viewer App Cleanup project continues.

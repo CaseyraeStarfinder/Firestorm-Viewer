@@ -38,6 +38,7 @@
 #include "llfloaterautoreplacesettings.h"
 #include "llviewertexturelist.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llcheckboxctrl.h"
 #include "llcolorswatch.h"
 #include "llcombobox.h"
@@ -63,7 +64,10 @@
 #include "llnotifications.h"
 #include "llnotificationsutil.h"
 #include "llnotificationtemplate.h"
-#include "llpanellogin.h"
+// <FS:Ansariel> [FS Login Panel]
+//#include "llpanellogin.h"
+#include "fspanellogin.h"
+// </FS:Ansariel> [FS Login Panel]
 #include "llpanelvoicedevicesettings.h"
 #include "llradiogroup.h"
 #include "llsearchcombobox.h"
@@ -79,6 +83,7 @@
 #include "llviewermessage.h"
 #include "llviewershadermgr.h"
 #include "llviewerthrottle.h"
+#include "llvoavatarself.h"
 #include "llvotree.h"
 #include "llvosky.h"
 #include "llfloaterpathfindingconsole.h"
@@ -123,6 +128,7 @@
 #include "lleventtimer.h"
 #include "lldiriterator.h"	// <Kadah> for populating the fonts combo
 #include "llline.h"
+#include "llpanelblockedlist.h"
 #include "llpanelmaininventory.h"
 #include "llscrolllistctrl.h"
 #include "llspellcheck.h"
@@ -139,14 +145,10 @@
 
 #include "fssearchableui.h"
 
-const F32 MAX_USER_FAR_CLIP = 512.f;
-const F32 MIN_USER_FAR_CLIP = 64.f;
 //<FS:HG> FIRE-6340, FIRE-6567 - Setting Bandwidth issues
 //const F32 BANDWIDTH_UPDATER_TIMEOUT = 0.5f;
 char const* const VISIBILITY_DEFAULT = "default";
 char const* const VISIBILITY_HIDDEN = "hidden";
-char const* const VISIBILITY_VISIBLE = "visible";
-char const* const VISIBILITY_INVISIBLE = "invisible";
 
 //control value for middle mouse as talk2push button
 const static std::string MIDDLE_MOUSE_CV = "MiddleMouse";
@@ -333,6 +335,15 @@ void handleDisplayNamesOptionChanged(const LLSD& newvalue)
 	LLVOAvatar::invalidateNameTags();
 }
 
+void handleAppearanceCameraMovementChanged(const LLSD& newvalue)
+{
+	if(!newvalue.asBoolean() && gAgentCamera.getCameraMode() == CAMERA_MODE_CUSTOMIZE_AVATAR)
+	{
+		gAgentCamera.changeCameraToDefault();
+		gAgentCamera.resetView();
+	}
+}
+
 // <FS:AW  opensim search support>
 bool callback_clear_debug_search(const LLSD& notification, const LLSD& response)
 {
@@ -412,8 +423,8 @@ void fractionFromDecimal(F32 decimal_val, S32& numerator, S32& denominator)
 	{
 		if (fmodf((decimal_val * test_denominator) + 0.01f, 1.f) < 0.02f)
 		{
-			numerator = llround(decimal_val * test_denominator);
-			denominator = llround(test_denominator);
+			numerator = ll_round(decimal_val * test_denominator);
+			denominator = ll_round(test_denominator);
 			break;
 		}
 	}
@@ -480,6 +491,7 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.Proxy",					boost::bind(&LLFloaterPreference::onClickProxySettings, this));
 	mCommitCallbackRegistrar.add("Pref.TranslationSettings",	boost::bind(&LLFloaterPreference::onClickTranslationSettings, this));
 	mCommitCallbackRegistrar.add("Pref.AutoReplace",            boost::bind(&LLFloaterPreference::onClickAutoReplace, this));
+	mCommitCallbackRegistrar.add("Pref.PermsDefault",           boost::bind(&LLFloaterPreference::onClickPermsDefault, this));
 	mCommitCallbackRegistrar.add("Pref.SpellChecker",           boost::bind(&LLFloaterPreference::onClickSpellChecker, this));
 
 	sSkin = gSavedSettings.getString("SkinCurrent");
@@ -490,6 +502,8 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	gSavedSettings.getControl("NameTagShowFriends")->getCommitSignal()->connect(boost::bind(&handleNameTagOptionChanged,  _2));
 	gSavedSettings.getControl("UseDisplayNames")->getCommitSignal()->connect(boost::bind(&handleDisplayNamesOptionChanged,  _2));
 	
+	gSavedSettings.getControl("AppearanceCameraMovement")->getCommitSignal()->connect(boost::bind(&handleAppearanceCameraMovementChanged,  _2));
+
 	LLAvatarPropertiesProcessor::getInstance()->addObserver( gAgent.getID(), this );
 
 	mCommitCallbackRegistrar.add("Pref.ClearLog",				boost::bind(&LLConversationLog::onClearLog, &LLConversationLog::instance()));
@@ -611,14 +625,12 @@ BOOL LLFloaterPreference::postBuild()
 
 	gSavedSettings.getControl("PreferredMaturity")->getSignal()->connect(boost::bind(&LLFloaterPreference::onChangeMaturity, this));
 
-	// <FS:Ansariel> Preferences search
-	//LLTabContainer* tabcontainer = getChild<LLTabContainer>("pref core");
-	//if (!tabcontainer->selectTab(gSavedSettings.getS32("LastPrefTab")))
-	//	tabcontainer->selectFirstTab();
-	// </FS:Ansariel>
+	LLTabContainer* tabcontainer = getChild<LLTabContainer>("pref core");
+	if (!tabcontainer->selectTab(gSavedSettings.getS32("LastPrefTab")))
+		tabcontainer->selectFirstTab();
 	
 	getChild<LLUICtrl>("cache_location")->setEnabled(FALSE); // make it read-only but selectable (STORM-227)
-	getChildView("log_path_string")->setEnabled(FALSE);// do the same for chat logs path
+	// getChildView("log_path_string")->setEnabled(FALSE);// do the same for chat logs path - <FS:PP> Field removed from Privacy tab, we have it already in Network & Files tab along with few fancy buttons (03 Mar 2015)
 	getChildView("log_path_string-panelsetup")->setEnabled(FALSE);// and the redundant instance -WoLf
 	std::string cache_location = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "");
 	setCacheLocation(cache_location);
@@ -724,9 +736,22 @@ void LLFloaterPreference::onPieColorsOverrideChanged()
 
 void LLFloaterPreference::updateDeleteTranscriptsButton()
 {
-	std::vector<std::string> list_of_transcriptions_file_names;
-	LLLogChat::getListOfTranscriptFiles(list_of_transcriptions_file_names);
-	getChild<LLButton>("delete_transcripts")->setEnabled(list_of_transcriptions_file_names.size() > 0);
+	// <FS:ND> LLLogChat::getListOfTranscriptFiles will go through the whole chatlog dir, reach a bit of each file,
+	// then append this file to the return-list if it seems to be valid.
+	// All this only to see if there is at least one item.
+	// There's two ways to make this faster:
+	//   1. Make a new function which returns just true/false and exist with true as soon as one valid file is found.
+	//   2. Always enable this button.
+	// There seems to be little reason why this button should ever be disabled, so 2. it is, unless someone knows 
+	// a good reason why 1. is the better way to handle this.
+	
+	// std::vector<std::string> list_of_transcriptions_file_names;
+	// LLLogChat::getListOfTranscriptFiles(list_of_transcriptions_file_names);
+	// getChild<LLButton>("delete_transcripts")->setEnabled(list_of_transcriptions_file_names.size() > 0);
+
+	getChild<LLButton>("delete_transcripts")->setEnabled( true );
+
+	// </FS:ND>
 }
 
 void LLFloaterPreference::onDoNotDisturbResponseChanged()
@@ -1014,13 +1039,13 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 				maturity_list->deleteItems(LLSD(SIM_ACCESS_ADULT));
 			}
 		}
-		getChildView("maturity_desired_combobox")->setVisible( true);
+		getChildView("maturity_desired_combobox")->setEnabled( true);
 		getChildView("maturity_desired_textbox")->setVisible( false);
 	}
 	else
 	{
 		getChild<LLUICtrl>("maturity_desired_textbox")->setValue(maturity_combo->getSelectedItemLabel());
-		getChildView("maturity_desired_combobox")->setVisible( false);
+		getChildView("maturity_desired_combobox")->setEnabled( false);
 	}
 
 	// Forget previous language changes.
@@ -1051,7 +1076,10 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 	//onNotificationsChange("ObjectIMOptions");
 	// </FS:CR>
 
-	LLPanelLogin::setAlwaysRefresh(true);
+	// <FS:Ansariel> [FS Login Panel]
+	//LLPanelLogin::setAlwaysRefresh(true);
+	FSPanelLogin::setAlwaysRefresh(true);
+	// </FS:Ansariel> [FS Login Panel]
 	refresh();
 
 	
@@ -1065,6 +1093,9 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 #endif // OPENSIM
 	getChild<LLPanel>("client_tags_panel")->setVisible(in_opensim);
 // </FS:CR>
+
+	// <FS:Ansariel> Force HTTP features on SL
+	getChild<LLCheckBoxCtrl>("TexturesHTTP")->setEnabled(in_opensim);
 
 	// <FS:Ansariel> Group mutes backup
 	LLScrollListItem* groupmute_item = getChild<LLScrollListCtrl>("restore_per_account_files_list")->getItem(LLSD("groupmutes"));
@@ -1091,12 +1122,15 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 	saveSettings();
 
 	// <FS:ND> Hook up and init for filtering
-	mFilterEdit->setText(LLStringExplicit(""));
 	collectSearchableItems();
-	onUpdateFilterTerm(true);
+	if (!mFilterEdit->getText().empty())
+	{
+		mFilterEdit->setText(LLStringExplicit(""));
+		onUpdateFilterTerm(true);
 
-	if (!tabcontainer->selectTab(gSavedSettings.getS32("LastPrefTab")))
-		tabcontainer->selectFirstTab();
+		if (!tabcontainer->selectTab(gSavedSettings.getS32("LastPrefTab")))
+			tabcontainer->selectFirstTab();
+	}
 	// </FS:ND>
 }
 
@@ -1153,6 +1187,16 @@ void LLFloaterPreference::initDoNotDisturbResponse()
 		// </FS:Ansariel>
 	}
 
+//static 
+void LLFloaterPreference::updateShowFavoritesCheckbox(bool val)
+{
+	LLFloaterPreference* instance = LLFloaterReg::findTypedInstance<LLFloaterPreference>("preferences");
+	if (instance)
+	{
+		instance->getChild<LLUICtrl>("favorites_on_login_check")->setValue(val);
+	}	
+}
+
 void LLFloaterPreference::setHardwareDefaults()
 {
 	LLFeatureManager::getInstance()->applyRecommendedSettings();
@@ -1179,7 +1223,10 @@ void LLFloaterPreference::onClose(bool app_quitting)
 		gSavedSettings.setS32("LastPrefTab", getChild<LLTabContainer>("pref core")->getCurrentPanelIndex());
 	}
 	// </FS:Ansariel>
-	LLPanelLogin::setAlwaysRefresh(false);
+	// <FS:Ansariel> [FS Login Panel]
+	//LLPanelLogin::setAlwaysRefresh(false);
+	FSPanelLogin::setAlwaysRefresh(false);
+	// </FS:Ansariel> [FS Login Panel]
 	if (!app_quitting)
 	{
 		cancel();
@@ -1249,7 +1296,10 @@ void LLFloaterPreference::onBtnOK()
 		LL_INFOS() << "Can't close preferences!" << LL_ENDL;
 	}
 
-	LLPanelLogin::updateLocationSelectorsVisibility();	
+	// <FS:Ansariel> [FS Login Panel]
+	//LLPanelLogin::updateLocationSelectorsVisibility();	
+	FSPanelLogin::updateLocationSelectorsVisibility();
+	// </FS:Ansariel> [FS Login Panel]
 	//Need to reload the navmesh if the pathing console is up
 	LLHandle<LLFloaterPathfindingConsole> pathfindingConsoleHandle = LLFloaterPathfindingConsole::getInstanceHandle();
 	if ( !pathfindingConsoleHandle.isDead() )
@@ -1274,7 +1324,10 @@ void LLFloaterPreference::onBtnApply( )
 	apply();
 	saveSettings();
 
-	LLPanelLogin::updateLocationSelectorsVisibility();
+	// <FS:Ansariel> [FS Login Panel]
+	//LLPanelLogin::updateLocationSelectorsVisibility();
+	FSPanelLogin::updateLocationSelectorsVisibility();
+	// </FS:Ansariel> [FS Login Panel]
 }
 
 // static 
@@ -1655,6 +1708,10 @@ void LLFloaterPreference::buildPopupLists()
 		bool show_popup = !formp->getIgnored();
 		if (!show_popup)
 		{
+// <FS:Ansariel> Don't show chosen option for ignored dialogs in the list. There is only one
+//               notification that makes use of it ("ReplaceAttachment") and it would make the
+//               list appear truncated.
+#if 0
 			if (ignore == LLNotificationForm::IGNORE_WITH_LAST_RESPONSE)
 			{
 				// <FS:Ansariel> Default responses are declared in "ignores" settings group, see llnotifications.cpp
@@ -1674,11 +1731,10 @@ void LLFloaterPreference::buildPopupLists()
 						}
 					}
 				}
-				// <FS:LO> FIRE-7938 - Some Dialog Alerts text in preferences get truncated 
-				//row["columns"][1]["font"] = "SANSSERIF_SMALL";
-				//row["columns"][1]["width"] = 360;
-				// </FS:LO>
+				row["columns"][1]["font"] = "SANSSERIF_SMALL";
+				row["columns"][1]["width"] = 360;
 			}
+#endif
 			item = disabled_popups.addElement(row);
 		}
 		else
@@ -1874,9 +1930,6 @@ void LLFloaterPreference::refreshEnabledState()
 
 	ctrl_deferred->setEnabled(enabled);
 	//ctrl_deferred2->setEnabled(enabled); <FS:Ansariel> We don't have that
-
-	// <FS:Ansariel> Tofu's SSR
-	getChild<LLCheckBoxCtrl>("FSRenderSSR")->setEnabled(enabled && (ctrl_deferred->get() ? TRUE : FALSE) && gSavedSettings.getS32("RenderShadowDetail") > 0);
 	
 	LLCheckBoxCtrl* ctrl_ssao = getChild<LLCheckBoxCtrl>("UseSSAO");
 	LLCheckBoxCtrl* ctrl_dof = getChild<LLCheckBoxCtrl>("UseDoF");
@@ -1894,11 +1947,21 @@ void LLFloaterPreference::refreshEnabledState()
 
 	ctrl_shadow->setEnabled(enabled);
 	
+	// <FS:Ansariel> Options for Chalice Yao's simple avatar shadows via Marine Kelley
+	LLComboBox* ctrl_avatar_shadow = getChild<LLComboBox>("AvatarShadowDetail");
+	ctrl_avatar_shadow->setEnabled(enabled && ctrl_shadow->getValue().asInteger() > 0);
+	// </FS:Ansariel>
 
 	// now turn off any features that are unavailable
 	disableUnavailableSettings();
 
 	getChildView("block_list")->setEnabled(LLLoginInstance::getInstance()->authSuccess());
+
+	// Cannot have floater active until caps have been received
+	// <FS:Ansariel> FIRE-15993: Disabled because it got removed
+	//getChild<LLButton>("default_creation_permissions")->setEnabled(LLStartUp::getStartupState() < STATE_STARTED ? false : true);
+	// <FS:Ansariel> FIRE-15554: Default permissions button added to Firestorm -> Build 1 tab
+	getChild<LLButton>("fs_default_creation_permissions")->setEnabled(LLStartUp::getStartupState() < STATE_STARTED ? false : true);
 }
 
 void LLFloaterPreference::disableUnavailableSettings()
@@ -1914,8 +1977,8 @@ void LLFloaterPreference::disableUnavailableSettings()
 	LLComboBox* ctrl_shadows = getChild<LLComboBox>("ShadowDetail");
 	LLCheckBoxCtrl* ctrl_ssao = getChild<LLCheckBoxCtrl>("UseSSAO");
 	LLCheckBoxCtrl* ctrl_dof = getChild<LLCheckBoxCtrl>("UseDoF");
-	// <FS:Ansariel> Tofu's SSR
-	LLCheckBoxCtrl* ctrl_ssr = getChild<LLCheckBoxCtrl>("FSRenderSSR");
+	// <FS:Ansariel> Options for Chalice Yao's simple avatar shadows via Marine Kelley
+	LLComboBox* ctrl_avatar_shadow = getChild<LLComboBox>("AvatarShadowDetail");
 
 	// if vertex shaders off, disable all shader related products
 	if (!LLFeatureManager::getInstance()->isFeatureAvailable("VertexShaderEnable"))
@@ -1937,7 +2000,12 @@ void LLFloaterPreference::disableUnavailableSettings()
 
 		ctrl_shadows->setEnabled(FALSE);
 		ctrl_shadows->setValue(0);
-		
+
+		// <FS:Ansariel> Options for Chalice Yao's simple avatar shadows via Marine Kelley
+		ctrl_avatar_shadow->setEnabled(FALSE);
+		ctrl_avatar_shadow->setValue(0);
+		// </FS:Ansariel>
+
 		ctrl_ssao->setEnabled(FALSE);
 		ctrl_ssao->setValue(FALSE);
 
@@ -1949,10 +2017,6 @@ void LLFloaterPreference::disableUnavailableSettings()
 		// <FS:Ansariel> We don't have that
 		//ctrl_deferred2->setEnabled(FALSE);
 		//ctrl_deferred2->setValue(FALSE);
-
-		// <FS:Ansariel> Tofu's SSR
-		ctrl_ssr->setEnabled(FALSE);
-		ctrl_ssr->setValue(FALSE);
 	}
 	
 	// disabled windlight
@@ -1964,6 +2028,11 @@ void LLFloaterPreference::disableUnavailableSettings()
 		//deferred needs windlight, disable deferred
 		ctrl_shadows->setEnabled(FALSE);
 		ctrl_shadows->setValue(0);
+
+		// <FS:Ansariel> Options for Chalice Yao's simple avatar shadows via Marine Kelley
+		ctrl_avatar_shadow->setEnabled(FALSE);
+		ctrl_avatar_shadow->setValue(0);
+		// </FS:Ansariel>
 		
 		ctrl_ssao->setEnabled(FALSE);
 		ctrl_ssao->setValue(FALSE);
@@ -1976,10 +2045,6 @@ void LLFloaterPreference::disableUnavailableSettings()
 		// <FS:Ansariel> We don't have that
 		//ctrl_deferred2->setEnabled(FALSE);
 		//ctrl_deferred2->setValue(FALSE);
-
-		// <FS:Ansariel> Tofu's SSR
-		ctrl_ssr->setEnabled(FALSE);
-		ctrl_ssr->setValue(FALSE);
 	}
 
 	// disabled deferred
@@ -1988,7 +2053,12 @@ void LLFloaterPreference::disableUnavailableSettings()
 	{
 		ctrl_shadows->setEnabled(FALSE);
 		ctrl_shadows->setValue(0);
-		
+
+		// <FS:Ansariel> Options for Chalice Yao's simple avatar shadows via Marine Kelley
+		ctrl_avatar_shadow->setEnabled(FALSE);
+		ctrl_avatar_shadow->setValue(0);
+		// </FS:Ansariel>
+
 		ctrl_ssao->setEnabled(FALSE);
 		ctrl_ssao->setValue(FALSE);
 
@@ -2000,10 +2070,6 @@ void LLFloaterPreference::disableUnavailableSettings()
 		// <FS:Ansariel> We don't have that
 		//ctrl_deferred2->setEnabled(FALSE);
 		//ctrl_deferred2->setValue(FALSE);
-
-		// <FS:Ansariel> Tofu's SSR
-		ctrl_ssr->setEnabled(FALSE);
-		ctrl_ssr->setValue(FALSE);
 	}
 	
 	// disabled deferred SSAO
@@ -2019,9 +2085,10 @@ void LLFloaterPreference::disableUnavailableSettings()
 		ctrl_shadows->setEnabled(FALSE);
 		ctrl_shadows->setValue(0);
 
-		// <FS:Ansariel> Tofu's SSR
-		ctrl_ssr->setEnabled(FALSE);
-		ctrl_ssr->setValue(FALSE);
+		// <FS:Ansariel> Options for Chalice Yao's simple avatar shadows via Marine Kelley
+		ctrl_avatar_shadow->setEnabled(FALSE);
+		ctrl_avatar_shadow->setValue(0);
+		// </FS:Ansariel>
 	}
 
 	// disabled reflections
@@ -2043,6 +2110,11 @@ void LLFloaterPreference::disableUnavailableSettings()
 		//deferred needs AvatarVP, disable deferred
 		ctrl_shadows->setEnabled(FALSE);
 		ctrl_shadows->setValue(0);
+
+		// <FS:Ansariel> Options for Chalice Yao's simple avatar shadows via Marine Kelley
+		ctrl_avatar_shadow->setEnabled(FALSE);
+		ctrl_avatar_shadow->setValue(0);
+		// </FS:Ansariel>
 		
 		ctrl_ssao->setEnabled(FALSE);
 		ctrl_ssao->setValue(FALSE);
@@ -2055,10 +2127,6 @@ void LLFloaterPreference::disableUnavailableSettings()
 		// <FS:Ansariel> We don't have that
 		//ctrl_deferred2->setEnabled(FALSE);
 		//ctrl_deferred2->setValue(FALSE);
-
-		// <FS:Ansariel> Tofu's SSR
-		ctrl_ssr->setEnabled(FALSE);
-		ctrl_ssr->setValue(FALSE);
 	}
 
 	// disabled cloth
@@ -2403,6 +2471,7 @@ void LLFloaterPreference::setPersonalInfo(const std::string& visibility, bool im
 	getChildView("ClearWebBrowserCache")->setEnabled(TRUE);
 }
 
+
 void LLFloaterPreference::refreshUI()
 {
 	refresh();
@@ -2458,15 +2527,7 @@ void LLFloaterPreference::onClickBlockList()
 	// </FS:Ansariel> Optional standalone blocklist floater
 	//LLFloaterSidePanelContainer::showPanel("people", "panel_people",
 	//	LLSD().with("people_panel_tab_name", "blocked_panel"));
-	if (gSavedSettings.getBOOL("FSUseStandaloneBlocklistFloater"))
-	{
-		LLFloaterReg::showInstance("fs_blocklist", LLSD());
-	}
-	else
-	{
-		LLFloaterSidePanelContainer::showPanel("people", "panel_people",
-			LLSD().with("people_panel_tab_name", "blocked_panel"));
-	}
+	LLPanelBlockedList::showPanelAndSelect();
 	// </FS:Ansariel>
 }
 
@@ -2493,6 +2554,11 @@ void LLFloaterPreference::onClickSpellChecker()
 void LLFloaterPreference::onClickActionChange()
 {
 	mClickActionDirty = true;
+}
+
+void LLFloaterPreference::onClickPermsDefault()
+{
+	LLFloaterReg::showInstance("perms_default");
 }
 
 void LLFloaterPreference::onDeleteTranscripts()
@@ -2534,9 +2600,10 @@ void LLFloaterPreference::updateClickActionSettings()
 
 void LLFloaterPreference::updateClickActionControls()
 {
- 	const bool click_to_walk = gSavedSettings.getBOOL("ClickToWalk");
- 	const bool dbl_click_to_walk = gSavedSettings.getBOOL("DoubleClickAutoPilot");
- 	const bool dbl_click_to_teleport = gSavedSettings.getBOOL("DoubleClickTeleport");
+	const bool click_to_walk = gSavedSettings.getBOOL("ClickToWalk");
+	const bool dbl_click_to_walk = gSavedSettings.getBOOL("DoubleClickAutoPilot");
+	const bool dbl_click_to_teleport = gSavedSettings.getBOOL("DoubleClickTeleport");
+
 	getChild<LLComboBox>("single_click_action_combo")->setValue((int)click_to_walk);
 	getChild<LLComboBox>("double_click_action_combo")->setValue(dbl_click_to_teleport ? 2 : (int)dbl_click_to_walk);
 }
@@ -2547,10 +2614,6 @@ void LLFloaterPreference::updateUISoundsControls()
 	getChild<LLComboBox>("PlayModeUISndNewIncomingIMSession")->setValue((int)gSavedSettings.getU32("PlayModeUISndNewIncomingIMSession")); // 0, 1, 2, 3. Shared with Chat > Notifications > "When receiving Instant Messages"
 	getChild<LLComboBox>("PlayModeUISndNewIncomingGroupIMSession")->setValue((int)gSavedSettings.getU32("PlayModeUISndNewIncomingGroupIMSession")); // 0, 1, 2, 3. Shared with Chat > Notifications > "When receiving Group Instant Messages"
 	getChild<LLComboBox>("PlayModeUISndNewIncomingConfIMSession")->setValue((int)gSavedSettings.getU32("PlayModeUISndNewIncomingConfIMSession")); // 0, 1, 2, 3. Shared with Chat > Notifications > "When receiving AdHoc Instant Messages"
-	// Set proper option for Chat > Notifications > "When receiving Instant Messages"
-	getChild<LLComboBox>("WhenPlayIM")->setValue((int)gSavedSettings.getU32("PlayModeUISndNewIncomingIMSession")); // 0, 1, 2, 3
-	getChild<LLComboBox>("WhenPlayGroupIM")->setValue((int)gSavedSettings.getU32("PlayModeUISndNewIncomingGroupIMSession")); // 0, 1, 2, 3
-	getChild<LLComboBox>("WhenPlayConfIM")->setValue((int)gSavedSettings.getU32("PlayModeUISndNewIncomingConfIMSession")); // 0, 1, 2, 3
 #ifdef OPENSIM
 	getChild<LLTextBox>("textFSRestartOpenSim")->setVisible(TRUE);
 	getChild<LLLineEditor>("UISndRestartOpenSim")->setVisible(TRUE);
@@ -2559,32 +2622,19 @@ void LLFloaterPreference::updateUISoundsControls()
 	getChild<LLCheckBoxCtrl>("PlayModeUISndRestartOpenSim")->setVisible(TRUE);
 #endif
 	getChild<LLComboBox>("UseLSLFlightAssist")->setValue((int)gSavedPerAccountSettings.getF32("UseLSLFlightAssist")); // Flight Assist combo box; Not sound-related, but better to place it here instead of creating whole new void
+
+	// FIRE-9856: Mute sound effects disable plays sound from collisions and plays sound from gestures checkbox not disable after restart/relog
+	bool mute_sound_effects = gSavedSettings.getBOOL("MuteSounds");
+	bool mute_all_sounds = gSavedSettings.getBOOL("MuteAudio");
+	getChild<LLCheckBoxCtrl>("gesture_audio_play_btn")->setEnabled(!(mute_sound_effects || mute_all_sounds));
+	getChild<LLCheckBoxCtrl>("collisions_audio_play_btn")->setEnabled(!(mute_sound_effects || mute_all_sounds));
+
+#if !LL_WINDOWS
+	getChild<LLCheckBoxCtrl>("FSDisableWMIProbing")->setEnabled(FALSE); // VRAM detection via WMI probing on Windows systems
+#endif
+
 }
 // </FS:PP>
-
-//[FIX FIRE-1927 - enable DoubleClickTeleport shortcut : SJ]
-//void LLFloaterPreference::onChangeDoubleClickSettings()
-//{
-//	bool double_click_action_enabled = gSavedSettings.getBOOL("DoubleClickAutoPilot") || gSavedSettings.getBOOL("DoubleClickTeleport");
-//	LLCheckBoxCtrl* double_click_action_cb = getChild<LLCheckBoxCtrl>("double_click_chkbox");
-//	if (double_click_action_cb)
-//	{
-//		// check checkbox if one of double-click actions settings enabled, uncheck otherwise
-//		double_click_action_cb->setValue(double_click_action_enabled);
-//	}
-//	LLRadioGroup* double_click_action_radio = getChild<LLRadioGroup>("double_click_action");
-//	if (!double_click_action_radio) return;
-//	// set radio-group enabled if one of double-click actions settings enabled
-//	double_click_action_radio->setEnabled(double_click_action_enabled);
-//	if (gSavedSettings.getBOOL("DoubleClickTeleport"))
-//	{
-//		double_click_action_radio->setSelectedIndex(0);
-//	}
-//	else
-//	{
-//		double_click_action_radio->setSelectedIndex(1);
-//	}
-//}
 
 void LLFloaterPreference::applyUIColor(LLUICtrl* ctrl, const LLSD& param)
 {
@@ -2805,6 +2855,11 @@ BOOL LLPanelPreference::postBuild()
 	if (hasChild("favorites_on_login_check", TRUE))
 	{
 		getChild<LLCheckBoxCtrl>("favorites_on_login_check")->setCommitCallback(boost::bind(&showFavoritesOnLoginWarning, _1, _2));
+		// <FS:Ansariel> [FS Login Panel]
+		//bool show_favorites_at_login = LLPanelLogin::getShowFavorites();
+		bool show_favorites_at_login = FSPanelLogin::getShowFavorites();
+		// </FS:Ansariel> [FS Login Panel]
+		getChild<LLCheckBoxCtrl>("favorites_on_login_check")->setValue(show_favorites_at_login);
 	}
 
 	//////////////////////PanelAdvanced ///////////////////
@@ -2840,10 +2895,10 @@ BOOL LLPanelPreference::postBuild()
 	}
 
 	// <FS:Ansariel> Fix for visually broken browser choice radiobuttons
-	if (hasChild("use_external_browser", TRUE))
-	{
-		getChild<LLRadioGroup>("use_external_browser")->setValue(gSavedSettings.getBOOL("UseExternalBrowser"));
-	}
+	//if (hasChild("use_external_browser", TRUE))
+	//{
+	//	getChild<LLRadioGroup>("use_external_browser")->setValue(gSavedSettings.getBOOL("UseExternalBrowser"));
+	//}
 	// </FS:Ansariel> Fix for visually broken browser choice radiobuttons
 	
 	////////////////////// PanelAlerts ///////////////////
@@ -2876,13 +2931,7 @@ LLPanelPreference::~LLPanelPreference()
 }
 void LLPanelPreference::apply()
 {
-	// <FS:Ansariel> Fix for visually broken browser choice radiobuttons
-	if (hasChild("use_external_browser", TRUE))
-	{
-		BOOL useExternalBrowser = (getChild<LLRadioGroup>("use_external_browser")->getValue().asInteger() == 1);
-		gSavedSettings.setBOOL("UseExternalBrowser", useExternalBrowser);
-	}
-	// </FS:Ansariel> Fix for visually broken browser choice radiobuttons
+	// no-op
 }
 
 void LLPanelPreference::saveSettings()
@@ -2989,6 +3038,12 @@ void LLPanelPreference::cancel()
 	{
 		LLControlVariable* control = iter->first;
 		LLSD ctrl_value = iter->second;
+
+		if((control->getName() == "InstantMessageLogPath") && (ctrl_value.asString() == ""))
+		{
+			continue;
+		}
+
 		control->set(ctrl_value);
 	}
 
@@ -3186,6 +3241,9 @@ BOOL LLPanelPreferenceGraphics::postBuild()
 	getChild<LLCheckBoxCtrl>("Fullscreen Mode")->setVisible(FALSE);
 #endif // LL_DARWIN
 // </FS:CR>
+
+	// <FS:Ansariel> Texture memory management
+	getChild<LLSliderCtrl>("GraphicsCardTextureMemory")->setMaxValue((F32)gMaxVideoRam.value());
 
 	return LLPanelPreference::postBuild();
 }
@@ -3532,7 +3590,7 @@ LLPanelPreferenceSkins::LLPanelPreferenceSkins()
 	m_SkinThemeName = gSavedSettings.getString("FSSkinCurrentThemeReadableName");
 
 	const std::string strSkinsPath = gDirUtilp->getSkinBaseDir() + gDirUtilp->getDirDelimiter() + "skins.xml";
-	llifstream fileSkins(strSkinsPath, std::ios::binary);
+	llifstream fileSkins(strSkinsPath.c_str(), std::ios::binary);
 	if (fileSkins.is_open())
 	{
 		LLSDSerialize::fromXMLDocument(m_SkinsInfo, fileSkins);
@@ -3898,7 +3956,7 @@ void FSPanelPreferenceBackup::onClickBackupSettings()
 	// Pull out all data
 	std::vector<LLScrollListItem*> globalFileList = globalScrollList->getAllData();
 	// Go over each entry
-	for (S32 index = 0; index < globalFileList.size(); index++)
+	for (size_t index = 0; index < globalFileList.size(); ++index)
 	{
 		// Get the next item in the list
 		LLScrollListItem* item = globalFileList[index];
@@ -3942,7 +4000,7 @@ void FSPanelPreferenceBackup::onClickBackupSettings()
 			// Pull out all data
 			std::vector<LLScrollListItem*> perAccountFileList = perAccountScrollList->getAllData();
 			// Go over each entry
-			for (S32 index = 0; index < perAccountFileList.size(); index++)
+			for (size_t index = 0; index < perAccountFileList.size(); ++index)
 			{
 				// Get the next item in the list
 				LLScrollListItem* item = perAccountFileList[index];
@@ -3966,7 +4024,7 @@ void FSPanelPreferenceBackup::onClickBackupSettings()
 	// Pull out all data
 	std::vector<LLScrollListItem*> globalFoldersList = globalFoldersScrollList->getAllData();
 	// Go over each entry
-	for (S32 index = 0; index < globalFoldersList.size(); index++)
+	for (size_t index = 0; index < globalFoldersList.size(); ++index)
 	{
 		// Get the next item in the list
 		LLScrollListItem* item = globalFoldersList[index];
@@ -4079,7 +4137,7 @@ void FSPanelPreferenceBackup:: doRestoreSettings(const LLSD& notification, const
 	// Pull out all data
 	std::vector<LLScrollListItem*> globalFileList = globalScrollList->getAllData();
 	// Go over each entry
-	for (S32 index = 0; index < globalFileList.size(); index++)
+	for (size_t index = 0; index < globalFileList.size(); ++index)
 	{
 		// Get the next item in the list
 		LLScrollListItem* item = globalFileList[index];
@@ -4124,7 +4182,7 @@ void FSPanelPreferenceBackup:: doRestoreSettings(const LLSD& notification, const
 		// Pull out all data
 		std::vector<LLScrollListItem*> perAccountFileList = perAccountScrollList->getAllData();
 		// Go over each entry
-		for (S32 index = 0; index < perAccountFileList.size(); index++)
+		for (size_t index = 0; index < perAccountFileList.size(); ++index)
 		{
 			// Get the next item in the list
 			LLScrollListItem* item = perAccountFileList[index];
@@ -4166,7 +4224,7 @@ void FSPanelPreferenceBackup:: doRestoreSettings(const LLSD& notification, const
 	// Pull out all data
 	std::vector<LLScrollListItem*> globalFoldersList = globalFoldersScrollList->getAllData();
 	// Go over each entry
-	for (S32 index = 0; index < globalFoldersList.size(); index++)
+	for (size_t index = 0; index < globalFoldersList.size(); ++index)
 	{
 		// Get the next item in the list
 		LLScrollListItem* item = globalFoldersList[index];
@@ -4250,7 +4308,7 @@ void FSPanelPreferenceBackup::applySelection(LLScrollListCtrl* control, BOOL all
 	// Pull out all data
 	std::vector<LLScrollListItem*> itemList = control->getAllData();
 	// Go over each entry
-	for (S32 index = 0; index < itemList.size(); index++)
+	for (size_t index = 0; index < itemList.size(); ++index)
 	{
 		// Get the next item in the list
 		LLScrollListItem* item = itemList[index];
@@ -4272,14 +4330,9 @@ void FSPanelPreferenceBackup::applySelection(LLScrollListCtrl* control, BOOL all
 void LLFloaterPreference::loadFontPresetsFromDir(const std::string& dir, LLComboBox* font_selection_combo)
 {
 	LLDirIterator dir_iter(dir, "*.xml");
-	while (1)
+	std::string file;
+	while (dir_iter.next(file))
 	{
-		std::string file;
-		if (!dir_iter.next(file))
-		{
-			break; // no more files
-		}
-			
 		//hack to deal with "fonts.xml" 
 		if (file == "fonts.xml")
 		{
@@ -4288,10 +4341,9 @@ void LLFloaterPreference::loadFontPresetsFromDir(const std::string& dir, LLCombo
 		//hack to get "fonts_[name].xml" to "Name"
 		else
 		{
-			std::string fontpresetname = file.substr(6, file.length()-10);
+			std::string fontpresetname = file.substr(6, file.length() - 10);
 			LLStringUtil::replaceChar(fontpresetname, '_', ' ');
 			fontpresetname[0] = LLStringOps::toUpper(fontpresetname[0]);
-                
 			font_selection_combo->add(fontpresetname, file);
 		}
 	}
@@ -4375,7 +4427,7 @@ void LLPanelPreferenceOpensim::apply()
 void LLPanelPreferenceOpensim::cancel()
 {
 	LLGridManager::getInstance()->resetGrids();
-	LLPanelLogin::updateServer();
+	FSPanelLogin::updateServer();
 }
 
 void LLPanelPreferenceOpensim::onClickAddGrid()
@@ -4415,9 +4467,10 @@ void LLPanelPreferenceOpensim::onClickSaveGrid()
 	grid_info[GRID_FORGOT_PASSWORD] = mEditorPassword->getValue();
 	grid_info["search"] = mEditorSearch->getValue();
 	grid_info["message"] = mEditorGridMessage->getValue();
-	GridEntry* grid_entry = new GridEntry;
-	grid_entry->grid = grid_info;
-	grid_entry->set_current = false;
+
+	// GridEntry* grid_entry = new GridEntry;
+	// grid_entry->grid = grid_info;
+	// grid_entry->set_current = false;
 	
 	//getChild<LLUICtrl>("grid_management_panel")->setEnabled(FALSE);
 	//LLGridManager::getInstance()->addGridListChangedCallback(boost::bind(&LLPanelPreferenceOpensim::addedGrid, this, _1));
@@ -4622,7 +4675,7 @@ void collectChildren( LLView const *aView, nd::prefs::PanelDataPtr aParentPanel,
 void LLFloaterPreference::collectSearchableItems()
 {
 	delete mSearchData;
-	mSearchData = 0;
+	mSearchData = NULL;
 	LLTabContainer *pRoot = getChild< LLTabContainer >( "pref core" );
 	if( mFilterEdit && pRoot )
 	{

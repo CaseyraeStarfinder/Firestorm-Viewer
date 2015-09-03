@@ -453,12 +453,6 @@
      name="FilterTextColor"
      reference="EmphasisColor" />
     <color
-     name="inventory_bg_color"
-     reference="DkGray2_10"/>
-    <color
-     name="inventory_bg_color_a"
-     reference="DkGray2_10"/>
-    <color
      name="floater_bg_color"
      reference="SL-Background"/>
     <color
@@ -894,4 +888,10 @@
   <color
       name="ChatHeaderOpaqueBackground"
       reference="Black_25" />
+  <color
+      name="Slidermark"
+      reference="EmphasisColor" />
+  <color
+      name="UriQueryPartColor"
+      value="0.688 0.465 0.242 1" />
 </colors>

@@ -67,7 +67,7 @@ public:
 	// when voice is available
 	/*virtual*/ void onChange(EStatusType status, const std::string &channelURI, bool proximal);
 
-    bool mTryToConnectToFbc;
+    bool mTryToConnectToFacebook;
 
 	// internals
 	class Updater;
@@ -162,6 +162,8 @@ private:
 	LLAvatarList*			mRecentList;
 	LLGroupList*			mGroupList;
 	LLNetMap*				mMiniMap;
+	// <FS:Ansariel> FIRE-4740: Friend counter in people panel
+	LLTabContainer*			mFriendsTabContainer;
 
 	std::vector<std::string> mSavedOriginalFilters;
 	std::vector<std::string> mSavedFilters;
@@ -171,7 +173,6 @@ private:
 	//Updater*				mNearbyListUpdater;
 	// </FS:Ansariel> Firestorm radar
 	Updater*				mRecentListUpdater;
-	Updater*				mFacebookListUpdater;
 	Updater*				mButtonsUpdater;
     LLHandle< LLFloater >	mPicker;
 	

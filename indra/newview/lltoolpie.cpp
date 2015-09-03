@@ -117,7 +117,7 @@ BOOL LLToolPie::handleMouseDown(S32 x, S32 y, MASK mask)
 	//left mouse down always picks transparent
 //	mPick = gViewerWindow->pickImmediate(x, y, TRUE);
 // [SL:KB] - Patch: UI-PickRiggedAttachment | Checked: 2012-07-12 (Catznip-3.3)
-	mPick = gViewerWindow->pickImmediate(x, y, TRUE, FALSE);
+	mPick = gViewerWindow->pickImmediate(x, y, TRUE, FALSE, FALSE);
 // [/SL:KB]
 	mPick.mKeyMask = mask;
 
@@ -353,6 +353,9 @@ BOOL LLToolPie::handleLeftClickPick()
 
 		gGrabTransientTool = this;
 		mMouseButtonDown = false;
+		// <FS:Ansariel> FIRE-15578: After exiting mouselook, left clicking on a touchable object opens build floater; We have it fixed within LLToolGrab
+		//LLToolGrab::getInstance()->setClickedInMouselook(gAgentCamera.cameraMouselook());
+		// </FS:Ansariel>
 		LLToolMgr::getInstance()->getCurrentToolset()->selectTool( LLToolGrab::getInstance() );
 		return LLToolGrab::getInstance()->handleObjectHit( mPick );
 	}
@@ -384,7 +387,10 @@ BOOL LLToolPie::handleLeftClickPick()
 			}
 			object = (LLViewerObject*)object->getParent();
 		}
-		if (object && object == gAgentAvatarp && !gSavedSettings.getBOOL("ClickToWalk"))
+		// <FS:Ansariel> FIRE-15189: Fix ClickToWalk not allowing mouse-walk (behavior change)
+		//if (object && object == gAgentAvatarp && !gSavedSettings.getBOOL("ClickToWalk"))
+		if (object && object == gAgentAvatarp)
+		// </FS:Ansariel>
 		{
 			// we left clicked on avatar, switch to focus mode
 			mMouseButtonDown = false;
@@ -480,8 +486,12 @@ ECursorType LLToolPie::cursorFromObject(LLViewerObject* object)
 		break;
 	case CLICK_ACTION_BUY:
 		if ( mClickActionBuyEnabled )
-		{
-			cursor = UI_CURSOR_TOOLBUY;
+		{ 
+			LLSelectNode* node = LLSelectMgr::getInstance()->getHoverNode();
+			if (!node || node->mSaleInfo.isForSale())
+			{
+				cursor = UI_CURSOR_TOOLBUY;
+			}
 		}
 		break;
 	case CLICK_ACTION_OPEN:
@@ -585,7 +595,7 @@ BOOL LLToolPie::handleHover(S32 x, S32 y, MASK mask)
 {
 //	mHoverPick = gViewerWindow->pickImmediate(x, y, FALSE);
 // [SL:KB] - Patch: UI-PickRiggedAttachment | Checked: 2012-07-12 (Catznip-3.3)
-	mHoverPick = gViewerWindow->pickImmediate(x, y, FALSE, FALSE);
+	mHoverPick = gViewerWindow->pickImmediate(x, y, FALSE, FALSE, FALSE);
 // [/SL:KB]
 	LLViewerObject *parent = NULL;
 	LLViewerObject *object = mHoverPick.getObject();
@@ -601,6 +611,7 @@ BOOL LLToolPie::handleHover(S32 x, S32 y, MASK mask)
 		return TRUE;
 	}
 // [/RLVa:KB]
+	LLSelectMgr::getInstance()->setHoverObject(object, mHoverPick.mObjectFace);
 
 	if (object)
 	{
@@ -653,7 +664,7 @@ BOOL LLToolPie::handleHover(S32 x, S32 y, MASK mask)
 		// perform a separate pick that detects transparent objects since they respond to 1-click actions
 //		LLPickInfo click_action_pick = gViewerWindow->pickImmediate(x, y, TRUE);
 // [SL:KB] - Patch: UI-PickRiggedAttachment | Checked: 2012-07-12 (Catznip-3.3)
-		LLPickInfo click_action_pick = gViewerWindow->pickImmediate(x, y, TRUE, FALSE);
+		LLPickInfo click_action_pick = gViewerWindow->pickImmediate(x, y, TRUE, FALSE, FALSE);
 // [/SL:KB]
 
 		LLViewerObject* click_action_object = click_action_pick.getObject();
@@ -1296,9 +1307,13 @@ BOOL LLToolPie::handleTooltipObject( LLViewerObject* hover_object, std::string l
 				if (region)
 				{
 					LLVector3 relPositionObject = region->getPosRegionFromGlobal(hover_object->getPositionGlobal());
-					args.clear();
-					args["POSITION"] = llformat("<%.02f, %.02f, %.02f>", relPositionObject.mV[VX], relPositionObject.mV[VY], relPositionObject.mV[VZ]);
-					tooltip_msg.append("\n" + LLTrans::getString("TooltipPosition", args));
+
+					if (!gRlvHandler.hasBehaviour(RLV_BHVR_SHOWLOC))
+					{
+						args.clear();
+						args["POSITION"] = llformat("<%.02f, %.02f, %.02f>", relPositionObject.mV[VX], relPositionObject.mV[VY], relPositionObject.mV[VZ]);
+						tooltip_msg.append("\n" + LLTrans::getString("TooltipPosition", args));
+					}
 
 					// Get distance
 					F32 distance = (relPositionObject - region->getPosRegionFromGlobal(gAgent.getPositionGlobal())).magVec();
@@ -1599,7 +1614,16 @@ void LLToolPie::handleDeselect()
 	}
 	// remove temporary selection for pie menu
 	LLSelectMgr::getInstance()->setHoverObject(NULL);
-	LLSelectMgr::getInstance()->validateSelection();
+
+	// Menu may be still up during transfer to different tool.
+	// toolfocus and toolgrab should retain menu, they will clear it if needed
+	MASK override_mask = gKeyboard ? gKeyboard->currentMask(TRUE) : 0;
+	if (gMenuHolder && (!gMenuHolder->getVisible() || (override_mask & (MASK_ALT | MASK_CONTROL)) == 0))
+	{
+		// in most cases menu is useless without correct selection, so either keep both or discard both
+		gMenuHolder->hideMenus();
+		LLSelectMgr::getInstance()->validateSelection();
+	}
 }
 
 LLTool* LLToolPie::getOverrideTool(MASK mask)
@@ -2041,16 +2065,7 @@ BOOL LLToolPie::handleRightClickPick()
 			{
 				name = node->mName;
 			}
-			std::string mute_msg;
-			if (LLMuteList::getInstance()->isMuted(object->getID(), name))
-			{
-				mute_msg = LLTrans::getString("UnmuteObject");
-			}
-			else
-			{
-				mute_msg = LLTrans::getString("MuteObject2");
-			}
-			
+
 // [RLVa:KB] - Checked: 2010-04-11 (RLVa-1.2.el) | Modified: RLVa-1.1.0l
 			// Don't show the pie menu on empty selection when fartouch/interaction restricted
 			// (not entirely accurate in case of Tools / Select Only XXX [see LLToolSelect::handleObjectSelection()]
@@ -2063,13 +2078,20 @@ BOOL LLToolPie::handleRightClickPick()
 				// gMenuObject->show(x, y);
 				if(gSavedSettings.getBOOL("UsePieMenu"))
 				{
+					std::string mute_msg;
+					if (LLMuteList::getInstance()->isMuted(object->getID(), name))
+					{
+						mute_msg = LLTrans::getString("UnmuteObject");
+					}
+					else
+					{
+						mute_msg = LLTrans::getString("MuteObject2");
+					}
 					gPieMenuObject->getChild<LLUICtrl>("Object Mute")->setValue(mute_msg);
 					gPieMenuObject->show(x, y);
 				}
 				else
 				{
-					// getChild() seems to fail for LLMenuItemCallGL items, so we changed the XML instead
-					// gMenuObject->getChild<LLUICtrl>("Object Mute")->setValue(mute_msg);
 					gMenuObject->show(x, y);
 				}
 				// </FS:Zi>
@@ -2086,10 +2108,26 @@ BOOL LLToolPie::handleRightClickPick()
 	}
 	else if (mPick.mParticleOwnerID.notNull())
 	{
+		// <FS:Ansariel> FIRE-12355: Pie menu for mute particle menu
+		if (gSavedSettings.getBOOL("UsePieMenu"))
+		{
+			if (gPieMenuMuteParticle && mPick.mParticleOwnerID != gAgent.getID())
+			{
+				gPieMenuMuteParticle->show(x,y);
+			}
+		}
+		else
+		// </FS:Ansariel>
 		if (gMenuMuteParticle && mPick.mParticleOwnerID != gAgent.getID())
 		{
 			gMenuMuteParticle->show(x,y);
 		}
+	}
+
+	// non UI object - put focus back "in world"
+	if (gFocusMgr.getKeyboardFocus())
+	{
+		gFocusMgr.setKeyboardFocus(NULL);
 	}
 
 	LLTool::handleRightMouseDown(x, y, mask);

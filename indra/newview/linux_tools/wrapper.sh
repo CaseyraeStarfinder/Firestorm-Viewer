@@ -1,5 +1,21 @@
 #!/bin/bash
 
+exportMutliArchDRIPath() {
+	MULTIARCH="$(dpkg-architecture -a$1 -qDEB_HOST_MULTIARCH 2>/dev/null)"
+	MULTIARCH_ERR=$?
+	if [ $MULTIARCH_ERR -eq 0 ]; then
+		echo "Multi-arch support detected for $1."
+		MULTIARCH_GL_DRIVERS="/usr/lib/${MULTIARCH}/dri"
+		if [ -z ${LIBGL_DRIVERS_PATH}  ]
+		then
+			export LIBGL_DRIVERS_PATH="${MULTIARCH_GL_DRIVERS}"
+		else
+			export LIBGL_DRIVERS_PATH="${LIBGL_DRIVERS_PATH}:${MULTIARCH_GL_DRIVERS}"
+		fi
+	fi
+}
+
+
 ## Here are some configuration options for Linux Client Testers.
 ## These options are for self-assisted troubleshooting during this beta
 ## testing phase; you should not usually need to touch them.
@@ -65,15 +81,15 @@ fi
 export SDL_VIDEO_X11_DGAMOUSE=0
 
 ## - Works around a problem with misconfigured 64-bit systems not finding GL
-I386_MULTIARCH="$(dpkg-architecture -ai386 -qDEB_HOST_MULTIARCH 2>/dev/null)"
-MULTIARCH_ERR=$?
-if [ $MULTIARCH_ERR -eq 0 ]; then
-    echo 'Multi-arch support detected.'
-    MULTIARCH_GL_DRIVERS="/usr/lib/${I386_MULTIARCH}/dri"
-    export LIBGL_DRIVERS_PATH="${LIBGL_DRIVERS_PATH}:${MULTIARCH_GL_DRIVERS}:/usr/lib64/dri:/usr/lib32/dri:/usr/lib/dri"
+exportMutliArchDRIPath "i386"
+exportMutliArchDRIPath "amd64"
+if [ -z ${LIBGL_DRIVERS_PATH} ]
+then
+	export LIBGL_DRIVERS_PATH="/usr/lib64/dri:/usr/lib32/dri:/usr/lib/dri:/usr/lib/i386-linux-gnu/dri:/usr/lib/x86_64-linux-gnu/dri"
 else
-    export LIBGL_DRIVERS_PATH="${LIBGL_DRIVERS_PATH}:/usr/lib64/dri:/usr/lib32/dri:/usr/lib/dri"
+	export LIBGL_DRIVERS_PATH="${LIBGL_DRIVERS_PATH}:/usr/lib64/dri:/usr/lib32/dri:/usr/lib/dri:/usr/lib/i386-linux-gnu/dri:/usr/lib/x86_64-linux-gnu/dri"
 fi
+echo "LIBGL_DRIVERS_PATH is ${LIBGL_DRIVERS_PATH}"
 
 ## - The 'scim' GTK IM module widely crashes the viewer.  Avoid it.
 if [ "$GTK_IM_MODULE" = "scim" ]; then
@@ -173,10 +189,10 @@ if [ $LL_RUN_ERR -ne 0 ]; then
 You are running the Firestorm Viewer on a x86_64 platform.  The
 most common problems when launching the Viewer (particularly
 'bin/do-not-directly-run-firestorm-bin: not found' and 'error while
-loading shared libraries') may be solved by installing your Linux
-distribution's 32-bit compatibility packages.
-For example, on Ubuntu and other Debian-based Linuxes you might run:
-$ sudo apt-get install ia32-libs ia32-libs-gtk ia32-libs-kde ia32-libs-sdl
+loading shared libraries') may be solved by enabling 32-bit
+architecture and installing one or more 32-bit compatibility libraries.
+Consult the Firestorm wiki at
+http://wiki.phoenixviewer.com/32-bit_viewer_in_64-bit_linux
 EOFMARKER
 	fi
 fi

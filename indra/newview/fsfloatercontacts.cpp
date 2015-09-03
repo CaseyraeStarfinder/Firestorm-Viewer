@@ -30,9 +30,9 @@
 #include "fsfloatercontacts.h"
 
 #include "fscommon.h"
-#include "fscontactsfriendsctrl.h"
 #include "fscontactsfriendsmenu.h"
 #include "fsfloaterimcontainer.h"
+#include "fsscrolllistctrl.h"
 #include "llagent.h"
 #include "llavataractions.h"
 #include "llcallingcard.h"			// for LLAvatarTracker
@@ -43,8 +43,10 @@
 #include "llgrouplist.h"
 #include "llnotificationsutil.h"
 #include "llscrolllistctrl.h"
+#include "llslurl.h"
 #include "llstartup.h"
 #include "lltabcontainer.h"
+#include "lltooldraganddrop.h"
 #include "llviewermenu.h"
 #include "llvoiceclient.h"
 
@@ -85,11 +87,12 @@ FSFloaterContacts::FSFloaterContacts(const LLSD& seed)
 	mObserver(NULL),
 	mFriendsList(NULL),
 	mGroupList(NULL),
-	mAllowRightsChange(TRUE),
+	mAllowRightsChange(true),
+	mRightsChangeNotificationTriggered(false),
 	mNumRightsChanged(0),
 	mRlvBehaviorCallbackConnection(),
 	mResetLastColumnDisplayModeChanged(false),
-	mDirtyNames(false)
+	mDirtyNames(true)
 {
 	mObserver = new LLLocalFriendsObserver(this);
 	LLAvatarTracker::instance().addObserver(mObserver);
@@ -125,11 +128,12 @@ BOOL FSFloaterContacts::postBuild()
 	mFriendsTab = getChild<LLPanel>(FRIENDS_TAB_NAME);
 	mFriendListFontName = mFriendsTab->getString("FontName");
 
-	mFriendsList = mFriendsTab->getChild<FSContactsFriendsCtrl>("friend_list");
+	mFriendsList = mFriendsTab->getChild<FSScrollListCtrl>("friend_list");
 	mFriendsList->setMaxSelectable(MAX_FRIEND_SELECT);
 	mFriendsList->setCommitOnSelectionChange(TRUE);
 	mFriendsList->setCommitCallback(boost::bind(&FSFloaterContacts::onSelectName, this));
 	mFriendsList->setDoubleClickCallback(boost::bind(&FSFloaterContacts::onImButtonClicked, this));
+	mFriendsList->setHandleDaDCallback(boost::bind(&FSFloaterContacts::handleFriendsListDragAndDrop, this, _1, _2, _3, _4, _5, _6, _7, _8));
 	mFriendsList->setContextMenu(&gFSContactsFriendsMenu);
 	
 	mFriendsTab->childSetAction("im_btn",				boost::bind(&FSFloaterContacts::onImButtonClicked,				this));
@@ -140,6 +144,8 @@ BOOL FSFloaterContacts::postBuild()
 	mFriendsTab->childSetAction("remove_btn",			boost::bind(&FSFloaterContacts::onDeleteFriendButtonClicked,	this));
 	mFriendsTab->childSetAction("add_btn",				boost::bind(&FSFloaterContacts::onAddFriendWizButtonClicked,	this));
 	mFriendsTab->setDefaultBtn("im_btn");
+
+	mFriendsTab->getChild<LLTextBox>("friend_count")->setTextArg("COUNT", llformat("%d", mFriendsList->getItemCount()));
 
 	mGroupsTab = getChild<LLPanel>(GROUP_TAB_NAME);
 	mGroupList = mGroupsTab->getChild<LLGroupList>("group_list");
@@ -552,11 +558,11 @@ void FSFloaterContacts::onFriendListUpdate(U32 changed_mask)
 				--mNumRightsChanged;
 				if (mNumRightsChanged > 0)
 				{
-					mAllowRightsChange = FALSE;
+					mAllowRightsChange = false;
 				}
 				else
 				{
-					mAllowRightsChange = TRUE;
+					mAllowRightsChange = true;
 				}
 			
 				const std::set<LLUUID>& changed_items = at.getChangedIDs();
@@ -870,12 +876,7 @@ void FSFloaterContacts::confirmModifyRights(rights_map_t& ids, EGrantRevoke comm
 		// for single friend, show their name
 		if (ids.size() == 1)
 		{
-			LLUUID agent_id = ids.begin()->first;
-			std::string name;
-			if (gCacheName->getFullName(agent_id, name))
-			{
-				args["NAME"] = name;
-			}
+			args["NAME"] = LLSLURL("agent", ids.begin()->first, "completename").getSLURLString();
 			if (command == GRANT)
 			{
 				LLNotificationsUtil::add("GrantModifyRights", 
@@ -909,10 +910,13 @@ void FSFloaterContacts::confirmModifyRights(rights_map_t& ids, EGrantRevoke comm
 			}
 		}
 	}
+	
 }
 
 bool FSFloaterContacts::modifyRightsConfirmation(const LLSD& notification, const LLSD& response, rights_map_t* rights)
 {
+	mRightsChangeNotificationTriggered = false;
+
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (0 == option)
 	{
@@ -936,6 +940,11 @@ bool FSFloaterContacts::modifyRightsConfirmation(const LLSD& notification, const
 
 void FSFloaterContacts::applyRightsToFriends()
 {
+	if (mRightsChangeNotificationTriggered)
+	{
+		return;
+	}
+
 	bool rights_changed = false;
 
 	// store modify rights separately for confirmation
@@ -1023,6 +1032,7 @@ void FSFloaterContacts::applyRightsToFriends()
 	if (need_confirmation)
 	{
 		confirmModifyRights(rights_updates, confirmation_type);
+		mRightsChangeNotificationTriggered = true;
 	}
 	else
 	{
@@ -1271,6 +1281,42 @@ void FSFloaterContacts::disconnectAvatarNameCacheConnection(const LLUUID& reques
 		}
 		mAvatarNameCacheConnections.erase(found);
 	}
+}
+
+BOOL FSFloaterContacts::handleFriendsListDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
+														EDragAndDropType cargo_type,
+														void* cargo_data,
+														EAcceptance* accept,
+														std::string& tooltip_msg)
+{
+	if (cargo_type == DAD_PERSON)
+	{
+		LLUUID* av_id = static_cast<LLUUID*>(cargo_data);
+		if (av_id && !LLAvatarActions::isFriend(*av_id))
+		{
+			*accept = ACCEPT_YES_SINGLE;
+
+			if (drop)
+			{
+				LLAvatarActions::requestFriendshipDialog(*av_id);
+			}
+		}
+	}
+	else
+	{
+		LLScrollListItem* hit_item = mFriendsList->hitItem(x, y);
+		if (hit_item)
+		{
+			LLToolDragAndDrop::handleGiveDragAndDrop(hit_item->getUUID(), LLUUID::null, drop,
+				cargo_type, cargo_data, accept);
+		}
+		else
+		{
+			*accept = ACCEPT_NO;
+		}
+	}
+
+	return TRUE;
 }
 
 // EOF

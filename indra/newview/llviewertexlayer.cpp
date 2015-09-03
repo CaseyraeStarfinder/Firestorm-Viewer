@@ -37,30 +37,16 @@
 #include "llglslshader.h"
 #include "llvoavatarself.h"
 #include "pipeline.h"
-#include "llassetuploadresponders.h"
 #include "llviewercontrol.h"
+
+// <FS:Ansariel> [Legacy Bake]
+#include "llassetuploadresponders.h"
 
 static const S32 BAKE_UPLOAD_ATTEMPTS = 7;
 static const F32 BAKE_UPLOAD_RETRY_DELAY = 2.f; // actual delay grows by power of 2 each attempt
 
 // runway consolidate
 extern std::string self_av_string();
-
-
-//-----------------------------------------------------------------------------
-// LLBakedUploadData()
-//-----------------------------------------------------------------------------
-LLBakedUploadData::LLBakedUploadData(const LLVOAvatarSelf* avatar,
-									 LLViewerTexLayerSet* layerset,
-									 const LLUUID& id,
-									 bool highest_res) :
-	mAvatar(avatar),
-	mTexLayerSet(layerset),
-	mID(id),
-	mStartTime(LLFrameTimer::getTotalTime()),		// Record starting time
-	mIsHighestRes(highest_res)
-{ 
-}
 
 //-----------------------------------------------------------------------------
 // LLViewerTexLayerSetBuffer
@@ -75,14 +61,17 @@ LLViewerTexLayerSetBuffer::LLViewerTexLayerSetBuffer(LLTexLayerSet* const owner,
 	// ORDER_LAST => must render these after the hints are created.
 	LLTexLayerSetBuffer(owner),
 	LLViewerDynamicTexture( width, height, 4, LLViewerDynamicTexture::ORDER_LAST, TRUE ), 
+	// <FS:Ansariel> [Legacy Bake]
 	mUploadPending(FALSE), // Not used for any logic here, just to sync sending of updates
 	mNeedsUpload(FALSE),
 	mNumLowresUploads(0),
 	mUploadFailCount(0),
+	// </FS:Ansariel> [Legacy Bake]
 	mNeedsUpdate(TRUE),
 	mNumLowresUpdates(0)
 {
 	LLViewerTexLayerSetBuffer::sGLByteCount += getSize();
+	// <FS:Ansariel> [Legacy Bake]
 	mNeedsUploadTimer.start();
 	mNeedsUpdateTimer.start();
 }
@@ -126,33 +115,11 @@ void LLViewerTexLayerSetBuffer::requestUpdate()
 	restartUpdateTimer();
 	mNeedsUpdate = TRUE;
 	mNumLowresUpdates = 0;
+	// <FS:Ansariel> [Legacy Bake]
 	// If we're in the middle of uploading a baked texture, we don't care about it any more.
 	// When it's downloaded, ignore it.
 	mUploadID.setNull();
-}
-
-void LLViewerTexLayerSetBuffer::requestUpload()
-{
-	conditionalRestartUploadTimer();
-	mNeedsUpload = TRUE;
-	mNumLowresUploads = 0;
-	mUploadPending = TRUE;
-}
-
-void LLViewerTexLayerSetBuffer::conditionalRestartUploadTimer()
-{
-	// If we requested a new upload but haven't even uploaded
-	// a low res version of our last upload request, then
-	// keep the timer ticking instead of resetting it.
-	if (mNeedsUpload && (mNumLowresUploads == 0))
-	{
-		mNeedsUploadTimer.unpause();
-	}
-	else
-	{
-		mNeedsUploadTimer.reset();
-		mNeedsUploadTimer.start();
-	}
+	// </FS:Ansariel> [Legacy Bake]
 }
 
 void LLViewerTexLayerSetBuffer::restartUpdateTimer()
@@ -161,24 +128,19 @@ void LLViewerTexLayerSetBuffer::restartUpdateTimer()
 	mNeedsUpdateTimer.start();
 }
 
-void LLViewerTexLayerSetBuffer::cancelUpload()
-{
-	mNeedsUpload = FALSE;
-	mUploadPending = FALSE;
-	mNeedsUploadTimer.pause();
-	mUploadRetryTimer.reset();
-}
-
 // virtual
 BOOL LLViewerTexLayerSetBuffer::needsRender()
 {
 	llassert(mTexLayerSet->getAvatarAppearance() == gAgentAvatarp);
 	if (!isAgentAvatarValid()) return FALSE;
 
+	// <FS:Ansariel> [Legacy Bake]
 	const BOOL upload_now = mNeedsUpload && isReadyToUpload();
 	const BOOL update_now = mNeedsUpdate && isReadyToUpdate();
 
-	// Don't render if we don't want to (or aren't ready to) upload or update.
+	// Don't render if we don't want to (or aren't ready to) update.
+	// <FS:Ansariel> [Legacy Bake]
+	//if (!update_now)
 	if (!(update_now || upload_now))
 	{
 		return FALSE;
@@ -190,10 +152,11 @@ BOOL LLViewerTexLayerSetBuffer::needsRender()
 		return FALSE;
 	}
 
-	// Don't render if we are trying to create a shirt texture but aren't wearing a skirt.
+	// Don't render if we are trying to create a skirt texture but aren't wearing a skirt.
 	if (gAgentAvatarp->getBakedTE(getViewerTexLayerSet()) == LLAvatarAppearanceDefines::TEX_SKIRT_BAKED && 
 		!gAgentAvatarp->isWearingWearableType(LLWearableType::WT_SKIRT))
 	{
+		// <FS:Ansariel> [Legacy Bake]
 		cancelUpload();
 		return FALSE;
 	}
@@ -222,11 +185,14 @@ void LLViewerTexLayerSetBuffer::postRenderTexLayerSet(BOOL success)
 // virtual
 void LLViewerTexLayerSetBuffer::midRenderTexLayerSet(BOOL success)
 {
+	// <FS:Ansariel> [Legacy Bake]
 	// do we need to upload, and do we have sufficient data to create an uploadable composite?
 	// TODO: When do we upload the texture if gAgent.mNumPendingQueries is non-zero?
 	const BOOL upload_now = mNeedsUpload && isReadyToUpload();
+	// </FS:Ansariel> [Legacy Bake]
 	const BOOL update_now = mNeedsUpdate && isReadyToUpdate();
 
+	// <FS:Ansariel> [Legacy Bake]
 	if(upload_now)
 	{
 		if (!success)
@@ -251,7 +217,8 @@ void LLViewerTexLayerSetBuffer::midRenderTexLayerSet(BOOL success)
 			}
 		}
 	}
-	
+	// </FS:Ansariel> [Legacy Bake]
+
 	if (update_now)
 	{
 		doUpdate();
@@ -265,6 +232,250 @@ void LLViewerTexLayerSetBuffer::midRenderTexLayerSet(BOOL success)
 BOOL LLViewerTexLayerSetBuffer::isInitialized(void) const
 {
 	return mGLTexturep.notNull() && mGLTexturep->isGLTextureCreated();
+}
+
+BOOL LLViewerTexLayerSetBuffer::isReadyToUpdate() const
+{
+	// If we requested an update and have the final LOD ready, then update.
+	if (getViewerTexLayerSet()->isLocalTextureDataFinal()) return TRUE;
+
+	// If we haven't done an update yet, then just do one now regardless of state of textures.
+	if (mNumLowresUpdates == 0) return TRUE;
+
+	// Update if we've hit a timeout.  Unlike for uploads, we can make this timeout fairly small
+	// since render unnecessarily doesn't cost much.
+	const U32 texture_timeout = gSavedSettings.getU32("AvatarBakedLocalTextureUpdateTimeout");
+	if (texture_timeout != 0)
+	{
+		// If we hit our timeout and have textures available at even lower resolution, then update.
+		const BOOL is_update_textures_timeout = mNeedsUpdateTimer.getElapsedTimeF32() >= texture_timeout;
+		const BOOL has_lower_lod = getViewerTexLayerSet()->isLocalTextureDataAvailable();
+		if (has_lower_lod && is_update_textures_timeout) return TRUE; 
+	}
+
+	return FALSE;
+}
+
+BOOL LLViewerTexLayerSetBuffer::requestUpdateImmediate()
+{
+	mNeedsUpdate = TRUE;
+	BOOL result = FALSE;
+
+	if (needsRender())
+	{
+		preRender(FALSE);
+		result = render();
+		postRender(result);
+	}
+
+	return result;
+}
+
+// Mostly bookkeeping; don't need to actually "do" anything since
+// render() will actually do the update.
+void LLViewerTexLayerSetBuffer::doUpdate()
+{
+	LLViewerTexLayerSet* layer_set = getViewerTexLayerSet();
+	const BOOL highest_lod = layer_set->isLocalTextureDataFinal();
+	if (highest_lod)
+	{
+		mNeedsUpdate = FALSE;
+	}
+	else
+	{
+		mNumLowresUpdates++;
+	}
+
+	restartUpdateTimer();
+
+	// need to switch to using this layerset if this is the first update
+	// after getting the lowest LOD
+	layer_set->getAvatar()->updateMeshTextures();
+	
+	// Print out notification that we updated this texture.
+	if (gSavedSettings.getBOOL("DebugAvatarRezTime"))
+	{
+		const BOOL highest_lod = layer_set->isLocalTextureDataFinal();
+		const std::string lod_str = highest_lod ? "HighRes" : "LowRes";
+		LLSD args;
+		args["EXISTENCE"] = llformat("%d",(U32)layer_set->getAvatar()->debugGetExistenceTimeElapsedF32());
+		args["TIME"] = llformat("%d",(U32)mNeedsUpdateTimer.getElapsedTimeF32());
+		args["BODYREGION"] = layer_set->getBodyRegionName();
+		args["RESOLUTION"] = lod_str;
+		LLNotificationsUtil::add("AvatarRezSelfBakedTextureUpdateNotification",args);
+		LL_DEBUGS("Avatar") << self_av_string() << "Locally updating [ name: " << layer_set->getBodyRegionName() << " res:" << lod_str << " time:" << (U32)mNeedsUpdateTimer.getElapsedTimeF32() << " ]" << LL_ENDL;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// LLViewerTexLayerSet
+// An ordered set of texture layers that get composited into a single texture.
+//-----------------------------------------------------------------------------
+
+LLViewerTexLayerSet::LLViewerTexLayerSet(LLAvatarAppearance* const appearance) :
+	LLTexLayerSet(appearance),
+	mUpdatesEnabled( FALSE )
+{
+}
+
+// virtual
+LLViewerTexLayerSet::~LLViewerTexLayerSet()
+{
+}
+
+// Returns TRUE if at least one packet of data has been received for each of the textures that this layerset depends on.
+BOOL LLViewerTexLayerSet::isLocalTextureDataAvailable() const
+{
+	if (!mAvatarAppearance->isSelf()) return FALSE;
+	return getAvatar()->isLocalTextureDataAvailable(this);
+}
+
+
+// Returns TRUE if all of the data for the textures that this layerset depends on have arrived.
+BOOL LLViewerTexLayerSet::isLocalTextureDataFinal() const
+{
+	if (!mAvatarAppearance->isSelf()) return FALSE;
+	return getAvatar()->isLocalTextureDataFinal(this);
+}
+
+// virtual
+void LLViewerTexLayerSet::requestUpdate()
+{
+	if( mUpdatesEnabled )
+	{
+		createComposite();
+		getViewerComposite()->requestUpdate(); 
+	}
+}
+
+void LLViewerTexLayerSet::updateComposite()
+{
+	createComposite();
+	getViewerComposite()->requestUpdateImmediate();
+}
+
+// virtual
+void LLViewerTexLayerSet::createComposite()
+{
+	if(!mComposite)
+	{
+		S32 width = mInfo->getWidth();
+		S32 height = mInfo->getHeight();
+		// Composite other avatars at reduced resolution
+		if( !mAvatarAppearance->isSelf() )
+		{
+			LL_ERRS() << "composites should not be created for non-self avatars!" << LL_ENDL;
+		}
+		mComposite = new LLViewerTexLayerSetBuffer( this, width, height );
+	}
+}
+
+void LLViewerTexLayerSet::setUpdatesEnabled( BOOL b )
+{
+	mUpdatesEnabled = b; 
+}
+
+LLVOAvatarSelf* LLViewerTexLayerSet::getAvatar()
+{
+	return dynamic_cast<LLVOAvatarSelf*> (mAvatarAppearance);
+}
+
+const LLVOAvatarSelf* LLViewerTexLayerSet::getAvatar() const
+{
+	return dynamic_cast<const LLVOAvatarSelf*> (mAvatarAppearance);
+}
+
+LLViewerTexLayerSetBuffer* LLViewerTexLayerSet::getViewerComposite()
+{
+	return dynamic_cast<LLViewerTexLayerSetBuffer*> (getComposite());
+}
+
+const LLViewerTexLayerSetBuffer* LLViewerTexLayerSet::getViewerComposite() const
+{
+	return dynamic_cast<const LLViewerTexLayerSetBuffer*> (getComposite());
+}
+
+
+const std::string LLViewerTexLayerSetBuffer::dumpTextureInfo() const
+{
+	if (!isAgentAvatarValid()) return "";
+
+	// <FS:Ansariel> [Legacy Bake]
+	//const BOOL is_high_res = TRUE; 
+	//const U32 num_low_res = 0;
+	//const std::string local_texture_info = gAgentAvatarp->debugDumpLocalTextureDataInfo(getViewerTexLayerSet());
+
+	//std::string text = llformat("[HiRes:%d LoRes:%d] %s",
+	//							is_high_res, num_low_res,
+	//							local_texture_info.c_str());
+	const BOOL is_high_res = !mNeedsUpload;
+	const U32 num_low_res = mNumLowresUploads;
+	const U32 upload_time = (U32)mNeedsUploadTimer.getElapsedTimeF32();
+	const std::string local_texture_info = gAgentAvatarp->debugDumpLocalTextureDataInfo(getViewerTexLayerSet());
+
+	std::string status 				= "CREATING ";
+	if (!uploadNeeded()) status 	= "DONE     ";
+	if (uploadInProgress()) status 	= "UPLOADING";
+
+	std::string text = llformat("[%s] [HiRes:%d LoRes:%d] [Elapsed:%d] %s",
+								status.c_str(),
+								is_high_res, num_low_res,
+								upload_time, 
+								local_texture_info.c_str());
+	// </FS:Ansariel> [Legacy Bake]
+	return text;
+}
+
+
+// <FS:Ansariel> [Legacy Bake]
+//-----------------------------------------------------------------------------
+// Legacy baking
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// LLBakedUploadData()
+//-----------------------------------------------------------------------------
+LLBakedUploadData::LLBakedUploadData(const LLVOAvatarSelf* avatar,
+									 LLViewerTexLayerSet* layerset,
+									 const LLUUID& id,
+									 bool highest_res) :
+	mAvatar(avatar),
+	mTexLayerSet(layerset),
+	mID(id),
+	mStartTime(LLFrameTimer::getTotalTime()),		// Record starting time
+	mIsHighestRes(highest_res)
+{ 
+}
+
+void LLViewerTexLayerSetBuffer::requestUpload()
+{
+	conditionalRestartUploadTimer();
+	mNeedsUpload = TRUE;
+	mNumLowresUploads = 0;
+	mUploadPending = TRUE;
+}
+
+void LLViewerTexLayerSetBuffer::conditionalRestartUploadTimer()
+{
+	// If we requested a new upload but haven't even uploaded
+	// a low res version of our last upload request, then
+	// keep the timer ticking instead of resetting it.
+	if (mNeedsUpload && (mNumLowresUploads == 0))
+	{
+		mNeedsUploadTimer.unpause();
+	}
+	else
+	{
+		mNeedsUploadTimer.reset();
+		mNeedsUploadTimer.start();
+	}
+}
+
+void LLViewerTexLayerSetBuffer::cancelUpload()
+{
+	mNeedsUpload = FALSE;
+	mUploadPending = FALSE;
+	mNeedsUploadTimer.pause();
+	mUploadRetryTimer.reset();
 }
 
 BOOL LLViewerTexLayerSetBuffer::uploadPending() const
@@ -319,43 +530,6 @@ BOOL LLViewerTexLayerSetBuffer::isReadyToUpload() const
 	}
 
 	return ready;
-}
-
-BOOL LLViewerTexLayerSetBuffer::isReadyToUpdate() const
-{
-	// If we requested an update and have the final LOD ready, then update.
-	if (getViewerTexLayerSet()->isLocalTextureDataFinal()) return TRUE;
-
-	// If we haven't done an update yet, then just do one now regardless of state of textures.
-	if (mNumLowresUpdates == 0) return TRUE;
-
-	// Update if we've hit a timeout.  Unlike for uploads, we can make this timeout fairly small
-	// since render unnecessarily doesn't cost much.
-	const U32 texture_timeout = gSavedSettings.getU32("AvatarBakedLocalTextureUpdateTimeout");
-	if (texture_timeout != 0)
-	{
-		// If we hit our timeout and have textures available at even lower resolution, then update.
-		const BOOL is_update_textures_timeout = mNeedsUpdateTimer.getElapsedTimeF32() >= texture_timeout;
-		const BOOL has_lower_lod = getViewerTexLayerSet()->isLocalTextureDataAvailable();
-		if (has_lower_lod && is_update_textures_timeout) return TRUE; 
-	}
-
-	return FALSE;
-}
-
-BOOL LLViewerTexLayerSetBuffer::requestUpdateImmediate()
-{
-	mNeedsUpdate = TRUE;
-	BOOL result = FALSE;
-
-	if (needsRender())
-	{
-		preRender(FALSE);
-		result = render();
-		postRender(result);
-	}
-
-	return result;
 }
 
 // Create the baked texture, send it out to the server, then wait for it to come
@@ -511,42 +685,6 @@ void LLViewerTexLayerSetBuffer::doUpload()
 	delete [] baked_color_data;
 }
 
-// Mostly bookkeeping; don't need to actually "do" anything since
-// render() will actually do the update.
-void LLViewerTexLayerSetBuffer::doUpdate()
-{
-	LLViewerTexLayerSet* layer_set = getViewerTexLayerSet();
-	const BOOL highest_lod = layer_set->isLocalTextureDataFinal();
-	if (highest_lod)
-	{
-		mNeedsUpdate = FALSE;
-	}
-	else
-	{
-		mNumLowresUpdates++;
-	}
-
-	restartUpdateTimer();
-
-	// need to switch to using this layerset if this is the first update
-	// after getting the lowest LOD
-	layer_set->getAvatar()->updateMeshTextures();
-	
-	// Print out notification that we updated this texture.
-	if (gSavedSettings.getBOOL("DebugAvatarRezTime"))
-	{
-		const BOOL highest_lod = layer_set->isLocalTextureDataFinal();
-		const std::string lod_str = highest_lod ? "HighRes" : "LowRes";
-		LLSD args;
-		args["EXISTENCE"] = llformat("%d",(U32)layer_set->getAvatar()->debugGetExistenceTimeElapsedF32());
-		args["TIME"] = llformat("%d",(U32)mNeedsUpdateTimer.getElapsedTimeF32());
-		args["BODYREGION"] = layer_set->getBodyRegionName();
-		args["RESOLUTION"] = lod_str;
-		LLNotificationsUtil::add("AvatarRezSelfBakedTextureUpdateNotification",args);
-		LL_DEBUGS("Avatar") << self_av_string() << "Locally updating [ name: " << layer_set->getBodyRegionName() << " res:" << lod_str << " time:" << (U32)mNeedsUpdateTimer.getElapsedTimeF32() << " ]" << LL_ENDL;
-	}
-}
-
 // static
 void LLViewerTexLayerSetBuffer::onTextureUploadComplete(const LLUUID& uuid,
 												  void* userdata,
@@ -623,47 +761,6 @@ void LLViewerTexLayerSetBuffer::onTextureUploadComplete(const LLUUID& uuid,
 	delete baked_upload_data;
 }
 
-//-----------------------------------------------------------------------------
-// LLViewerTexLayerSet
-// An ordered set of texture layers that get composited into a single texture.
-//-----------------------------------------------------------------------------
-
-LLViewerTexLayerSet::LLViewerTexLayerSet(LLAvatarAppearance* const appearance) :
-	LLTexLayerSet(appearance),
-	mUpdatesEnabled( FALSE )
-{
-}
-
-// virtual
-LLViewerTexLayerSet::~LLViewerTexLayerSet()
-{
-}
-
-// Returns TRUE if at least one packet of data has been received for each of the textures that this layerset depends on.
-BOOL LLViewerTexLayerSet::isLocalTextureDataAvailable() const
-{
-	if (!mAvatarAppearance->isSelf()) return FALSE;
-	return getAvatar()->isLocalTextureDataAvailable(this);
-}
-
-
-// Returns TRUE if all of the data for the textures that this layerset depends on have arrived.
-BOOL LLViewerTexLayerSet::isLocalTextureDataFinal() const
-{
-	if (!mAvatarAppearance->isSelf()) return FALSE;
-	return getAvatar()->isLocalTextureDataFinal(this);
-}
-
-// virtual
-void LLViewerTexLayerSet::requestUpdate()
-{
-	if( mUpdatesEnabled )
-	{
-		createComposite();
-		getViewerComposite()->requestUpdate(); 
-	}
-}
-
 void LLViewerTexLayerSet::requestUpload()
 {
 	createComposite();
@@ -677,72 +774,7 @@ void LLViewerTexLayerSet::cancelUpload()
 		getViewerComposite()->cancelUpload();
 	}
 }
-
-void LLViewerTexLayerSet::updateComposite()
-{
-	createComposite();
-	getViewerComposite()->requestUpdateImmediate();
-}
-
-// virtual
-void LLViewerTexLayerSet::createComposite()
-{
-	if(!mComposite)
-	{
-		S32 width = mInfo->getWidth();
-		S32 height = mInfo->getHeight();
-		// Composite other avatars at reduced resolution
-		if( !mAvatarAppearance->isSelf() )
-		{
-			LL_ERRS() << "composites should not be created for non-self avatars!" << LL_ENDL;
-		}
-		mComposite = new LLViewerTexLayerSetBuffer( this, width, height );
-	}
-}
-
-void LLViewerTexLayerSet::setUpdatesEnabled( BOOL b )
-{
-	mUpdatesEnabled = b; 
-}
-
-LLVOAvatarSelf* LLViewerTexLayerSet::getAvatar()
-{
-	return dynamic_cast<LLVOAvatarSelf*> (mAvatarAppearance);
-}
-
-const LLVOAvatarSelf* LLViewerTexLayerSet::getAvatar() const
-{
-	return dynamic_cast<const LLVOAvatarSelf*> (mAvatarAppearance);
-}
-
-LLViewerTexLayerSetBuffer* LLViewerTexLayerSet::getViewerComposite()
-{
-	return dynamic_cast<LLViewerTexLayerSetBuffer*> (getComposite());
-}
-
-const LLViewerTexLayerSetBuffer* LLViewerTexLayerSet::getViewerComposite() const
-{
-	return dynamic_cast<const LLViewerTexLayerSetBuffer*> (getComposite());
-}
+// </FS:Ansariel> [Legacy Bake]
 
 
-const std::string LLViewerTexLayerSetBuffer::dumpTextureInfo() const
-{
-	if (!isAgentAvatarValid()) return "";
 
-	const BOOL is_high_res = !mNeedsUpload;
-	const U32 num_low_res = mNumLowresUploads;
-	const U32 upload_time = (U32)mNeedsUploadTimer.getElapsedTimeF32();
-	const std::string local_texture_info = gAgentAvatarp->debugDumpLocalTextureDataInfo(getViewerTexLayerSet());
-
-	std::string status 				= "CREATING ";
-	if (!uploadNeeded()) status 	= "DONE     ";
-	if (uploadInProgress()) status 	= "UPLOADING";
-
-	std::string text = llformat("[%s] [HiRes:%d LoRes:%d] [Elapsed:%d] %s",
-								status.c_str(),
-								is_high_res, num_low_res,
-								upload_time, 
-								local_texture_info.c_str());
-	return text;
-}

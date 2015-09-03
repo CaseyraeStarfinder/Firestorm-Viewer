@@ -44,7 +44,7 @@
 #pragma warning (default : 4264)
 #endif
 
-#ifdef LL_STANDALONE
+#ifdef LL_USESYSTEMLIBS
 # include <zlib.h>
 #else
 # include "zlib/zlib.h"
@@ -180,16 +180,16 @@ LLModel::EModelStatus load_face_from_dom_triangles(std::vector<LLVolumeFace>& fa
 	domListOfUInts& idx = p->getValue();
 	
 	domListOfFloats  dummy ;
-	domListOfFloats& v = pos_source ? pos_source->getFloat_array()->getValue() : dummy ;
-	domListOfFloats& tc = tc_source ? tc_source->getFloat_array()->getValue() : dummy ;
-	domListOfFloats& n = norm_source ? norm_source->getFloat_array()->getValue() : dummy ;
+	domListOfFloats& v = (pos_source && pos_source->getFloat_array()) ? pos_source->getFloat_array()->getValue() : dummy ;
+	domListOfFloats& tc = (tc_source && tc_source->getFloat_array()) ? tc_source->getFloat_array()->getValue() : dummy ;
+	domListOfFloats& n = (norm_source && norm_source->getFloat_array()) ? norm_source->getFloat_array()->getValue() : dummy ;
 
 	LLVolumeFace::VertexMapData::PointMap point_map;
 		
 	U32 index_count  = idx.getCount();
-	U32 vertex_count = pos_source  ? v.getCount()  : 0;
-	U32 tc_count     = tc_source   ? tc.getCount() : 0;
-	U32 norm_count   = norm_source ? n.getCount()  : 0;
+	U32 vertex_count = (pos_source &&  pos_source->getFloat_array())	? v.getCount()	: 0;
+	U32 tc_count     = (tc_source && tc_source->getFloat_array()) 		? tc.getCount()	: 0;
+	U32 norm_count   = (norm_source && norm_source->getFloat_array()) 	? n.getCount(): 0;
 
 	if (vertex_count == 0)
 	{
@@ -229,7 +229,7 @@ LLModel::EModelStatus load_face_from_dom_triangles(std::vector<LLVolumeFace>& fa
 		{
 			// guard against model data specifiying out of range indices or tcs
 			//
-			
+
 			if (((i + tc_offset) > index_count)
 			 || ((idx[i+tc_offset]*2+1) > tc_count))
 			{
@@ -316,6 +316,14 @@ LLModel::EModelStatus load_face_from_dom_triangles(std::vector<LLVolumeFace>& fa
 
 		if (indices.size()%3 == 0 && verts.size() >= 65532)
 		{
+			std::string material;
+
+			if (tri->getMaterial())
+			{
+				material = std::string(tri->getMaterial());
+			}
+
+			materials.push_back(material);
 			face_list.push_back(face);
 			face_list.rbegin()->fillFromLegacyData(verts, indices);
 			LLVolumeFace& new_face = *face_list.rbegin();
@@ -587,6 +595,14 @@ LLModel::EModelStatus load_face_from_dom_polylist(std::vector<LLVolumeFace>& fac
 
 			if (indices.size()%3 == 0 && indices.size() >= 65532)
 			{
+				std::string material;
+
+				if (poly->getMaterial())
+				{
+					material = std::string(poly->getMaterial());
+				}
+
+				materials.push_back(material);
 				face_list.push_back(face);
 				face_list.rbegin()->fillFromLegacyData(verts, indices);
 				LLVolumeFace& new_face = *face_list.rbegin();
@@ -1717,11 +1733,11 @@ LLSD LLModel::writeModel(
 						}
 					}
 					
-					F32* src_tc = (F32*) face.mTexCoords[j].mV;
-
 					//texcoord
 					if (face.mTexCoords)
 					{
+						F32* src_tc = (F32*) face.mTexCoords[j].mV;
+
 						for (U32 k = 0; k < 2; ++k)
 						{ //for each component
 							//convert to 16-bit normalized
@@ -2061,7 +2077,7 @@ bool LLModel::loadModel(std::istream& is)
 		}
 	}
 
-	std::string nm[] = 
+	static const std::string nm[] = 
 	{
 		"lowest_lod",
 		"low_lod",

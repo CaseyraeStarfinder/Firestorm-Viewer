@@ -557,7 +557,7 @@ void LLLandmarksPanel::setParcelID(const LLUUID& parcel_id)
 }
 
 // virtual
-void LLLandmarksPanel::setErrorStatus(U32 status, const std::string& reason)
+void LLLandmarksPanel::setErrorStatus(S32 status, const std::string& reason)
 {
 	LL_WARNS() << "Can't handle remote parcel request."<< " Http Status: "<< status << ". Reason : "<< reason<<LL_ENDL;
 }
@@ -1226,7 +1226,8 @@ bool LLLandmarksPanel::canItemBeModified(const std::string& command_name, LLFold
 
 	if ("copy" == command_name)
 	{
-		return root_folder->canCopy();
+		// we shouldn't be able to copy folders from My Inventory Panel
+		return can_be_modified && root_folder->canCopy();
 	}
 	else if ("collapse" == command_name)
 	{
@@ -1316,6 +1317,7 @@ bool LLLandmarksPanel::handleDragAndDropToTrash(BOOL drop, EDragAndDropType carg
 		break;
 	}
 
+	updateVerbs();
 	return true;
 }
 

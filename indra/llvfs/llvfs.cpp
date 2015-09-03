@@ -1010,7 +1010,7 @@ void LLVFS::renameFile(const LLUUID &file_id, const LLAssetType::EType file_type
 			{
 				if(dest_block->mLocks[i])
 				{
-					LL_ERRS() << "Renaming VFS block to a locked file." << LL_ENDL;
+					LL_ERRS() << "Renaming VFS block to a locked file: " << dest_block->mFileID << " - Lock type: " << i << LL_ENDL;
 				}
 				dest_block->mLocks[i] = src_block->mLocks[i];
 			}
@@ -2229,7 +2229,8 @@ void LLVFS::unlockAndClose(LLFILE *fp)
 std::string LLVFS::getCreationDataUTC() const
 {
 	llifstream date_file;
-	date_file.open(mIndexFilename + ".date");
+	std::string fileName = mIndexFilename + ".date";
+	date_file.open( fileName.c_str() );
 	if (date_file.is_open())
 	{
 		std::string date;

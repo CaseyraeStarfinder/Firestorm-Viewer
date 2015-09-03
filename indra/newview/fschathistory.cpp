@@ -120,6 +120,7 @@ class FSChatHistoryHeader: public LLPanel
 public:
 	FSChatHistoryHeader()
 	:	LLPanel(),
+		mInfoCtrl(NULL),
 // [RLVa:KB] - Checked: 2010-04-22 (RLVa-1.2.2a) | Added: RLVa-1.2.0f
 		mShowContextMenu(true), 
 		mShowInfoCtrl(true),
@@ -147,9 +148,6 @@ public:
 
 	~FSChatHistoryHeader()
 	{
-		// Detach the info button so that it doesn't get destroyed (EXT-8463).
-		hideInfoCtrl();
-
 		if (mAvatarNameCacheConnection.connected())
 		{
 			mAvatarNameCacheConnection.disconnect();
@@ -326,6 +324,11 @@ public:
 
 		mUserNameTextBox = getChild<LLTextBox>("user_name");
 		mTimeBoxTextBox = getChild<LLTextBox>("time_box");
+
+		mInfoCtrl = LLUICtrlFactory::getInstance()->createFromFile<LLUICtrl>("inspector_info_ctrl.xml", this, LLPanel::child_registry_t::instance());
+		llassert(mInfoCtrl != NULL);
+		mInfoCtrl->setCommitCallback(boost::bind(&FSChatHistoryHeader::onClickInfoCtrl, mInfoCtrl));
+		mInfoCtrl->setVisible(FALSE);
 
 		return LLPanel::postBuild();
 	}
@@ -506,7 +509,14 @@ public:
 		switch (mSourceType)
 		{
 			case CHAT_SOURCE_AGENT:
-				icon->setValue(chat.mFromID);
+				if (!chat.mRlvNamesFiltered)
+				{
+					icon->setValue(chat.mFromID);
+				}
+				else
+				{
+					icon->setValue(LLSD("Unknown_Icon"));
+				}
 				break;
 			case CHAT_SOURCE_OBJECT:
 				icon->setValue(LLSD("OBJECT_Icon"));
@@ -516,7 +526,14 @@ public:
 				// FS:LO FIRE-1439 - Clickable avatar names on local chat radar crossing reports
 				if(chat.mChatType == CHAT_TYPE_RADAR)
 				{
-					icon->setValue(chat.mFromID);
+					if (!chat.mRlvNamesFiltered)
+					{
+						icon->setValue(chat.mFromID);
+					}
+					else
+					{
+						icon->setValue(LLSD("Unknown_Icon"));
+					}
 				}
 				else
 				{
@@ -681,42 +698,21 @@ protected:
 
 	void showInfoCtrl()
 	{
-//		if (mAvatarID.isNull() || mFrom.empty() || CHAT_SOURCE_SYSTEM == mSourceType) return;
+		const bool isVisible = !mAvatarID.isNull() && !mFrom.empty() && CHAT_SOURCE_SYSTEM != mSourceType;
 // [RLVa:KB] - Checked: 2010-04-22 (RLVa-1.2.2a) | Added: RLVa-1.2.0f
-		if ( (!mShowInfoCtrl) || (mAvatarID.isNull() || mFrom.empty() || (CHAT_SOURCE_SYSTEM == mSourceType && mType != CHAT_TYPE_RADAR)) ) return;
+		if (isVisible && mShowInfoCtrl)
 // [/RLVa:KB]
-				
-		if (!sInfoCtrl)
 		{
-			// *TODO: Delete the button at exit.
-			sInfoCtrl = LLUICtrlFactory::createFromFile<LLUICtrl>("inspector_info_ctrl.xml", NULL, LLPanel::child_registry_t::instance());
-			if (sInfoCtrl)
-			{
-				sInfoCtrl->setCommitCallback(boost::bind(&FSChatHistoryHeader::onClickInfoCtrl, sInfoCtrl));
-			}
+			const LLRect sticky_rect = mUserNameTextBox->getRect();
+			S32 icon_x = llmin(sticky_rect.mLeft + mUserNameTextBox->getTextBoundingRect().getWidth() + 7, sticky_rect.mRight - 3);
+			mInfoCtrl->setOrigin(icon_x, sticky_rect.getCenterY() - mInfoCtrl->getRect().getHeight() / 2 ) ;
 		}
-
-		if (!sInfoCtrl)
-		{
-			llassert(sInfoCtrl != NULL);
-			return;
-		}
-
-		LLTextBox* name = getChild<LLTextBox>("user_name");
-		LLRect sticky_rect = name->getRect();
-		S32 icon_x = llmin(sticky_rect.mLeft + name->getTextBoundingRect().getWidth() + 7, sticky_rect.mRight - 3);
-		sInfoCtrl->setOrigin(icon_x, sticky_rect.getCenterY() - sInfoCtrl->getRect().getHeight() / 2 ) ;
-		addChild(sInfoCtrl);
+		mInfoCtrl->setVisible(isVisible);
 	}
 
 	void hideInfoCtrl()
 	{
-		if (!sInfoCtrl) return;
-
-		if (sInfoCtrl->getParent() == this)
-		{
-			removeChild(sInfoCtrl);
-		}
+		mInfoCtrl->setVisible(FALSE);
 	}
 
 private:
@@ -787,7 +783,7 @@ protected:
 	LLHandle<LLView>	mPopupMenuHandleAvatar;
 	LLHandle<LLView>	mPopupMenuHandleObject;
 
-	static LLUICtrl*	sInfoCtrl;
+	LLUICtrl*			mInfoCtrl;
 
 	LLUUID			    mAvatarID;
 	LLSD				mObjectData;
@@ -809,8 +805,6 @@ private:
 	boost::signals2::connection mAvatarNameCacheConnection;
 };
 
-LLUICtrl* FSChatHistoryHeader::sInfoCtrl = NULL;
-
 FSChatHistory::FSChatHistory(const FSChatHistory::Params& p)
 :	LLTextEditor(p),	// <FS:Zi> FIRE-8600: TAB out of chat history
 	mMessageHeaderFilename(p.message_header),
@@ -825,8 +819,8 @@ FSChatHistory::FSChatHistory(const FSChatHistory::Params& p)
 	mBottomHeaderPad(p.bottom_header_pad),
 	mChatInputLine(NULL),	// <FS_Zi> FIRE-8602: Typing in chat history focuses chat input line
 	mIsLastMessageFromLog(false),
-	mNotifyAboutUnreadMsg(p.notify_unread_msg),
-	mScrollToBottom(false)
+	mScrollToBottom(false),
+	mUnreadChatSources(0)
 {
 	mLineSpacingPixels=llclamp(gSavedSettings.getS32("FSFontChatLineSpacingPixels"),0,36);
 }
@@ -939,11 +933,20 @@ void FSChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 	bool is_local = args.has("is_local") && args["is_local"].asBoolean();
 
 	bool from_me = chat.mFromID == gAgent.getID();
-	setPlainText(use_plain_text_chat_history);	// <FS:Zi> FIRE-8600: TAB out of chat history
+	setPlainText(use_plain_text_chat_history);
+
+	if (!scrolledToEnd() && !from_me && !chat.mFromName.empty())
+	{
+		mUnreadChatSources++;
+		if (!mUnreadMessagesUpdateSignal.empty())
+		{
+			mUnreadMessagesUpdateSignal(mUnreadChatSources);
+		}
+	}
 
 	LLColor4 txt_color = LLUIColorTable::instance().getColor("White");
 	LLColor4 name_color = LLUIColorTable::instance().getColor("ChatNameColor");
-	LLViewerChat::getChatColor(chat, txt_color, is_local);
+	LLViewerChat::getChatColor(chat, txt_color, LLSD().with("is_local", is_local));
 	LLFontGL* fontp = LLViewerChat::getChatFont();
 	std::string font_name = LLFontGL::nameFromFont(fontp);
 	std::string font_size = LLFontGL::sizeFromFont(fontp);
@@ -1060,7 +1063,7 @@ void FSChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 	// compact mode: show a timestamp and name
 	if (use_plain_text_chat_history)
 	{
-		square_brackets = (chat.mFromName == SYSTEM_FROM && gSavedSettings.getBOOL("FSIMSystemMessageBrackets"));
+		square_brackets = (chat.mSourceType == CHAT_SOURCE_SYSTEM && chat.mChatType != CHAT_TYPE_RADAR && gSavedSettings.getBOOL("FSIMSystemMessageBrackets"));
 
 		LLStyle::Params timestamp_style(body_message_params);
 
@@ -1251,7 +1254,7 @@ void FSChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 		if (notification != NULL)
 		{
 			LLIMToastNotifyPanel* notify_box = new LLIMToastNotifyPanel(
-					notification, chat.mSessionID, LLRect::null);
+					notification, chat.mSessionID, LLRect::null, true, this);
 
 			//Prepare the rect for the view
 			LLRect target_rect = getDocumentView()->getRect();	// <FS:Zi> FIRE-8600: TAB out of chat history
@@ -1288,7 +1291,19 @@ void FSChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 
 		if (irc_me && !use_plain_text_chat_history)
 		{
-			message = chat.mFromName + message;
+			if (chat.mSourceType == CHAT_SOURCE_AGENT)
+			{
+				std::string name_format = "completename";
+				if (is_local && gRlvHandler.hasBehaviour(RLV_BHVR_SHOWNAMES))
+				{
+					name_format = "rlvanonym";
+				}
+				message = LLSLURL("agent", chat.mFromID, name_format).getSLURLString() + message;
+			}
+			else
+			{
+				message = chat.mFromName + message;
+			}
 		}
 
 		if(chat.mSourceType != CHAT_SOURCE_OBJECT && (chat.mChatType == CHAT_TYPE_IM || chat.mChatType == CHAT_TYPE_IM_GROUP)) // FS::LO Fix for FIRE-6334; Fade IM Text into background of chat history default setting should not be 0.5; made object IM text not fade into the background as per phoenix behavior.
@@ -1304,7 +1319,12 @@ void FSChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			message += "]";
 		}
 
+		bool is_trusted = isContentTrusted();
+		setContentTrusted(chat.mFromID.isNull() && is_p2p); // <FS:Ansariel> Set trusted content temporarily for system messages
+		setPlainText((use_plain_text_chat_history && is_p2p) ? chat.mFromID.notNull() : use_plain_text_chat_history);
 		appendText(message, prependNewLineState, body_message_params);	// <FS:Zi> FIRE-8600: TAB out of chat history
+		setContentTrusted(is_trusted);
+		setPlainText(use_plain_text_chat_history);
 		// Uncomment this if we never need to append to the end of a message. [FS:CR]
 		//prependNewLineState = false;
 	}
@@ -1364,6 +1384,15 @@ void FSChatHistory::draw()
 	{
 		mScroller->goToBottom();
 		mScrollToBottom = false;
+	}
+
+	if (scrolledToEnd() && mUnreadChatSources != 0)
+	{
+		mUnreadChatSources = 0;
+		if (!mUnreadMessagesUpdateSignal.empty())
+		{
+			mUnreadMessagesUpdateSignal(mUnreadChatSources);
+		}
 	}
 }
 // </FS:Zi>

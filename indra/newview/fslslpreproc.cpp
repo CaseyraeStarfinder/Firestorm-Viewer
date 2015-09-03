@@ -18,7 +18,7 @@
  *      may be used to endorse or promote products derived from this
  *      software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY MODULAR SYSTEMS AND CONTRIBUTORS “AS IS”
+ * THIS SOFTWARE IS PROVIDED BY MODULAR SYSTEMS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
  * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL MODULAR SYSTEMS OR CONTRIBUTORS
@@ -34,26 +34,14 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "fslslpreproc.h"
+
 #include "llagent.h"
 #include "llappviewer.h"
-#include "llcurl.h"
-#include "llscrolllistctrl.h"
-#include "llviewertexteditor.h"
-#include "llinventorymodel.h"
-#include "llviewercontrol.h"
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <vector>
-
-// NaCl - missing LSL Preprocessor includes
 #include "llinventoryfunctions.h"
-#include "llviewerinventory.h"
+#include "llscripteditor.h"
+#include "lltrans.h"
 #include "llvfile.h"
-#include "llvoavatarself.h"
-// NaCl End
-
-#include "fscommon.h"
+#include "llviewercontrol.h"
 
 #ifdef __GNUC__
 // There is a sprintf( ... "%d", size_t_value) buried inside boost::wave. In order to not mess with system header, I rather disable that warning here.
@@ -63,27 +51,21 @@
 class ScriptMatches : public LLInventoryCollectFunctor
 {
 public:
-	ScriptMatches(std::string name)
+	ScriptMatches(const std::string& name)
 	{
-		sName = name;
+		mName = name;
 	}
+
 	virtual ~ScriptMatches() {}
+
 	virtual bool operator()(LLInventoryCategory* cat,
 							LLInventoryItem* item)
 	{
-		if(item)
-		{
-			//LLViewerInventoryCategory* folderp = gInventory.getCategory((item->getParentUUID());
-			if(item->getName() == sName)
-			{
-				if(item->getType() == LLAssetType::AT_LSL_TEXT)return true;
-			}
-			//return (item->getName() == sName);// && cat->getName() == "#v");
-		}
-		return false;
+		return (item && item->getName() == mName && item->getType() == LLAssetType::AT_LSL_TEXT);
 	}
+
 private:
-	std::string sName;
+	std::string mName;
 };
 
 LLUUID FSLSLPreprocessor::findInventoryByName(std::string name)
@@ -91,14 +73,11 @@ LLUUID FSLSLPreprocessor::findInventoryByName(std::string name)
 	LLInventoryModel::cat_array_t cats;
 	LLInventoryModel::item_array_t items;
 	ScriptMatches namematches(name);
-	gInventory.collectDescendentsIf(gInventory.getRootFolderID(),cats,items,FALSE,namematches);
+	gInventory.collectDescendentsIf(gInventory.getRootFolderID(), cats, items, FALSE, namematches);
 
-	if (items.size())
+	if (!items.empty())
 	{
-		LLInventoryModel::item_array_t::iterator it = items.begin();
-		it = items.begin();
-		LLViewerInventoryItem* foo=it->get();
-		return foo->getUUID();
+		return items.front()->getUUID();
 	}
 	return LLUUID::null;
 }
@@ -129,24 +108,35 @@ std::map<std::string,LLUUID> FSLSLPreprocessor::cached_assetids;
 using namespace boost::regex_constants;
 
 
-#define FAILDEBUG LL_INFOS() << "line:" << __LINE__ << LL_ENDL;
+#define FAILDEBUG LL_INFOS("FSLSLPreprocessor") << "line:" << __LINE__ << LL_ENDL;
 
 
 #define encode_start std::string("//start_unprocessed_text\n/*")
 #define encode_end std::string("*/\n//end_unprocessed_text")
 
-std::string FSLSLPreprocessor::encode(std::string script)
+// Definitions to split the expressions into parts to improve readablility
+// (using 'r' as namespace prefix for RE, to avoid conflicts)
+// The code relies on none of these expressions having capturing groups.
+#define rCMNT "//[^\\n]*+\\n|/\\*(?:(?!\\*/).)*+\\*/" // skip over single- or multi-line comments as a block
+#define rSPC "[^][{}()<>@A-Za-z0-9_.,:;!~&|^\"=%/*+-]"
+#define rREQ_SPC "(?:" rCMNT "|" rSPC ")++"
+#define rOPT_SPC "(?:" rCMNT "|" rSPC ")*+"
+#define rTYPE_ID "[a-z]++"
+#define rIDENT "[A-Za-z_][A-Za-z0-9_]*+"
+#define rCMNT_OR_STR rCMNT "|\"(?:[^\"\\\\]|\\\\[^\\n])*+\"" // skip over strings as a block too
+#define rDOT_MATCHES_NEWLINE "(?s)"
+
+std::string FSLSLPreprocessor::encode(const std::string& script)
 {
-	
 	std::string otext = FSLSLPreprocessor::decode(script);
 	
-	BOOL mono = mono_directive(script);
+	bool mono = mono_directive(script);
 	
-	otext = boost::regex_replace(otext, boost::regex("([/*])(?=[/*|])",boost::regex::perl), "$1|");
+	otext = boost::regex_replace(otext, boost::regex("([/*])(?=[/*|])", boost::regex::perl), "$1|");
 	
 	//otext = curl_escape(otext.c_str(), otext.size());
 	
-	otext = encode_start+otext+encode_end;
+	otext = encode_start + otext + encode_end;
 	
 	otext += "\n//nfo_preprocessor_version 0";
 	
@@ -155,89 +145,96 @@ std::string FSLSLPreprocessor::encode(std::string script)
 	
 	otext += "\n";
 	
-	if(mono)otext += "//mono\n";
-	else otext += "//lsl2\n";
-	
+	if (mono)
+	{
+		otext += "//mono\n";
+	}
+	else
+	{
+		otext += "//lsl2\n";
+	}
 
 	return otext;
 }
 
-std::string FSLSLPreprocessor::decode(std::string script)
+std::string FSLSLPreprocessor::decode(const std::string& script)
 {
-	
 	static S32 startpoint = encode_start.length();
 	
-	std::string tip = script.substr(0,startpoint);
+	std::string tip = script.substr(0, startpoint);
 	
-	if(tip != encode_start)
+	if (tip != encode_start)
 	{
-		LL_DEBUGS() << "No start" << LL_ENDL;
+		LL_DEBUGS("FSLSLPreprocessor") << "No start" << LL_ENDL;
 		//if(sp != -1)trigger warningg/error?
 		return script;
 	}
 	
 	S32 end = script.find(encode_end);
 	
-	if(end == -1)
+	if (end == -1)
 	{
-		LL_DEBUGS() << "No end" << LL_ENDL;
+		LL_DEBUGS("FSLSLPreprocessor") << "No end" << LL_ENDL;
 		return script;
 	}
-	
 
-	std::string data = script.substr(startpoint,end-startpoint);
-	LL_DEBUGS() << "data = " << data << LL_ENDL;
-	
+	std::string data = script.substr(startpoint, end - startpoint);
+	LL_DEBUGS("FSLSLPreprocessor") << "data = " << data << LL_ENDL;
 
 	std::string otext = data;
 
-	
+	otext = boost::regex_replace(otext, boost::regex("([/*])\\|", boost::regex::perl), "$1");
 
-	otext = boost::regex_replace(otext, boost::regex("([/*])\\|",boost::regex::perl), "$1");
-
-	
 	//otext = curl_unescape(otext.c_str(),otext.length());
 
 	return otext;
 }
 
 
-std::string scopeript2(std::string& top, S32 fstart, char left = '{', char right = '}')
+static std::string scopeript2(std::string& top, S32 fstart, char left = '{', char right = '}')
 {
-	
-	if(fstart >= int(top.length()))
+	if (fstart >= S32(top.length()))
 	{
 		return "begin out of bounds";
 	}
 	
-	int cursor = fstart;
+	S32 cursor = fstart;
 	bool noscoped = true;
 	bool in_literal = false;
-	int count = 0;
+	S32 count = 0;
 	char ltoken = ' ';
 	
 	do
 	{
 		char token = top.at(cursor);
-		if(token == '"' && ltoken != '\\')in_literal = !in_literal;
-		else if(token == '\\' && ltoken == '\\')token = ' ';
-		else if(!in_literal)
+		if (token == '"' && ltoken != '\\')
 		{
-			if(token == left)
+			in_literal = !in_literal;
+		}
+		else if (token == '\\' && ltoken == '\\')
+		{
+			token = ' ';
+		}
+		else if (!in_literal)
+		{
+			if (token == left)
 			{
 				count += 1;
 				noscoped = false;
-			}else if(token == right)
+			}
+			else if (token == right)
 			{
 				count -= 1;
 				noscoped = false;
 			}
 		}
 		ltoken = token;
-		cursor += 1;
-	}while((count > 0 || noscoped) && cursor < int(top.length()));
-	int end = (cursor-fstart);
-	if(end > int(top.length()))
+		cursor++;
+	}
+	while ((count > 0 || noscoped) && cursor < S32(top.length()));
+
+	S32 end = (cursor - fstart);
+	if (end > S32(top.length()))
 	{
 		return "end out of bounds";
 	}
@@ -245,19 +242,20 @@ std::string scopeript2(std::string& top, S32 fstart, char left = '{', char right
 	return top.substr(fstart,(cursor-fstart));
 }
 
-inline int const_iterator_to_pos(std::string::const_iterator begin, std::string::const_iterator cursor)
+static inline S32 const_iterator_to_pos(std::string::const_iterator begin, std::string::const_iterator cursor)
 {
 	return std::distance(begin, cursor);
 }
 
-void shredder(std::string& text)
+static void shredder(std::string& text)
 {
-	int cursor = 0;
-	if(int(text.length()) == 0)
+	S32 cursor = 0;
+	if (text.empty())
 	{
-		text = "y u do dis?";
+		text = "No text to shredder.";
 		return;
 	}
+
 	char ltoken = ' ';
 	do
 	{
@@ -266,11 +264,16 @@ void shredder(std::string& text)
 		{
 			ltoken = token;
 			token = text[++cursor];
-			while(cursor < int(text.length()))
+			while (cursor < S32(text.length()))
 			{
-				if(token == '\\' && ltoken == '\\') token = ' ';
-				if(token == '"' && ltoken != '\\')
+				if (token == '\\' && ltoken == '\\')
+				{
+					token = ' ';
+				}
+				if (token == '"' && ltoken != '\\')
+				{
 					break;
+				}
 				ltoken = token;
 				++cursor;
 				token = text[cursor];
@@ -281,7 +284,7 @@ void shredder(std::string& text)
 			token = ' ';
 		}
 
-		if(token != 0xA && token != 0x9 && (
+		if (token != 0xA && token != 0x9 && (
 		   token < 0x20 ||
 		   token == '#' || 
 		   token == '$' || 
@@ -294,129 +297,203 @@ void shredder(std::string& text)
 		}
 		ltoken = token;
 		++cursor;
-	}while(cursor < int(text.length()));
+	}
+	while (cursor < S32(text.length()));
 }
 
 std::string FSLSLPreprocessor::lslopt(std::string script)
 {
 	
-	script = " \n"+script;//HACK//this should prevent regex fail for functions starting on line 0, column 0
-	//added more to prevent split fail on scripts with no global data
-	//this should be fun
-
-	//Removes invalid characters from the script.
-	shredder(script);
-	
 	try
 	{
-		boost::smatch result;
-		if (boost::regex_search(script, result, boost::regex("([\\S\\s]*?)(\\s*default\\s*\\{)([\\S\\s]*)")))
-		{
-			
-			std::string top = result[1];
-			std::string bottom = result[2];
-			bottom += result[3];
+		std::string bottom;
+		std::set<std::string> kept_functions;
+		std::map<std::string, std::string> functions;
+		std::vector<std::pair<std::string, std::string> > gvars;
 
-			boost::regex findfuncts("(integer|float|string|key|vector|rotation|list){0,1}[\\}\\s]+([a-zA-Z0-9_]+)\\(");
-			//there is a minor problem with this regex, it will 
-			//grab extra wnhitespace/newlines in front of functions that do not return a value
-			//however this seems unimportant as it is only a couple chars and 
-			//never grabs code that would actually break compilation
-			
-			boost::smatch TOPfmatch;
-			std::set<std::string> kept_functions;
-			std::map<std::string, std::string> functions;
-			
-			while(boost::regex_search(std::string::const_iterator(top.begin()), std::string::const_iterator(top.end()), TOPfmatch, findfuncts, boost::match_default))
-			{
-				
-				//std::string type = TOPfmatch[1];
-				std::string funcname = TOPfmatch[2];
+		{	// open new scope for local vars
 
-				int pos = TOPfmatch.position(boost::match_results<std::string::const_iterator>::size_type(0));
-				std::string funcb = scopeript2(top, pos);
-				functions[funcname] = funcb;
-				LL_DEBUGS() << "func " << funcname << " added to list[" << funcb << "]" << LL_ENDL;
-				top.erase(pos,funcb.size());
-			}
-			
-			bool repass = false;
-			do
+			// Loop over every declaration in the script, classifying it according to type.
+
+			boost::regex finddecls(
+				rDOT_MATCHES_NEWLINE
+				"(^" // Group 1: RE for a variable declaration.
+					rOPT_SPC // skip (but capture) leading whitespace and comments
+					// type<space or comments>identifier[<space or comments>]
+					rTYPE_ID rREQ_SPC "(" rIDENT ")" rOPT_SPC // Group 2: Identifier
+					"(?:=" // optionally with an assignment
+						// comments or strings or characters that are not a semicolon
+						"(?:" rCMNT_OR_STR "|[^;])++"
+					")?;" // the whole assignment is optional, the semicolon isn't
+				")"
+				"|"
+				"(^" // Group 3: RE for a function declaration (captures up to the identifier inclusive)
+					rOPT_SPC // skip (but capture) whitespace
+					// optionally: type<space or comments>, then ident
+					"(?:" rTYPE_ID rREQ_SPC ")?(" rIDENT ")" // Group 4: identifier
+				")"
+				rOPT_SPC
+				"\\(" // this opening paren is the key for it to be a function
+				"|"
+				"(^" // Group 5: State default, possibly preceded by syntax errors
+					rOPT_SPC // skip (but capture) whitespace
+					"(?:"
+						rCMNT_OR_STR // skip strings and comments
+						"|(?!"
+							rCMNT_OR_STR
+							"|(?<![A-Za-z0-9_])default(?![A-Za-z0-9_])"
+						")." // any character that does not start a comment/string/'default'
+					")*+" // don't backtrack
+					"(?<![A-Za-z0-9_])default(?![A-Za-z0-9_])"
+				")"
+			);
+
+			boost::smatch result;
+
+			std::string top = std::string("\n") + script;
+
+			while (boost::regex_search(std::string::const_iterator(top.begin()), std::string::const_iterator(top.end()), result, finddecls))
 			{
-				
-				repass = false;
-				std::map<std::string, std::string>::iterator func_it;
-				for(func_it = functions.begin(); func_it != functions.end(); func_it++)
+				S32 len;
+
+				if (result[1].matched)
 				{
-					
-					std::string funcname = func_it->first;
-					
-					if(kept_functions.find(funcname) == kept_functions.end())
-					{
-						
-						boost::smatch calls;
-												//funcname has to be [a-zA-Z0-9_]+, so we know its safe
-						boost::regex findcalls(std::string("[^a-zA-Z0-9_]")+funcname+std::string("\\("));
-						
-						std::string::const_iterator bstart = bottom.begin();
-						std::string::const_iterator bend = bottom.end();
+					// variable declaration
+					gvars.push_back(std::make_pair(result[2], result[0]));
+					len = const_iterator_to_pos(top.begin(), result[0].second);
+				}
+				else if (result[3].matched)
+				{
+					// function declaration
+					std::string funcname = result[4];
+					std::string funcb = scopeript2(top, 0);
+					functions[funcname] = funcb;
+					len = funcb.length();
+				}
+				else //if (result[5].matched) // assumed
+				{
+					// found end of globals or syntax error
+					bottom = top;
+					break;
+				}
 
-						if(boost::regex_search(bstart, bend, calls, findcalls, boost::match_default))
+				// Delete the declaration just found
+				top.erase(0, len);
+			}
+
+			if (bottom.empty())
+			{
+				return script; // don't optimize if there's no default state
+			}
+		}
+
+		// Find function calls and add the used function declarations back.
+		// Each time a function is added to the script a new pass is done
+		// so that function calls inside the added functions are seen.
+
+		bool repass;
+		do
+		{
+			repass = false;
+			std::map<std::string, std::string>::iterator func_it;
+			for (func_it = functions.begin(); func_it != functions.end(); func_it++)
+			{
+
+				std::string funcname = func_it->first;
+
+				if (kept_functions.find(funcname) == kept_functions.end())
+				{
+
+					boost::smatch calls;
+											//funcname has to be [a-zA-Z0-9_]+, so we know it's safe
+					boost::regex findcalls(std::string() +
+						rDOT_MATCHES_NEWLINE
+						"(?<![A-Za-z0-9_])(" + funcname + ")" rOPT_SPC "\\(" // a call to the function...
+						"|(?:"
+							rCMNT_OR_STR // or comment or string...
+							"|(?!"
+								rCMNT_OR_STR
+								"|(?<![A-Za-z0-9_])" + funcname + rOPT_SPC "\\("
+							")." // or any other character that is not the start for a match of the above
+						")"
+					);
+
+					std::string::const_iterator bstart = bottom.begin();
+					std::string::const_iterator bend = bottom.end();
+
+					while (boost::regex_search(bstart, bend, calls, findcalls, boost::match_default))
+					{
+						if (calls[1].matched)
 						{
-							
 							std::string function = func_it->second;
 							kept_functions.insert(funcname);
-							bottom = function+"\n"+bottom;
+							bottom = function + bottom;
 							repass = true;
+							break;
+						}
+						else
+						{
+							bstart = calls[0].second;
 						}
 					}
 				}
-			}while(repass);
-
-			std::map<std::string, std::string> gvars;
-			boost::regex findvars("(integer|float|string|key|vector|rotation|list)\\s+([a-zA-Z0-9_]+)([^\\(\\);]*;)");
-			boost::smatch TOPvmatch;
-			
-			while(boost::regex_search(std::string::const_iterator(top.begin()), std::string::const_iterator(top.end()), TOPvmatch, findvars, boost::match_default))
-			{
-				
-				std::string varname = TOPvmatch[2];
-				std::string fullref = TOPvmatch[1] + " " + varname+TOPvmatch[3];
-
-				gvars[varname] = fullref;
-				int start = const_iterator_to_pos(std::string::const_iterator(top.begin()), TOPvmatch[1].first);
-				top.erase(start,fullref.length());
 			}
-			
-			std::map<std::string, std::string>::iterator var_it;
-			for(var_it = gvars.begin(); var_it != gvars.end(); var_it++)
+		}
+		while (repass);
+
+		// Find variable invocations and add the declarations back if used.
+
+		std::vector<std::pair<std::string, std::string> >::reverse_iterator var_it;
+		for (var_it = gvars.rbegin(); var_it != gvars.rend(); var_it++)
+		{
+
+			std::string varname = var_it->first;
+			boost::regex findvcalls(std::string() + rDOT_MATCHES_NEWLINE
+				"(?<![a-zA-Z0-9_.])(" + varname + ")(?![a-zA-Z0-9_\"])" // invocation of the variable
+				"|(?:" rCMNT_OR_STR // a comment or string...
+					"|(?!"
+						rCMNT_OR_STR
+						"|(?<![a-zA-Z0-9_.])" + varname + "(?![a-zA-Z0-9_\"])"
+					")." // or any other character that is not the start for a match of the above
+				")"
+			);
+			boost::smatch vcalls;
+			std::string::const_iterator bstart = bottom.begin();
+			std::string::const_iterator bend = bottom.end();
+
+			while (boost::regex_search(bstart, bend, vcalls, findvcalls, boost::match_default))
 			{
-				
-				std::string varname = var_it->first;
-				boost::regex findvcalls(std::string("[^a-zA-Z0-9_]+")+varname+std::string("[^a-zA-Z0-9_]+"));
-				boost::smatch vcalls;
-				std::string::const_iterator bstart = bottom.begin();
-				std::string::const_iterator bend = bottom.end();
-				
-				if(boost::regex_search(bstart, bend, vcalls, findvcalls, boost::match_default))
+				if (vcalls[1].matched)
 				{
-					bottom = var_it->second + "\n" + bottom;
+					bottom = var_it->second + bottom;
+					break;
+				}
+				else
+				{
+					bstart = vcalls[0].second;
 				}
 			}
-			
-			script = bottom;
 		}
+
+		script = bottom;
 	}
 	catch (boost::regex_error& e)
 	{
-		std::string err = "not a valid regular expression: \"";
-		err += e.what();
-		err += "\"; optimization skipped";
-		LL_WARNS() << err << LL_ENDL;
+		LLStringUtil::format_map_t args;
+		args["[WHAT]"] = e.what();
+		std::string err = LLTrans::getString("fs_preprocessor_optimizer_regex_err", args);
+		LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
+		display_error(err);
+		throw;
 	}
-	catch (...)
+	catch (std::exception& e)
 	{
-		LL_WARNS() << "unexpected exception caught; optimization skipped" << LL_ENDL;
+		LLStringUtil::format_map_t args;
+		args["[WHAT]"] = e.what();
+		std::string err = LLTrans::getString("fs_preprocessor_optimizer_exception", args);
+		LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
+		display_error(err);
+		throw;
 	}
 	return script;
 }
@@ -426,18 +503,25 @@ std::string FSLSLPreprocessor::lslcomp(std::string script)
 	try
 	{
 		shredder(script);
-		script = boost::regex_replace(script, boost::regex("(\\s+)",boost::regex::perl), "\n");
+		script = boost::regex_replace(script, boost::regex("(\\s+)", boost::regex::perl), "\n");
 	}
 	catch (boost::regex_error& e)
 	{
-		std::string err = "not a valid regular expression: \"";
-		err += e.what();
-		err += "\"; compression skipped";
-		LL_WARNS() << err << LL_ENDL;
+		LLStringUtil::format_map_t args;
+		args["[WHAT]"] = e.what();
+		std::string err = LLTrans::getString("fs_preprocessor_compress_regex_err", args);
+		LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
+		display_error(err);
+		throw;
 	}
-	catch (...)
+	catch (std::exception& e)
 	{
-		LL_WARNS() << "unexpected exception caught; compression skipped" << LL_ENDL;
+		LLStringUtil::format_map_t args;
+		args["[WHAT]"] = e.what();
+		std::string err = LLTrans::getString("fs_preprocessor_compress_exception", args);
+		LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
+		display_error(err);
+		throw;
 	}
 	return script;
 }
@@ -448,7 +532,7 @@ struct ProcCacheInfo
 	FSLSLPreprocessor* self;
 };
 
-inline std::string shortfile(std::string in)
+static inline std::string shortfile(std::string in)
 {
 	return boost::filesystem::path(std::string(in)).filename().string();
 }
@@ -457,30 +541,29 @@ inline std::string shortfile(std::string in)
 class trace_include_files : public boost::wave::context_policies::default_preprocessing_hooks
 {
 public:
-	trace_include_files(FSLSLPreprocessor* proc) 
-    :   mProc(proc) 
-    {
+	trace_include_files(FSLSLPreprocessor* proc)
+	:   mProc(proc) 
+	{
 		mAssetStack.push(LLUUID::null.asString());
 		mFileStack.push(proc->mMainScriptName);
 	}
 
 
 	template <typename ContextT>
-    bool found_include_directive(ContextT const& ctx, 
-        std::string const &filename, bool include_next)
+	bool found_include_directive(ContextT const& ctx, std::string const &filename, bool include_next)
 	{
-		std::string cfilename = filename.substr(1,filename.length()-2);
-		LL_DEBUGS() << cfilename << ":found_include_directive" << LL_ENDL;
+		std::string cfilename = filename.substr(1, filename.length() - 2);
+		LL_DEBUGS("FSLSLPreprocessor") << cfilename << ":found_include_directive" << LL_ENDL;
 		LLUUID item_id = FSLSLPreprocessor::findInventoryByName(cfilename);
-		if(item_id.notNull())
+		if (item_id.notNull())
 		{
 			LLViewerInventoryItem* item = gInventory.getItem(item_id);
-			if(item)
+			if (item)
 			{
 				std::map<std::string,LLUUID>::iterator it = mProc->cached_assetids.find(cfilename);
 				bool not_cached = (it == mProc->cached_assetids.end());
 				bool changed = true;
-				if(!not_cached)
+				if (!not_cached)
 				{
 					changed = (mProc->cached_assetids[cfilename] != item->getAssetUUID());
 				}
@@ -489,8 +572,18 @@ public:
 					std::set<std::string>::iterator it = mProc->caching_files.find(cfilename);
 					if (it == mProc->caching_files.end())
 					{
-						if(not_cached)mProc->display_error(std::string("Caching ")+cfilename);
-						else /*if(changed)*/mProc->display_error(cfilename+std::string(" has changed, recaching..."));
+						if (not_cached)
+						{
+							LLStringUtil::format_map_t args;
+							args["[FILENAME]"] = cfilename;
+							mProc->display_message(LLTrans::getString("fs_preprocessor_cache_miss", args));
+						}
+						else /*if(changed)*/
+						{
+							LLStringUtil::format_map_t args;
+							args["[FILENAME]"] = cfilename;
+							mProc->display_message(LLTrans::getString("fs_preprocessor_cache_invalidated", args));
+						}
 						//one is always true
 						mProc->caching_files.insert(cfilename);
 						ProcCacheInfo* info = new ProcCacheInfo;
@@ -498,27 +591,28 @@ public:
 						info->self = mProc;
 						LLPermissions perm(((LLInventoryItem*)item)->getPermissions());
 						gAssetStorage->getInvItemAsset(LLHost::invalid,
-						gAgent.getID(),
-						gAgent.getSessionID(),
-						perm.getOwner(),
-						LLUUID::null,
-						item->getUUID(),
-						LLUUID::null,
-						item->getType(),
-						&FSLSLPreprocessor::FSProcCacheCallback,
-						info,
-						TRUE);
+														gAgent.getID(),
+														gAgent.getSessionID(),
+														perm.getOwner(),
+														LLUUID::null,
+														item->getUUID(),
+														LLUUID::null,
+														item->getType(),
+														&FSLSLPreprocessor::FSProcCacheCallback,
+														info,
+														TRUE);
 						return true;
 					}
 				}
 			}
-        }else
+		}
+		else
 		{
 			//todo check on HDD in user defined dir for file in question
 		}
-        //++include_depth;
+		//++include_depth;
 		return false;
-    }
+	}
 
 	template <typename ContextT>
 	void opened_include_file(ContextT const& ctx, 
@@ -530,21 +624,25 @@ public:
 		std::string id;
 		std::string filename = shortfile(relname);//boost::filesystem::path(std::string(relname)).filename();
 		std::map<std::string,LLUUID>::iterator it = mProc->cached_assetids.find(filename);
-		if(it != mProc->cached_assetids.end())
+		if (it != mProc->cached_assetids.end())
 		{
 			id = mProc->cached_assetids[filename].asString();
-		}else id = "NOT_IN_WORLD";//I guess, still need to add external includes atm
+		}
+		else
+		{
+			id = "NOT_IN_WORLD";//I guess, still need to add external includes atm
+		}
 		mAssetStack.push(id);
 		std::string macro = "__ASSETID__";
 		usefulctx.remove_macro_definition(macro, true);
-		std::string def = llformat("%s=\"%s\"",macro.c_str(),id.c_str());
-		usefulctx.add_macro_definition(def,false);
+		std::string def = llformat("%s=\"%s\"", macro.c_str(), id.c_str());
+		usefulctx.add_macro_definition(def, false);
 
 		mFileStack.push(filename);
 		macro = "__SHORTFILE__";
 		usefulctx.remove_macro_definition(macro, true);
-		def = llformat("%s=\"%s\"",macro.c_str(),filename.c_str());
-		usefulctx.add_macro_definition(def,false);
+		def = llformat("%s=\"%s\"", macro.c_str(), filename.c_str());
+		usefulctx.add_macro_definition(def, false);
 	}
 
 
@@ -552,21 +650,21 @@ public:
 	void returning_from_include_file(ContextT const& ctx)
 	{
 		ContextT& usefulctx = const_cast<ContextT&>(ctx);
-		if(mAssetStack.size() > 1)
+		if (mAssetStack.size() > 1)
 		{
 			mAssetStack.pop();
 			std::string id = mAssetStack.top();
 			std::string macro = "__ASSETID__";
 			usefulctx.remove_macro_definition(macro, true);
-			std::string def = llformat("%s=\"%s\"",macro.c_str(),id.c_str());
-			usefulctx.add_macro_definition(def,false);
+			std::string def = llformat("%s=\"%s\"", macro.c_str(), id.c_str());
+			usefulctx.add_macro_definition(def, false);
 
 			mFileStack.pop();
 			std::string filename = mFileStack.top();
 			macro = "__SHORTFILE__";
 			usefulctx.remove_macro_definition(macro, true);
-			def = llformat("%s=\"%s\"",macro.c_str(),filename.c_str());
-			usefulctx.add_macro_definition(def,false);
+			def = llformat("%s=\"%s\"", macro.c_str(), filename.c_str());
+			usefulctx.add_macro_definition(def, false);
 		}//else wave did something really wrong
 	}
 
@@ -575,12 +673,14 @@ public:
 	{
 		std::string err;
 		err = "warning: last line of file ends without a newline";
-		if( !err.compare( e.description())){
+		if (!err.compare( e.description()))
+		{
 			err = "Ignoring warning: ";
 			err += e.description();
-			LL_WARNS() << err << LL_ENDL;
+			LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
 		}
-		else{
+		else
+		{
 			boost::throw_exception(e);
 		}
 	}
@@ -591,61 +691,57 @@ private:
 	std::stack<std::string> mFileStack;
 };
 
-
-std::string cachepath(std::string name)
-{
-	return gDirUtilp->getExpandedFilename(LL_PATH_CACHE,"lslpreproc",name);
-}
-
 void cache_script(std::string name, std::string content)
 {
 	
 	content += "\n";/*hack!*/
-	LL_DEBUGS() << "writing " << name << " to cache" << LL_ENDL;
-	std::string path = gDirUtilp->getExpandedFilename(LL_PATH_CACHE,"lslpreproc",name);
+	LL_DEBUGS("FSLSLPreprocessor") << "writing " << name << " to cache" << LL_ENDL;
+	std::string path = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, "lslpreproc", name);
 	LLAPRFile infile(path.c_str(), LL_APR_WB);
-	if( infile.getFileHandle() )
+	if (infile.getFileHandle())
+	{
 		infile.write(content.c_str(), content.length());
+	}
 
 	infile.close();
 }
 
 void FSLSLPreprocessor::FSProcCacheCallback(LLVFS *vfs, const LLUUID& iuuid, LLAssetType::EType type, void *userdata, S32 result, LLExtStat extstat)
 {
-	
 	LLUUID uuid = iuuid;
-	LL_DEBUGS() << "cachecallback called" << LL_ENDL;
-	ProcCacheInfo* info =(ProcCacheInfo*)userdata;
+	LL_DEBUGS("FSLSLPreprocessor") << "cachecallback called" << LL_ENDL;
+	ProcCacheInfo* info = (ProcCacheInfo*)userdata;
 	LLViewerInventoryItem* item = info->item;
 	FSLSLPreprocessor* self = info->self;
-	if(item && self)
+	if (item && self)
 	{
 		std::string name = item->getName();
-		if(result == LL_ERR_NOERR)
+		if (result == LL_ERR_NOERR)
 		{
 			LLVFile file(vfs, uuid, type);
 			S32 file_length = file.getSize();
-			char* buffer = new char[file_length+1];
-			file.read((U8*)buffer, file_length);
-			// put a EOS at the end
-			buffer[file_length] = 0;
 
-			std::string content(buffer);
+			std::string content;
+			content.resize(file_length + 1, 0);
+			file.read((U8*)&content[0], file_length);
+
 			content = utf8str_removeCRLF(content);
 			content = self->decode(content);
 			/*content += llformat("\n#define __UP_ITEMID__ __ITEMID__\n#define __ITEMID__ %s\n",uuid.asString().c_str())+content;
 			content += "\n#define __ITEMID__ __UP_ITEMID__\n";*/
 			//prolly wont work and ill have to be not lazy, but worth a try
-			delete buffer;
-			if(boost::filesystem::native(name))
+
+			if (boost::filesystem::native(name))
 			{
-				LL_DEBUGS() << "native name of " << name << LL_ENDL;
-				self->mCore->mErrorList->setCommentText(std::string("Cached ")+name);
+				LL_DEBUGS("FSLSLPreprocessor") << "native name of " << name << LL_ENDL;
+				LLStringUtil::format_map_t args;
+				args["[FILENAME]"] = name;
+				self->display_message(LLTrans::getString("fs_preprocessor_cache_completed", args));
 				cache_script(name, content);
 				std::set<std::string>::iterator loc = self->caching_files.find(name);
-				if(loc != self->caching_files.end())
+				if (loc != self->caching_files.end())
 				{
-					LL_DEBUGS() << "finalizing cache" << LL_ENDL;
+					LL_DEBUGS("FSLSLPreprocessor") << "finalizing cache" << LL_ENDL;
 					self->caching_files.erase(loc);
 					//self->cached_files.insert(name);
 					if(uuid.isNull())uuid.generate();
@@ -655,44 +751,55 @@ void FSLSLPreprocessor::FSProcCacheCallback(LLVFS *vfs, const LLUUID& iuuid, LLA
 				}
 				else
 				{
-					LL_DEBUGS() << "something went wrong" << LL_ENDL;
+					LL_DEBUGS("FSLSLPreprocessor") << "something went wrong" << LL_ENDL;
 				}
 			}
-			else self->mCore->mErrorList->setCommentText(std::string("Error: script named '") + name + "' isn't safe to copy to the filesystem. This include will fail.");
+			else
+			{
+				LLStringUtil::format_map_t args;
+				args["[FILENAME]"] = name;
+				self->display_error(LLTrans::getString("fs_preprocessor_cache_unsafe", args));
+			}
 		}
 		else
 		{
-			self->mCore->mErrorList->setCommentText(std::string("Error caching "+name));
+			LLStringUtil::format_map_t args;
+			args["[FILENAME]"] = name;
+			self->display_error(LLTrans::getString("fs_preprocessor_caching_err", args));
 		}
 	}
 
-	if(info)
+	if (info)
 	{
 		delete info;
 	}
 }
 
-void FSLSLPreprocessor::preprocess_script(BOOL close, BOOL defcache)
+void FSLSLPreprocessor::preprocess_script(BOOL close, bool sync, bool defcache)
 {
 	mClose = close;
+	mSync = sync;
 	mDefinitionCaching = defcache;
 	caching_files.clear();
-	mCore->mErrorList->setCommentText(std::string("PreProc Starting..."));
+	LLStringUtil::format_map_t args;
+	display_message(LLTrans::getString("fs_preprocessor_starting"));
 	
-	LLFile::mkdir(gDirUtilp->getExpandedFilename(LL_PATH_CACHE,"")+gDirUtilp->getDirDelimiter()+"lslpreproc");
+	LLFile::mkdir(gDirUtilp->getExpandedFilename(LL_PATH_CACHE,"") + gDirUtilp->getDirDelimiter() + "lslpreproc");
 	std::string script = mCore->mEditor->getText();
-	if(mMainScriptName == "")//more sanity
+	if (mMainScriptName.empty())//more sanity
 	{
 		const LLInventoryItem* item = NULL;
 		LLPreview* preview = (LLPreview*)mCore->mUserdata;
-		if(preview)
+		if (preview)
 		{
 			item = preview->getItem();
 		}
-		if(item)
+
+		if (item)
 		{
 			mMainScriptName = item->getName();
-		}else
+		}
+		else
 		{
 			mMainScriptName = "(Unknown)";
 		}
@@ -702,43 +809,123 @@ void FSLSLPreprocessor::preprocess_script(BOOL close, BOOL defcache)
 	cache_script(name, script);
 	//start the party
 	start_process();
-	
 }
 
 const std::string lazy_list_set_func("\
-list lazy_list_set(list target, integer pos, list newval)\n\
+list lazy_list_set(list L, integer i, list v)\n\
 {\n\
-    integer end = llGetListLength(target);\n\
-    if(end > pos)\n\
-    {\n\
-        target = llListReplaceList(target,newval,pos,pos);\n\
-    }else if(end == pos)\n\
-    {\n\
-        target += newval;\n\
-    }else\n\
-    {\n\
-        do\n\
-        {\n\
-            target += [0];\n\
-            end += 1;\n\
-        }while(end < pos);\n\
-        target += newval;\n\
-    }\n\
-    return target;\n\
+    while (llGetListLength(L) < i)\n\
+        L = L + 0;\n\
+    return llListReplaceList(L, v, i, i);\n\
 }\n\
 ");
 
-std::string reformat_lazy_lists(std::string script)
+static void subst_lazy_references(std::string& script, std::string retype, std::string fn)
 {
-	BOOL add_set = FALSE;
-	std::string nscript = script;
-	nscript = boost::regex_replace(nscript, boost::regex("([a-zA-Z0-9_]+)\\[([a-zA-Z0-9_()\"]+)]\\s*=\\s*([a-zA-Z0-9_()\"\\+\\-\\*/]+)([;)])",boost::regex::perl), "$1=lazy_list_set($1,$2,[$3])$4");
-	if(nscript != script)
+	std::string ref;
+	do
 	{
-		add_set = TRUE;
+		ref = script;
+		script = boost::regex_replace(script, boost::regex(std::string(rDOT_MATCHES_NEWLINE
+			rCMNT_OR_STR "|"
+			"\\(" rOPT_SPC ) + retype + std::string(rOPT_SPC "\\)" rOPT_SPC
+			// group 1: leading parenthesis
+			"(\\()?"
+			// group 2: identifier
+			rOPT_SPC "([a-zA-Z_][a-zA-Z0-9_]*+)"
+			rOPT_SPC "\\["
+			// group 3: subindex expression
+			"((?:"
+				rCMNT_OR_STR
+				// group 4: recursive bracketed expression
+				"|(\\[(?:" rCMNT_OR_STR "|[^][]|(?4))*+\\])" // recursive bracketed expression (e.g. []!=[])
+				"|[^][]" // or anything else
+			")+?)" // (non-greedy)
+			"\\]"
+			// group 5: trailing parenthesis
+			"(\\))?"
+			)),
+			// Boost supports conditions in format strings used in regex_replace.
+			// ?nX:Y means output X if group n matched, else output Y. $n means output group n.
+			// $& means output the whole match, which is used here to not alter the string.
+			// Parentheses are used for grouping; they have to be prefixed with \ to output them.
+			std::string("?2" // if group 2 matched, we have a (type)variable[index] to substitute
+			// if first paren is present, require the second (output the original text if not present)
+			"(?1(?5$1") + fn + std::string("\\($2,$3\\)$5:$&):")
+			// if first parent is not present, copy $5 verbatim (matched or not)
+			+ fn + std::string("\\($2,$3\\)$5):"
+			// if $2 didn't match, output whatever matched (string or comment)
+			"$&"), boost::format_all); // format_all enables these features
+	}
+	while (script != ref);
+}
+
+static std::string reformat_lazy_lists(std::string script)
+{
+	bool add_set = false;
+	std::string nscript = script;
+	nscript = boost::regex_replace(nscript, boost::regex(rDOT_MATCHES_NEWLINE
+		rCMNT_OR_STR "|"
+		// group 1: identifier
+		"([a-zA-Z_][a-zA-Z0-9_]*+)" rOPT_SPC
+		// group 2: expression within brackets
+		"\\[((?:" rCMNT_OR_STR
+		// group 3: recursive bracketed expression
+		"|(\\[(?:" rCMNT_OR_STR "|[^][]|(?3))*+\\])" // recursive bracketed expression (e.g. []!=[])
+		"|[^][]" // or anything else
+		")+?)\\]" rOPT_SPC // non-greedy
+		"=" rOPT_SPC
+		// group 4: right-hand side expression
+		"((?:" rCMNT_OR_STR
+			// group 5: recursive parenthesized expression
+			"|(\\((?:" rCMNT_OR_STR "|[^()]|(?5))*+\\))" // recursive parenthesized expression
+			"|[^()]" // or anything else
+		")+?)" // non-greedy
+		"([;)])" // terminated only with a semicolon or a closing parenthesis
+		), "?1$1=lazy_list_set\\($1,$2,[$4]\\)$6:$&", boost::format_all);
+
+	if (nscript != script)
+	{
+		// the function is only necessary if an assignment was made and it's not already defined
+		add_set = boost::regex_search(nscript, boost::regex(
+			// Find if the function is already defined.
+			rDOT_MATCHES_NEWLINE
+			"^(?:"
+				// Skip variable or function declarations.
+				// RE for a variable declaration follows.
+				rOPT_SPC // skip spaces and comments
+				// type<space or comments>identifier[<space or comments>]
+				rTYPE_ID rREQ_SPC rIDENT rOPT_SPC
+				"(?:=" // optionally with an assignment
+					// comments or strings or characters that are not a semicolon
+					"(?:" rCMNT_OR_STR "|[^;])++"
+				")?;" // the whole assignment is optional, the semicolon isn't
+				"|"
+				// RE for function declarations follows.
+				rOPT_SPC // skip spaces and comments
+				// [type<space or comments>] identifier
+				"(?:" rTYPE_ID rREQ_SPC ")?" rIDENT rOPT_SPC
+				// open parenthesis, comments or other stuff, close parenthesis
+				// (strings can't appear in the parameter list so don't bother to skip them)
+				"\\((?:" rCMNT "|[^()])*+\\)" rOPT_SPC
+				// capturing group 1 used for nested curly braces
+				"(\\{(?:" rCMNT_OR_STR "|(?1)|[^{}])*+\\})" // recursively skip braces
+			")*?" // (zero or more variable/function declarations skipped)
+			rOPT_SPC "(?:" rTYPE_ID rREQ_SPC ")?lazy_list_set" rOPT_SPC "\\("
+		)) ? false : true;
 	}
 
-	if(add_set == TRUE)
+	// replace typed references followed by bracketed subindex with llList2XXXX,
+	// e.g. (rotation)mylist[3] is replaced with llList2Rot(mylist, (3))
+	subst_lazy_references(nscript, "integer", "llList2Integer");
+	subst_lazy_references(nscript, "float", "llList2Float");
+	subst_lazy_references(nscript, "string", "llList2String");
+	subst_lazy_references(nscript, "key", "llList2Key");
+	subst_lazy_references(nscript, "vector", "llList2Vector");
+	subst_lazy_references(nscript, "(?:rotation|quaternion)", "llList2Rot");
+	subst_lazy_references(nscript, "list", "llList2List");
+
+	if (add_set)
 	{
 		//add lazy_list_set function to top of script, as it is used
 		nscript = utf8str_removeCRLF(lazy_list_set_func) + "\n" + nscript;
@@ -747,14 +934,14 @@ std::string reformat_lazy_lists(std::string script)
 }
 
 
-inline std::string randstr(int len, std::string chars)
+static inline std::string randstr(S32 len, std::string chars)
 {
-	int clen = int(chars.length());
-	int built = 0;
+	S32 clen = S32(chars.length());
+	S32 built = 0;
 	std::string ret;
-	while(built < len)
+	while (built < len)
 	{
-		int r = std::rand() / ( RAND_MAX / clen );
+		S32 r = std::rand() / ( RAND_MAX / clen );
 		r = r % clen;//sanity
 		ret += chars.at(r);
 		built += 1;
@@ -762,165 +949,170 @@ inline std::string randstr(int len, std::string chars)
 	return ret;
 }
 
-inline std::string quicklabel()
+static inline std::string quicklabel()
 {
-	return std::string("c")+randstr(5,"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+	return std::string("c") + randstr(5, "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
 }
 
-std::string minimalize_whitespace(std::string in)
+/* unused:
+static std::string minimalize_whitespace(std::string in)
 {
-	return boost::regex_replace(in, boost::regex("\\s*",boost::regex::perl), "\n");		
+	return boost::regex_replace(in, boost::regex("\\s*",boost::regex::perl), "\n");
 }
+*/
 
-std::string reformat_switch_statements(std::string script)
+static std::string reformat_switch_statements(std::string script)
 {
 	std::string buffer = script;
 	{
 		try
 		{
-			boost::regex findswitches("\\sswitch\\(");//nasty
+			boost::regex findswitches(rDOT_MATCHES_NEWLINE
+				rCMNT_OR_STR
+				"|" rSPC "++" // optimization to skip over blocks of whitespace faster
+				"|(?<![A-Za-z0-9_])(switch" rOPT_SPC "\\()"
+				"|."
+				);
 
 			boost::smatch matches;
+			std::string::const_iterator bstart = buffer.begin();
 
-			static std::string switchstr = "switch(";
-
-			int escape = 100;
-
-			while(boost::regex_search(std::string::const_iterator(buffer.begin()), std::string::const_iterator(buffer.end()), matches, findswitches, boost::match_default) && escape > 1)
+			while (boost::regex_search(bstart, std::string::const_iterator(buffer.end()), matches, findswitches, boost::match_default))
 			{
-				int res = matches.position(boost::match_results<std::string::const_iterator>::size_type(0))+1;
-				
-				static int slen = switchstr.length();
-
-				std::string arg = scopeript2(buffer, res+slen-1,'(',')');
-
-				//arg *will have* () around it
-				if(arg == "begin out of bounds" || arg == "end out of bounds")
+				if (matches[1].matched)
 				{
-					////reportToNearbyChat(arg);
-					break;
-				}
-				LL_DEBUGS() << "arg=[" << arg << "]" << LL_ENDL;;
-				std::string rstate = scopeript2(buffer, res+slen+arg.length()-1);
+					S32 res = const_iterator_to_pos(buffer.begin(), matches[1].first);
 
-				int cutlen = slen;
-				cutlen -= 1;
-				cutlen += arg.length();
-				cutlen += rstate.length();
-				//slen is for switch( and arg has () so we need to - 1 ( to get the right length
-				//then add arg len and state len to get section to excise
+					// slen excludes the "("
+					S32 slen = const_iterator_to_pos(matches[1].first, matches[1].second) - 1;
 
-				//rip off the scope edges
-				int slicestart = rstate.find("{")+1;
-				rstate = rstate.substr(slicestart,(rstate.rfind("}")-slicestart)-1);
-				LL_DEBUGS() << "rstate=[" << rstate << "]" << LL_ENDL;
+					std::string arg = scopeript2(buffer, res + slen, '(', ')');
 
-				boost::regex findcases("\\scase\\s");
-
-				boost::smatch statematches;
-
-				std::map<std::string,std::string> ifs;
-
-				while(boost::regex_search(std::string::const_iterator(rstate.begin()), std::string::const_iterator(rstate.end()), statematches, findcases, boost::match_default) && escape > 1)
-				{
-					//if(statematches[0].matched)
+					//arg *will have* () around it
+					if (arg == "begin out of bounds" || arg == "end out of bounds")
 					{
-						int case_start = statematches.position(boost::match_results<std::string::const_iterator>::size_type(0))+1;//const_iterator2pos(statematches[0].first+1, std::string::const_iterator(rstate.begin()))-1;
-						int next_curl = rstate.find("{",case_start+1);
-						int next_semi = rstate.find(":",case_start+1);
-						int case_end = (next_curl < next_semi && next_curl != -1) ? next_curl : next_semi;
-						static int caselen = std::string("case").length();
-						if(case_end != -1)
+						break;
+					}
+					LL_DEBUGS("FSLSLPreprocessor") << "arg=[" << arg << "]" << LL_ENDL;;
+					std::string rstate = scopeript2(buffer, res + slen + arg.length());
+					S32 cutlen = slen + arg.length() + rstate.length();
+
+					// Call recursively to process nested switch statements (FIRE-10517)
+					rstate = reformat_switch_statements(rstate);
+
+					//rip off the scope edges
+					S32 slicestart = rstate.find("{") + 1;
+					rstate = rstate.substr(slicestart, (rstate.rfind("}") - slicestart) - 1);
+					LL_DEBUGS("FSLSLPreprocessor") << "rstate=[" << rstate << "]" << LL_ENDL;
+
+					boost::regex findcases(rDOT_MATCHES_NEWLINE
+						rCMNT_OR_STR "|" rSPC "++|(?<![A-Za-z0-9_])(case" rREQ_SPC ")|.");
+
+					boost::smatch statematches;
+
+					std::map<std::string, std::string> ifs;
+					std::string::const_iterator rstart = rstate.begin();
+
+					while (boost::regex_search(rstart, std::string::const_iterator(rstate.end()), statematches, findcases, boost::match_default))
+					{
+						if (statematches[1].matched)
 						{
-							std::string casearg = rstate.substr(case_start+caselen,case_end-(case_start+caselen));
-							LL_DEBUGS() << "casearg=[" << casearg << "]" << LL_ENDL;
-							std::string label = quicklabel();
-							ifs[casearg] = label;
-							LL_DEBUGS() << "BEFORE[" << rstate << "]" << LL_ENDL;
-							bool addcurl = (case_end == next_curl ? 1 : 0);
-							label = "@"+label+";\n";
-							if(addcurl)
+							S32 case_start = const_iterator_to_pos(rstate.begin(), statematches[1].first);
+							S32 next_curl = rstate.find("{", case_start + 1);
+							S32 next_semi = rstate.find(":", case_start + 1);
+							S32 case_end = (next_semi == -1) ? next_curl :
+								(next_curl < next_semi && next_curl != -1) ? next_curl : next_semi;
+							S32 caselen = const_iterator_to_pos(statematches[1].first, statematches[1].second);
+							if (case_end != -1)
 							{
-								label += "{";
+								std::string casearg = rstate.substr(case_start + caselen, case_end - (case_start + caselen));
+								LL_DEBUGS("FSLSLPreprocessor") << "casearg=[" << casearg << "]" << LL_ENDL;
+								std::string label = quicklabel();
+								ifs[casearg] = label;
+								LL_DEBUGS("FSLSLPreprocessor") << "BEFORE[" << rstate << "]" << LL_ENDL;
+								bool addcurl = (case_end == next_curl ? 1 : 0);
+								label = "@" + label + ";\n";
+								if (addcurl)
+								{
+									label += "{";
+								}
+								rstate.erase(case_start, (case_end - case_start) + 1);
+								rstate.insert(case_start, label);
+								LL_DEBUGS("FSLSLPreprocessor") << "AFTER[" << rstate << "]" << LL_ENDL;
+								rstart = rstate.begin() + (case_start + label.length());
 							}
-							rstate.erase(case_start,(case_end-case_start) + 1);
-							rstate.insert(case_start,label);
-							LL_DEBUGS() << "AFTER[" << rstate << "]" << LL_ENDL;
+							else
+							{
+								LL_DEBUGS("FSLSLPreprocessor") << "error in regex case_end != -1" << LL_ENDL;
+								rstate.erase(case_start, caselen);
+								rstate.insert(case_start, "error; cannot find { or :");
+								rstart = rstate.begin() + (case_start + std::strlen("error; cannot find { or :"));
+							}
 						}
 						else
 						{
-							LL_DEBUGS() << "error in regex case_end != -1" << LL_ENDL;
-							rstate.erase(case_start,caselen);
-							rstate.insert(case_start,"error; cannot find { or :");
+							rstart = statematches[0].second;
 						}
 					}
-					escape -= 1;
+
+					std::string deflt = quicklabel();
+					bool isdflt = false;
+					std::string defstate;
+					defstate = boost::regex_replace(rstate, boost::regex(rDOT_MATCHES_NEWLINE
+						rCMNT_OR_STR "|" rSPC "++"
+						"|(?<![A-Za-z0-9_])(default)(?:" rOPT_SPC ":|(" rOPT_SPC "\\{))"
+						, boost::regex::perl), "?1@" + deflt + ";$2:$&", boost::format_all);
+					if (defstate != rstate)
+					{
+						isdflt = true;
+						rstate = defstate;
+					}
+					std::string argl;
+					std::string jumptable = "{";
+
+					std::map<std::string, std::string>::iterator ifs_it;
+					for (ifs_it = ifs.begin(); ifs_it != ifs.end(); ifs_it++)
+					{
+						jumptable += "if(" + arg + " == (" + ifs_it->first + "))jump " + ifs_it->second + ";\n";
+					}
+					if (isdflt)
+					{
+						jumptable += "jump " + deflt + ";\n";
+					}
+
+					rstate = jumptable + rstate + "\n";
+
+					std::string brk = quicklabel();
+					defstate = boost::regex_replace(rstate, boost::regex(rDOT_MATCHES_NEWLINE
+						rCMNT_OR_STR "|"
+						"(?<![A-Za-z0-9_])break(" rOPT_SPC ";)"
+						), "?1jump " + brk + "$1:$&", boost::format_all);
+					if (defstate != rstate)
+					{
+						rstate = defstate;
+						rstate += "\n@" + brk + ";\n";
+					}
+					rstate = rstate + "}";
+
+					LL_DEBUGS("FSLSLPreprocessor") << "replacing[" << buffer.substr(res, cutlen) << "] with [" << rstate << "]" << LL_ENDL;
+					buffer.erase(res, cutlen);
+					buffer.insert(res, rstate);
+
+					bstart = buffer.begin() + (res + rstate.length());
+
 				}
-
-				std::string deflt = quicklabel();
-				bool isdflt = false;
-				std::string defstate;
-				defstate = boost::regex_replace(rstate, boost::regex("(\\s)(default\\s*?):",boost::regex::perl), "$1\\@"+deflt+";");
-				defstate = boost::regex_replace(defstate, boost::regex("(\\s)(default\\s*?)\\{",boost::regex::perl), "$1\\@"+deflt+"; \\{");
-				if(defstate != rstate)
+				else /* not matches[1].matched */
 				{
-					isdflt = true;
-					rstate = defstate;
+					// Found a token that is not "switch" - skip it
+					bstart = matches[0].second;
 				}
-				std::string argl;
-				std::string jumptable = "{";
-				/*std::string type = gettype(buffer, arg, res);
-				if(type != "void" && type != "-1")
-				{
-					std::string argl = quicklabel();
-					jumptable += type+" "+argl+" = "+arg+";\n";
-					arg = argl;
-				}else
-				{
-					reportToNearbyChat("type="+type);
-				}*/
-
-				std::map<std::string, std::string>::iterator ifs_it;
-				for(ifs_it = ifs.begin(); ifs_it != ifs.end(); ifs_it++)
-				{
-					jumptable += "if("+arg+" == ("+ifs_it->first+"))jump "+ifs_it->second+";\n";
-				}
-				if(isdflt)jumptable += "jump "+deflt+";\n";
-
-				rstate = jumptable + rstate + "\n";
-			
-				std::string brk = quicklabel();
-				defstate = boost::regex_replace(rstate, boost::regex("(\\s)break\\s*;",boost::regex::perl), "$1jump "+brk+";");
-				if(defstate != rstate)
-				{
-					rstate = defstate;
-					rstate += "\n@"+brk+";\n";
-				}
-				rstate = rstate + "}";
-
-				LL_DEBUGS() << "replacing[" << buffer.substr(res,cutlen) << "] with [" << rstate << "]" << LL_ENDL;
-				buffer.erase(res,cutlen);
-				buffer.insert(res,rstate);
-
-				//start = buffer.begin();
-				//end = buffer.end();
-
-				escape -= 1;
-
-				//res = buffer.find(switchstr);
 			}
 			script = buffer;
 		}
-		catch (boost::regex_error& e)
-		{
-			std::string err = "not a valid regular expression: \"";
-			err += e.what();
-			err += "\"; switch statements skipped";
-			LL_WARNS() << err << LL_ENDL;
-		}
 		catch (...)
 		{
-			LL_WARNS() << "unexpected exception caught; buffer=[" << buffer << "]" << LL_ENDL;
+			LL_WARNS("FSLSLPreprocessor") << "unexpected exception caught; buffer=[" << buffer << "]" << LL_ENDL;
+			throw;
 		}
 	}
 	return script;
@@ -928,15 +1120,129 @@ std::string reformat_switch_statements(std::string script)
 
 void FSLSLPreprocessor::start_process()
 {
-	if(mWaving)
+	if (mWaving)
 	{
-		LL_WARNS() << "already waving?" << LL_ENDL;
+		LL_WARNS("FSLSLPreprocessor") << "already waving?" << LL_ENDL;
 		return;
 	}
-	mWaving = TRUE;
+
+	mWaving = true;
 	boost::wave::util::file_position_type current_position;
 	std::string input = mCore->mEditor->getText();
 	std::string rinput = input;
+	bool preprocessor_enabled = true;
+
+	// Simple check for the "do not preprocess" marker.  This logic will NOT survive a conversion into some form of sectional preprocessing as discussed in FIRE-9335, but will serve the basic use case given therein.
+	{
+		std::string::size_type location_index = rinput.find("//fspreprocessor off");
+		
+		if (location_index != std::string::npos)
+		{
+			std::string section_scanned = input.substr(0, location_index); // Used to compute the line number at which the marker was found.
+			LLStringUtil::format_map_t args;
+			args["[LINENUMBER]"] = llformat("%d", std::count(section_scanned.begin(), section_scanned.end(), '\n'));
+			display_message(LLTrans::getString("fs_preprocessor_disabled_by_script_marker", args));
+			preprocessor_enabled = false;
+		}
+	}
+
+	// Convert multiline strings for preprocessor
+	if (preprocessor_enabled)
+	{
+		std::ostringstream oaux;
+		// Simple DFA to parse the code for strings and comments,
+		// replacing newlines with '\n' inside strings so that the
+		// C preprocessor can interpret it correctly.
+		// states: 0=normal, 1=seen '"', 2=seen '"...\',
+		// 3=seen '/', 4=seen '/*', 5=seen '/*...*', 6=seen '//'
+		int state = 0;
+		int nlines = 0;
+		for (std::string::iterator it = input.begin(); it != input.end(); it++)
+		{
+			switch (state)
+			{
+				case 1: // inside string, no '\' seen last
+					if (*it == '\n')
+					{
+						// we're inside a string and detected a newline;
+						// replace with "\\n"
+						oaux << "\\n";
+						nlines++;
+						continue; // don't store the newline itself
+					}
+					else if (*it == '\\')
+					{
+						state = 2;
+					}
+					else if (*it == '"')
+					{
+						oaux << '"';
+						// add as many newlines as the string had,
+						// to respect original line numbers
+						while (nlines)
+						{
+							oaux << '\n';
+							nlines--;
+						}
+						state = 0;
+						continue;
+					}
+					break;
+				case 2: // inside string, '\' seen last
+					// just eat the escaped character
+					state = 1;
+					break;
+				case 3: // in code, '/' seen last
+					if (*it == '*')
+					{
+						state = 4; // multiline comment
+					}
+					else if (*it == '/')
+					{
+						state = 6; // single-line comment
+					}
+					else
+					{
+						state = 0; // it was just a slash
+					}
+					break;
+				case 4: // inside multiline comment, no '*' seen last
+					if (*it == '*')
+					{
+						state = 5;
+					}
+					break;
+				case 5: // inside multiline comment, '*' seen last
+					if (*it == '/')
+					{
+						state = 0;
+					}
+					else if (*it != '*')
+					{
+						state = 4;
+					}
+					break;
+				case 6: // inside single line comment ('//' style)
+					if (*it == '\n')
+					{
+						state = 0;
+					}
+					break;
+				default: // normal code
+					if (*it == '"')
+					{
+						state = 1;
+					}
+					else if (*it == '/')
+					{
+						state = 3;
+					}
+			}
+			oaux << *it;
+		}
+		input = oaux.str();
+	}
+	
 	//Make sure wave does not complain about missing newline at end of script.
 	input += "\n";
 	std::string output;
@@ -944,240 +1250,308 @@ void FSLSLPreprocessor::start_process()
 	std::string name = mMainScriptName;
 	bool lazy_lists = gSavedSettings.getBOOL("_NACL_PreProcLSLLazyLists");
 	bool use_switch = gSavedSettings.getBOOL("_NACL_PreProcLSLSwitch");
-	std::string settings;
-	settings = "Settings: preproc ";
-	if (lazy_lists)
-	{
-	  settings = settings + " Lazy Lists";
-	} 
-	if (use_switch)
-	{
-	  settings = settings + " Switches";
-	}
-	if(gSavedSettings.getBOOL("_NACL_PreProcLSLOptimizer"))
-	{
-		  settings = settings + " Optimize";
-	}
-	if(gSavedSettings.getBOOL("_NACL_PreProcEnableHDDInclude"))
-	{
-		   settings = settings + " HDDInclude";
-	}
-	if(gSavedSettings.getBOOL("_NACL_PreProcLSLTextCompress"))
-	{
-			settings = settings + " Compress";
-	}
-	//display the settings
-	 mCore->mErrorList->setCommentText(std::string(settings));
-	 
-	LL_DEBUGS() << settings << LL_ENDL;
+	bool use_optimizer = gSavedSettings.getBOOL("_NACL_PreProcLSLOptimizer");
+	bool enable_hdd_include = gSavedSettings.getBOOL("_NACL_PreProcEnableHDDInclude");
+	bool use_compression = gSavedSettings.getBOOL("_NACL_PreProcLSLTextCompress");
 	bool errored = false;
-	std::string err;
-	try
+	if (preprocessor_enabled)
 	{
-		trace_include_files tracer(this);
-		typedef boost::wave::cpplexer::lex_token<> token_type;
-		typedef boost::wave::cpplexer::lex_iterator<token_type> lex_iterator_type;
-		typedef boost::wave::context<std::string::iterator, lex_iterator_type, boost::wave::iteration_context_policies::load_file_to_string, trace_include_files >
-				context_type;
-
-		context_type ctx(input.begin(), input.end(), name.c_str(), tracer);
-		ctx.set_language(boost::wave::enable_long_long(ctx.get_language()));
-		ctx.set_language(boost::wave::enable_prefer_pp_numbers(ctx.get_language()));
-		ctx.set_language(boost::wave::enable_variadics(ctx.get_language()));
-		
-		std::string path = gDirUtilp->getExpandedFilename(LL_PATH_CACHE,"")+gDirUtilp->getDirDelimiter()+"lslpreproc"+gDirUtilp->getDirDelimiter();
-		ctx.add_include_path(path.c_str());
-		if(gSavedSettings.getBOOL("_NACL_PreProcEnableHDDInclude"))
+		std::string settings;
+		settings = LLTrans::getString("fs_preprocessor_settings_list_prefix") + " preproc";
+		if (lazy_lists)
 		{
-			std::string hddpath = gSavedSettings.getString("_NACL_PreProcHDDIncludeLocation");
-			if(hddpath != "")
+			settings = settings + " LazyLists";
+		}
+		if (use_switch)
+		{
+			settings = settings + " Switches";
+		}
+		if (use_optimizer)
+		{
+			settings = settings + " Optimize";
+		}
+		if (enable_hdd_include)
+		{
+			settings = settings + " HDDInclude";
+		}
+		if (use_compression)
+		{
+			settings = settings + " Compress";
+		}
+		//display the settings
+		display_message(settings);
+
+		LL_DEBUGS("FSLSLPreprocessor") << settings << LL_ENDL;
+		std::string err;
+		try
+		{
+			trace_include_files tracer(this);
+			typedef boost::wave::cpplexer::lex_token<> token_type;
+			typedef boost::wave::cpplexer::lex_iterator<token_type> lex_iterator_type;
+			typedef boost::wave::context<std::string::iterator, lex_iterator_type, boost::wave::iteration_context_policies::load_file_to_string, trace_include_files >
+					context_type;
+
+			context_type ctx(input.begin(), input.end(), name.c_str(), tracer);
+			ctx.set_language(boost::wave::enable_long_long(ctx.get_language()));
+			ctx.set_language(boost::wave::enable_prefer_pp_numbers(ctx.get_language()));
+			ctx.set_language(boost::wave::enable_variadics(ctx.get_language()));
+			
+			std::string path = gDirUtilp->getExpandedFilename(LL_PATH_CACHE,"") + gDirUtilp->getDirDelimiter() + "lslpreproc" + gDirUtilp->getDirDelimiter();
+			ctx.add_include_path(path.c_str());
+			if (enable_hdd_include)
 			{
-				ctx.add_include_path(hddpath.c_str());
-				ctx.add_sysinclude_path(hddpath.c_str());
+				std::string hddpath = gSavedSettings.getString("_NACL_PreProcHDDIncludeLocation");
+				if (!hddpath.empty())
+				{
+					ctx.add_include_path(hddpath.c_str());
+					ctx.add_sysinclude_path(hddpath.c_str());
+				}
+			}
+			std::string def = llformat("__AGENTKEY__=\"%s\"", gAgentID.asString().c_str());//legacy because I used it earlier
+			ctx.add_macro_definition(def, false);
+			def = llformat("__AGENTID__=\"%s\"", gAgentID.asString().c_str());
+			ctx.add_macro_definition(def, false);
+			def = llformat("__AGENTIDRAW__=%s", gAgentID.asString().c_str());
+			ctx.add_macro_definition(def, false);
+			std::string aname = gAgentAvatarp->getFullname();
+			def = llformat("__AGENTNAME__=\"%s\"", aname.c_str());
+			ctx.add_macro_definition(def, false);
+			def = llformat("__ASSETID__=%s", LLUUID::null.asString().c_str());
+			ctx.add_macro_definition(def, false);
+			def = llformat("__SHORTFILE__=\"%s\"", name.c_str());
+			ctx.add_macro_definition(def, false);
+
+			ctx.add_macro_definition("list(...)=((list)(__VA_ARGS__))", false);
+			ctx.add_macro_definition("float(...)=((float)(__VA_ARGS__))", false);
+			ctx.add_macro_definition("integer(...)=((integer)(__VA_ARGS__))", false);
+			ctx.add_macro_definition("key(...)=((key)(__VA_ARGS__))", false);
+			ctx.add_macro_definition("rotation(...)=((rotation)(__VA_ARGS__))", false);
+			ctx.add_macro_definition("quaternion(...)=((quaternion)(__VA_ARGS__))", false);
+			ctx.add_macro_definition("string(...)=((string)(__VA_ARGS__))", false);
+			ctx.add_macro_definition("vector(...)=((vector)(__VA_ARGS__))", false);
+
+			context_type::iterator_type first = ctx.begin();
+			context_type::iterator_type last = ctx.end();
+
+			while (first != last)
+			{
+				if (caching_files.size() != 0)
+				{
+					mWaving = false;
+					return;
+				}
+				current_position = (*first).get_position();
+				
+				std::string token = std::string((*first).get_value().c_str());//stupid boost bitching even though we know its a std::string
+				
+				if (token == "#line")
+				{
+					token = "//#line";
+				}
+
+				output += token;
+				
+				if (!lazy_lists)
+				{
+					lazy_lists = ctx.is_defined_macro(std::string("USE_LAZY_LISTS"));
+				}
+				
+				if (!use_switch)
+				{
+					use_switch = ctx.is_defined_macro(std::string("USE_SWITCHES"));
+				}
+				++first;
 			}
 		}
-		std::string def = llformat("__AGENTKEY__=\"%s\"",gAgent.getID().asString().c_str());//legacy because I used it earlier
-		ctx.add_macro_definition(def,false);
-		def = llformat("__AGENTID__=\"%s\"",gAgent.getID().asString().c_str());
-		ctx.add_macro_definition(def,false);
-		def = llformat("__AGENTIDRAW__=%s",gAgent.getID().asString().c_str());
-		ctx.add_macro_definition(def,false);
-		std::string aname = gAgentAvatarp->getFullname();
-		def = llformat("__AGENTNAME__=\"%s\"",aname.c_str());
-		ctx.add_macro_definition(def,false);
-		def = llformat("__ASSETID__=%s",LLUUID::null.asString().c_str());
-		ctx.add_macro_definition(def,false);
-		def = llformat("__SHORTFILE__=\"%s\"",name.c_str());
-		ctx.add_macro_definition(def,false);
-
-		ctx.add_macro_definition("list(input)=((list)(input))",false);
-		ctx.add_macro_definition("float(input)=((float)(input))",false);
-		ctx.add_macro_definition("integer(input)=((integer)(input))",false);
-		ctx.add_macro_definition("key(input)=((key)(input))",false);
-		ctx.add_macro_definition("list(input)=((list)(input))",false);
-		ctx.add_macro_definition("rotation(input)=((rotation)(input))",false);
-		ctx.add_macro_definition("quaternion(input)=((quaternion)(input))",false);
-		ctx.add_macro_definition("string(input)=((string)(input))",false);
-		ctx.add_macro_definition("vector(input)=((vector)(input))",false);
-
-		context_type::iterator_type first = ctx.begin();
-		context_type::iterator_type last = ctx.end();
-	        
-        while (first != last)
+		catch(boost::wave::cpp_exception const& e)
 		{
-			if(caching_files.size() != 0)
-			{
-				mWaving = FALSE;
-				return;
-			}
-            current_position = (*first).get_position();
-			
-			std::string token = std::string((*first).get_value().c_str());//stupid boost bitching even though we know its a std::string
-			
-			if(token == "#line")
-			{
-				token = "//#line";
-			}
-
-			output += token;
-			
-			if(lazy_lists == FALSE)
-			{
-				lazy_lists = ctx.is_defined_macro(std::string("USE_LAZY_LISTS"));
-			}
-			
-			if(use_switch == FALSE)
-			{
-				use_switch = ctx.is_defined_macro(std::string("USE_SWITCHES"));
-			}
-            ++first;
-        }
+			errored = true;
+			// some preprocessing error
+			LLStringUtil::format_map_t args;
+			args["[NAME]"] = name;
+			args["[LINENUMBER]"] = llformat("%d",e.line_no()-1);
+			args["[ERR_DESC]"] = e.description();
+			std::string err = LLTrans::getString("fs_preprocessor_wave_exception", args);
+			LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
+			display_error(err);
+		}
+		catch(std::exception const& e)
+		{
+			FAILDEBUG
+			errored = true;
+			LLStringUtil::format_map_t args;
+			args["[NAME]"] = std::string(current_position.get_file().c_str());
+			args["[LINENUMBER]"] = llformat("%d", current_position.get_line());
+			args["[ERR_DESC]"] = e.what();
+			display_error(LLTrans::getString("fs_preprocessor_exception", args));
+		}
+		catch (...)
+		{
+			FAILDEBUG
+			errored = true;
+			LLStringUtil::format_map_t args;
+			args["[NAME]"] = std::string(current_position.get_file().c_str());
+			args["[LINENUMBER]"] = llformat("%d", current_position.get_line());
+			std::string err = LLTrans::getString("fs_preprocessor_error", args);
+			LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
+			display_error(err);
+		}
 	}
-	catch(boost::wave::cpp_exception const& e)
-	{
-		errored = TRUE;
-		// some preprocessing error
-		err = name + "(" + llformat("%d",e.line_no()) + "): " + e.description();
-		LL_WARNS() << err << LL_ENDL;
-		mCore->mErrorList->setCommentText(err);
-	}
-	catch(std::exception const& e)
+	
+	if (preprocessor_enabled && !errored)
 	{
 		FAILDEBUG
-		errored = TRUE;
-		err = std::string(current_position.get_file().c_str()) + "(" + llformat("%d",current_position.get_line()) + "): ";
-		err += std::string("exception caught: ") + e.what();
-		////reportToNearbyChat(err);
-		mCore->mErrorList->setCommentText(err);
-	}
-	catch (...)
-	{
-		FAILDEBUG
-		errored = TRUE;
-		err = std::string(current_position.get_file().c_str()) + llformat("%d",current_position.get_line());
-		err += std::string("): unexpected exception caught.");
-		LL_WARNS() << err << LL_ENDL;
-		mCore->mErrorList->setCommentText(err);
-	}
-
-	if(!errored)
-	{
-		FAILDEBUG
-		if(lazy_lists == TRUE)
+		if (lazy_lists)
 		{
 			try
 			{
-				mCore->mErrorList->setCommentText("Applying lazy list set transform");
-				output = reformat_lazy_lists(output);
-			}catch(...)
-			{	
-				errored = TRUE;
-				err = "unexpected exception in lazy list converter.";
-				mCore->mErrorList->setCommentText(err);
+				display_message(LLTrans::getString("fs_preprocessor_lazylist_start"));
+				try
+				{
+					output = reformat_lazy_lists(output);
+				}
+				catch (boost::regex_error& e)
+				{
+					LLStringUtil::format_map_t args;
+					args["[WHAT]"] = e.what();
+					std::string err = LLTrans::getString("fs_preprocessor_lazylist_regex_err", args);
+					LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
+					display_error(err);
+					throw;
+				}
+				catch (std::exception& e)
+				{
+					LLStringUtil::format_map_t args;
+					args["[WHAT]"] = e.what();
+					std::string err = LLTrans::getString("fs_preprocessor_lazylist_exception", args);
+					LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
+					display_error(err);
+					throw;
+				}
 			}
-
+			catch(...)
+			{
+				errored = true;
+				display_error(LLTrans::getString("fs_preprocessor_lazylist_unexpected_exception"));
+			}
 		}
-		if(use_switch == TRUE)
+
+		if (use_switch)
 		{
 			try
 			{
-				mCore->mErrorList->setCommentText("Applying switch statement transform");
-				output = reformat_switch_statements(output);
-			}catch(...)
-			{	
-				errored = TRUE;
-				err = "unexpected exception in switch statement converter.";
-				mCore->mErrorList->setCommentText(err);
+				display_message(LLTrans::getString("fs_preprocessor_switchstatement_start"));
+				try
+				{
+					output = reformat_switch_statements(output);
+				}
+				catch (boost::regex_error& e)
+				{
+					LLStringUtil::format_map_t args;
+					args["[WHAT]"] = e.what();
+					std::string err = LLTrans::getString("fs_preprocessor_switchstatement_regex_err", args);
+					LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
+					display_error(err);
+					throw;
+				}
+				catch (std::exception& e)
+				{
+					LLStringUtil::format_map_t args;
+					args["[WHAT]"] = e.what();
+					std::string err = LLTrans::getString("fs_preprocessor_switchstatement_exception", args);
+					LL_WARNS("FSLSLPreprocessor") << err << LL_ENDL;
+					display_error(err);
+					throw;
+				}
+			}
+			catch(...)
+			{
+				errored = true;
+				display_error(LLTrans::getString("fs_preprocessor_switchstatement_unexpected_exception"));
 			}
 		}
 	}
 
-	if(!mDefinitionCaching)
+	if (!mDefinitionCaching)
 	{
-		if(!errored)
+		if (!errored)
 		{
-			if(gSavedSettings.getBOOL("_NACL_PreProcLSLOptimizer"))
+			if (preprocessor_enabled && use_optimizer)
 			{
-				mCore->mErrorList->setCommentText("Optimizing out unreferenced user-defined functions and global variables");
+				display_message(LLTrans::getString("fs_preprocessor_optimizer_start"));
 				try
 				{
 					output = lslopt(output);
 				}
 				catch(...)
 				{	
-					errored = TRUE;
-					err = "unexpected exception in lsl optimizer";
-					mCore->mErrorList->setCommentText(err);
+					errored = true;
+					display_error(LLTrans::getString("fs_preprocessor_optimizer_unexpected_exception"));
 				}
 			}
 		}
-		if(!errored)
+		if (!errored)
 		{
-			if(gSavedSettings.getBOOL("_NACL_PreProcLSLTextCompress"))
+			if (preprocessor_enabled && use_compression)
 			{
-				mCore->mErrorList->setCommentText("Compressing lsltext by removing unnecessary space");
+				display_message(LLTrans::getString("fs_preprocessor_compress_exception"));
 				try
 				{
 					output = lslcomp(output);
-				}catch(...)
-				{	
-					errored = TRUE;
-					err = "unexpected exception in lsl compressor";
-					mCore->mErrorList->setCommentText(err);
+				}
+				catch(...)
+				{
+					errored = true;
+					display_error(LLTrans::getString("fs_preprocessor_compress_unexpected_exception"));
 				}
 			}
 		}
-		output = encode(rinput)+"\n\n"+output;
+		
+		if (preprocessor_enabled)
+		{
+			output = encode(rinput) + "\n\n" + output;
+		}
+		else
+		{
+			output = rinput;
+		}
 
 
-		LLTextEditor* outfield = mCore->mPostEditor;//getChild<LLViewerTextEditor>("post_process");
-		if(outfield)
+		LLTextEditor* outfield = mCore->mPostEditor;
+		if (outfield)
 		{
 			outfield->setText(LLStringExplicit(output));
 		}
 		mCore->mPostScript = output;
-		mCore->doSaveComplete((void*)mCore,mClose);
+		mCore->enableSave(TRUE); // The preprocessor run forces a change. (For FIRE-10173) -Sei
+		mCore->doSaveComplete((void*)mCore, mClose, mSync);
 	}
-	mWaving = FALSE;
+	mWaving = false;
 }
 
 #else
 
-std::string FSLSLPreprocessor::encode(std::string script)
+std::string FSLSLPreprocessor::encode(const std::string& script)
 {
-	display_error("(encode) Warning: Preprocessor not supported in this build.");
+	LLStringUtil::format_map_t args;
+	args["[WHERE]"] = "encode";
+	display_error(LLTrans::getString("fs_preprocessor_not_supported", args));
 	return script;
 }
 
-std::string FSLSLPreprocessor::decode(std::string script)
+std::string FSLSLPreprocessor::decode(const std::string& script)
 {
-	display_error("(decode) Warning: Preprocessor not supported in this build.");
+	LLStringUtil::format_map_t args;
+	args["[WHERE]"] = "decode";
+	display_error(LLTrans::getString("fs_preprocessor_not_supported", args));
 	return script;
 }
 
 std::string FSLSLPreprocessor::lslopt(std::string script)
 {
-	display_error("(lslopt) Warning: Preprocessor not supported in this build.");
+	LLStringUtil::format_map_t args;
+	args["[WHERE]"] = "lslopt";
+	display_error(LLTrans::getString("fs_preprocessor_not_supported", args));
 	return script;
 }
 
@@ -1185,21 +1559,29 @@ void FSLSLPreprocessor::FSProcCacheCallback(LLVFS *vfs, const LLUUID& uuid, LLAs
 {
 }
 
-void FSLSLPreprocessor::preprocess_script(BOOL close, BOOL defcache)
+void FSLSLPreprocessor::preprocess_script(BOOL close, bool sync, bool defcache)
 {
 	LLTextEditor* outfield = mCore->mPostEditor;
-	if(outfield)
+	if (outfield)
 	{
 		outfield->setText(LLStringExplicit(mCore->mEditor->getText()));
 	}
-	mCore->doSaveComplete((void*)mCore,close);
+	mCore->doSaveComplete((void*)mCore, close, sync);
 }
 
 #endif
 
-void FSLSLPreprocessor::display_error(std::string err)
+void FSLSLPreprocessor::display_message(const std::string& err)
 {
-	mCore->mErrorList->setCommentText(err);
+	mCore->mErrorList->addCommentText(err);
+}
+
+void FSLSLPreprocessor::display_error(const std::string& err)
+{
+	LLSD row;
+	row["columns"][0]["value"] = err;
+	row["columns"][0]["font"] = "SANSSERIF_SMALL";
+	mCore->mErrorList->addElement(row);
 }
 
 
@@ -1207,13 +1589,13 @@ bool FSLSLPreprocessor::mono_directive(std::string const& text, bool agent_inv)
 {
 	bool domono = agent_inv;
 	
-	if(text.find("//mono\n") != -1)
+	if (text.find("//mono\n") != -1)
 	{
-		domono = TRUE;
+		domono = true;
 	}
-	else if(text.find("//lsl2\n") != -1)
+	else if (text.find("//lsl2\n") != -1)
 	{
-		domono = FALSE;
+		domono = false;
 	}
 	return domono;
 }

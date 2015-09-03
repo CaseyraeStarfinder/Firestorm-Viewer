@@ -54,8 +54,9 @@
      layout="topleft"
      border="true"
     >
-        <fs_avatar_search_list
+        <fs_scroll_list
          name="search_results_people"
+         content_type="Agents"
          top="0"
          left="0"
          height="480"
@@ -74,7 +75,7 @@
              label="Name"
              relwidth="1"
             />
-        </fs_avatar_search_list>
+        </fs_scroll_list>
         <button
          name="people_back"
          label="Back"

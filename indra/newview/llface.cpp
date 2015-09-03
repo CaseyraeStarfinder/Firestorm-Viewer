@@ -330,24 +330,52 @@ void LLFace::dirtyTexture()
 				{
 					vobj->mLODChanged = TRUE;
 
-			LLVOAvatar* avatar = vobj->getAvatar();
-			if (avatar)
-			{ //avatar render cost may have changed
-				avatar->updateVisualComplexity();
-			}
+					LLVOAvatar* avatar = vobj->getAvatar();
+					if (avatar)
+					{ //avatar render cost may have changed
+						avatar->updateVisualComplexity();
+					}
 				}
 				gPipeline.markRebuild(drawablep, LLDrawable::REBUILD_VOLUME, FALSE);
 			}
 		}
 	}
-			
+
 	gPipeline.markTextured(drawablep);
+}
+
+void LLFace::notifyAboutCreatingTexture(LLViewerTexture *texture)
+{
+	LLDrawable* drawablep = getDrawable();
+	if(mVObjp.notNull() && mVObjp->getVolume())
+	{
+		LLVOVolume *vobj = drawablep->getVOVolume();
+		if(vobj && vobj->notifyAboutCreatingTexture(texture))
+		{
+			gPipeline.markTextured(drawablep);
+			gPipeline.markRebuild(drawablep, LLDrawable::REBUILD_VOLUME);
+		}
+	}
+}
+
+void LLFace::notifyAboutMissingAsset(LLViewerTexture *texture)
+{
+	LLDrawable* drawablep = getDrawable();
+	if(mVObjp.notNull() && mVObjp->getVolume())
+	{
+		LLVOVolume *vobj = drawablep->getVOVolume();
+		if(vobj && vobj->notifyAboutMissingAsset(texture))
+		{
+			gPipeline.markTextured(drawablep);
+			gPipeline.markRebuild(drawablep, LLDrawable::REBUILD_VOLUME);
+		}
+	}
 }
 
 void LLFace::switchTexture(U32 ch, LLViewerTexture* new_texture)
 {
 	llassert(ch < LLRender::NUM_TEXTURE_CHANNELS);
-	
+
 	if(mTexture[ch] == new_texture)
 	{
 		return ;
@@ -954,9 +982,30 @@ LLVector2 LLFace::surfaceToTexture(LLVector2 surface_coord, const LLVector4a& po
 void LLFace::getPlanarProjectedParams(LLQuaternion* face_rot, LLVector3* face_pos, F32* scale) const
 {
 	const LLMatrix4& vol_mat = getWorldMatrix();
+	if( ! getViewerObject() )
+	{
+		LL_WARNS() << "No viewer object" << LL_ENDL;
+		return;
+	}
+	if( ! getViewerObject()->getVolume() )
+	{
+		LL_WARNS() << "No volume" << LL_ENDL;
+		return;
+	}
+
+	if( getViewerObject()->getVolume()->getNumVolumeFaces() <= mTEOffset )
+	{
+		LL_WARNS() << "No volume face" << (S32)mTEOffset << LL_ENDL;
+		return;
+	}
+
 	const LLVolumeFace& vf = getViewerObject()->getVolume()->getVolumeFace(mTEOffset);
 	const LLVector4a& normal4a = vf.mNormals[0];
 	const LLVector4a& tangent = vf.mTangents[0];
+	if (!&tangent)
+	{
+		return;
+	}
 
 	LLVector4a binormal4a;
 	binormal4a.setCross3(normal4a, tangent);
@@ -1320,15 +1369,15 @@ BOOL LLFace::getGeometryVolume(const LLVolume& volume,
 			}
 
 			if (shiny_in_alpha)
-		{
-
-			GLfloat alpha[4] =
 			{
-				0.00f,
-				0.25f,
-				0.5f,
-				0.75f
-			};
+
+				static const GLfloat alpha[4] =
+				{
+					0.00f,
+					0.25f,
+					0.5f,
+					0.75f
+				};
 			
 				llassert(tep->getShiny() <= 3);
 				color.mV[3] = U8 (alpha[tep->getShiny()] * 255);
@@ -1624,7 +1673,11 @@ BOOL LLFace::getGeometryVolume(const LLVolume& volume,
 				bump_t_primary_light_ray.load3((offset_multiple * t_scale * primary_light_ray).mV);
 			}
 
-			U8 texgen = getTextureEntry()->getTexGen();
+			// <FS:ND> FIRE-14261 Guard against null textures
+			// U8 texgen = getTextureEntry()->getTexGen();
+			U8 texgen = getTextureEntry() ? getTextureEntry()->getTexGen() : LLTextureEntry::TEX_GEN_DEFAULT;
+			// </FS:ND>
+			
 			if (rebuild_tcoord && texgen != LLTextureEntry::TEX_GEN_DEFAULT)
 			{ //planar texgen needs binormals
 				mVObjp->getVolume()->genTangents(f);

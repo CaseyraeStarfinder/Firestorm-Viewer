@@ -54,6 +54,7 @@
 #include "llmorphview.h"
 #include "llfloaterreg.h"
 #include "llfloatercamera.h"
+#include "llmenugl.h"
 
 // Globals
 BOOL gCameraBtnZoom = TRUE;
@@ -61,7 +62,6 @@ BOOL gCameraBtnOrbit = FALSE;
 BOOL gCameraBtnPan = FALSE;
 
 const S32 SLOP_RANGE = 4;
-const F32 FOCUS_OFFSET_FACTOR = 1.f;
 
 //
 // Camera - shared functionality
@@ -76,6 +76,7 @@ LLToolCamera::LLToolCamera()
 	mOutsideSlopX(FALSE),
 	mOutsideSlopY(FALSE),
 	mValidClickPoint(FALSE),
+	mValidSelection(FALSE),
 	mMouseSteering(FALSE),
 	mMouseUpX(0),
 	mMouseUpY(0),
@@ -92,6 +93,8 @@ void LLToolCamera::handleSelect()
 	if (gFloaterTools)
 	{
 		gFloaterTools->setStatusText("camera");
+		// in case we start from tools floater, we count any selection as valid
+		mValidSelection = gFloaterTools->getVisible();
 	}
 }
 
@@ -99,6 +102,14 @@ void LLToolCamera::handleSelect()
 void LLToolCamera::handleDeselect()
 {
 //	gAgent.setLookingAtAvatar(FALSE);
+
+	// Make sure that temporary selection won't pass anywhere except pie tool.
+	MASK override_mask = gKeyboard ? gKeyboard->currentMask(TRUE) : 0;
+	if (!mValidSelection && (override_mask != MASK_NONE || (gFloaterTools && gFloaterTools->getVisible())))
+	{
+		LLMenuGL::sMenuContainer->hideMenus();
+		LLSelectMgr::getInstance()->validateSelection();
+	}
 }
 
 BOOL LLToolCamera::handleMouseDown(S32 x, S32 y, MASK mask)
@@ -125,7 +136,7 @@ BOOL LLToolCamera::handleMouseDown(S32 x, S32 y, MASK mask)
 
 	gViewerWindow->hideCursor();
 
-	gViewerWindow->pickAsync(x, y, mask, pickCallback);
+	gViewerWindow->pickAsync(x, y, mask, pickCallback, FALSE, TRUE);
 
 	return TRUE;
 }
@@ -315,14 +326,16 @@ BOOL LLToolCamera::handleMouseUp(S32 x, S32 y, MASK mask)
 	return TRUE;
 }
 
-static bool right_hold_mouse_walk=false;//<FS:JL> Mouse movement by Singularity
+static bool right_hold_mouse_walk = false;//<FS:JL> Mouse movement by Singularity
 
 BOOL LLToolCamera::handleHover(S32 x, S32 y, MASK mask)
 {
-	if(right_hold_mouse_walk)//<FS:JL> Mouse movement by Singularity
+	//<FS:JL> Mouse movement by Singularity
+	if (right_hold_mouse_walk)
 	{
 		agent_push_forward(KEYSTATE_LEVEL);
-	}//</FS:JL>
+	}
+	//</FS:JL>
 	
 	S32 dx = gViewerWindow->getCurrentMouseDX();
 	S32 dy = gViewerWindow->getCurrentMouseDY();
@@ -460,7 +473,7 @@ BOOL LLToolCamera::handleHover(S32 x, S32 y, MASK mask)
 //<FS:JL> Mouse movement by Singularity
 BOOL LLToolCamera::handleRightMouseDown(S32 x, S32 y, MASK mask)
 {
-	if(mMouseSteering)
+	if (mMouseSteering)
 	{
 		agent_push_forward(KEYSTATE_DOWN);
 		right_hold_mouse_walk = true;
@@ -474,19 +487,22 @@ BOOL LLToolCamera::handleRightMouseDown(S32 x, S32 y, MASK mask)
 
 BOOL LLToolCamera::handleRightMouseUp(S32 x, S32 y, MASK mask)
 {
-	if(mMouseSteering || right_hold_mouse_walk)
+	if (mMouseSteering || right_hold_mouse_walk)
 	{
-	agent_push_forward(KEYSTATE_UP);
-	right_hold_mouse_walk = false;
-	return TRUE;
+		agent_push_forward(KEYSTATE_UP);
+		right_hold_mouse_walk = false;
+		return TRUE;
 	}
 	else
 	{
-	return FALSE;
+		return FALSE;
 	}
 }
 //</FS:JL>
+
 void LLToolCamera::onMouseCaptureLost()
 {
 	releaseMouse();
+	// <FS:Ansariel> Mouse movement by Singularity
+	handleRightMouseUp(0,0,0);
 }

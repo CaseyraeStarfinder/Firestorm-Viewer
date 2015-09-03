@@ -88,6 +88,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/type_traits.hpp>
 #include <boost/signals2.hpp>
+#include <boost/range.hpp>
 
 #include "llevents.h"
 #include "llfunctorregistry.h"
@@ -415,6 +416,9 @@ private:
 	 using the same mechanism.
 	 */
 	bool mTemporaryResponder;
+	
+	// keep track of other notifications combined with COMBINE_WITH_NEW
+	std::vector<LLNotificationPtr> mCombinedNotifications;
 
 	void init(const std::string& template_name, const LLSD& form_elements);
 
@@ -565,6 +569,7 @@ public:
 	typedef enum e_combine_behavior
 	{
 		REPLACE_WITH_NEW,
+		COMBINE_WITH_NEW,
 		KEEP_OLD,
 		CANCEL_OLD
 
@@ -846,6 +851,11 @@ public:
 	typedef LLNotificationSet::iterator Iterator;
     
 	std::string getName() const { return mName; }
+	typedef std::vector<std::string>::const_iterator parents_iter;
+	boost::iterator_range<parents_iter> getParents() const
+	{
+		return boost::iterator_range<parents_iter>(mParents);
+	}
     
 	void connectToChannel(const std::string& channel_name);
     
@@ -860,7 +870,7 @@ public:
 
 private:
 	std::string mName;
-	std::string mParent;
+	std::vector<std::string> mParents;
 };
 
 // An interface class to provide a clean linker seam to the LLNotifications class.

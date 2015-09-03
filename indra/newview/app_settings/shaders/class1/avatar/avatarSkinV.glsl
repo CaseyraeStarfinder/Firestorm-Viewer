@@ -41,7 +41,7 @@ mat4 getSkinnedTransform()
 
 	return ret;
 
-#ifdef ND_IS_AMD_CARD
+#ifdef IS_AMD_CARD
 	// If it's AMD make sure the GLSL compiler sees the arrays referenced once by static index. Otherwise it seems to optimise the storage awawy which leads to unfun crashes and artifacts.
 	vec4 dummy1 = matrixPalette[0];
 	vec4 dummy2 = matrixPalette[44];

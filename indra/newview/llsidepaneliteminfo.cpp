@@ -32,6 +32,7 @@
 #include "llagent.h"
 #include "llavataractions.h"
 #include "llbutton.h"
+#include "llcombobox.h"
 #include "llfloaterreg.h"
 #include "llgroupactions.h"
 #include "llinventorydefines.h"
@@ -43,6 +44,9 @@
 #include "llviewercontrol.h"
 #include "llviewerinventory.h"
 #include "llviewerobjectlist.h"
+#include "llexperienceassociationresponder.h"
+#include "llexperiencecache.h"
+#include "lltrans.h"
 // [RLVa:KB] - Checked: 2010-08-25 (RLVa-1.2.2a)
 #include "rlvhandler.h"
 // [/RLVa:KB]
@@ -175,6 +179,8 @@ BOOL LLSidepanelItemInfo::postBuild()
 	getChild<LLUICtrl>("CheckNextOwnerTransfer")->setCommitCallback(boost::bind(&LLSidepanelItemInfo::onCommitPermissions, this));
 	// Mark for sale or not, and sale info
 	getChild<LLUICtrl>("CheckPurchase")->setCommitCallback(boost::bind(&LLSidepanelItemInfo::onCommitSaleInfo, this));
+	// Change sale type, and sale info
+	getChild<LLUICtrl>("ComboBoxSaleType")->setCommitCallback(boost::bind(&LLSidepanelItemInfo::onCommitSaleInfo, this));
 	// "Price" label for edit
 	getChild<LLUICtrl>("Edit Cost")->setCommitCallback(boost::bind(&LLSidepanelItemInfo::onCommitSaleInfo, this));
 	refresh();
@@ -318,6 +324,15 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 		is_obj_modify = object->permOwnerModify();
 	}
 
+    if(item->getInventoryType() == LLInventoryType::IT_LSL)
+    {
+        getChildView("LabelItemExperienceTitle")->setVisible(TRUE);
+        LLTextBox* tb = getChild<LLTextBox>("LabelItemExperience");
+        tb->setText(getString("loading_experience"));
+        tb->setVisible(TRUE);
+        ExperienceAssociationResponder::fetchAssociatedExperience(item->getParentUUID(), item->getUUID(), boost::bind(&LLSidepanelItemInfo::setAssociatedExperience, getDerivedHandle<LLSidepanelItemInfo>(), _1));
+    }
+    
 	//////////////////////
 	// ITEM NAME & DESC //
 	//////////////////////
@@ -452,7 +467,7 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 		"CheckNextOwnerTransfer",
 		"CheckPurchase",
 		"SaleLabel",
-		"combobox sale copy",
+		"ComboBoxSaleType",
 		"Edit Cost",
 		"TextPrice"
 	};
@@ -634,6 +649,9 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 
 	const LLSaleInfo& sale_info = item->getSaleInfo();
 	BOOL is_for_sale = sale_info.isForSale();
+	LLComboBox* combo_sale_type = getChild<LLComboBox>("ComboBoxSaleType");
+	LLUICtrl* edit_cost = getChild<LLUICtrl>("Edit Cost");
+
 	// Check for ability to change values.
 	if (is_obj_modify && can_agent_sell 
 		&& gAgent.allowOperation(PERM_TRANSFER, perm, GP_OBJECT_MANIPULATE))
@@ -647,7 +665,8 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 		getChildView("CheckNextOwnerTransfer")->setEnabled((next_owner_mask & PERM_COPY) && !cannot_restrict_permissions);
 
 		getChildView("TextPrice")->setEnabled(is_complete && is_for_sale);
-		getChildView("Edit Cost")->setEnabled(is_complete && is_for_sale);
+		combo_sale_type->setEnabled(is_complete && is_for_sale);
+		edit_cost->setEnabled(is_complete && is_for_sale);
 	}
 	else
 	{
@@ -660,13 +679,12 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 		getChildView("CheckNextOwnerTransfer")->setEnabled(FALSE);
 
 		getChildView("TextPrice")->setEnabled(FALSE);
-		getChildView("Edit Cost")->setEnabled(FALSE);
+		combo_sale_type->setEnabled(FALSE);
+		edit_cost->setEnabled(FALSE);
 	}
 
 	// Set values.
 	getChild<LLUICtrl>("CheckPurchase")->setValue(is_for_sale);
-	getChildView("combobox sale copy")->setEnabled(is_for_sale);
-	getChildView("Edit Cost")->setEnabled(is_for_sale);
 	getChild<LLUICtrl>("CheckNextOwnerModify")->setValue(LLSD(BOOL(next_owner_mask & PERM_MODIFY)));
 	getChild<LLUICtrl>("CheckNextOwnerCopy")->setValue(LLSD(BOOL(next_owner_mask & PERM_COPY)));
 	getChild<LLUICtrl>("CheckNextOwnerTransfer")->setValue(LLSD(BOOL(next_owner_mask & PERM_TRANSFER)));
@@ -675,13 +693,38 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
 	{
 		S32 numerical_price;
 		numerical_price = sale_info.getSalePrice();
-		getChild<LLUICtrl>("Edit Cost")->setValue(llformat("%d",numerical_price));
+		edit_cost->setValue(llformat("%d",numerical_price));
+		combo_sale_type->setValue(sale_info.getSaleType());
 	}
 	else
 	{
-		getChild<LLUICtrl>("Edit Cost")->setValue(llformat("%d",0));
+		edit_cost->setValue(llformat("%d",0));
+		combo_sale_type->setValue(LLSaleInfo::FS_COPY);
 	}
 }
+
+
+void LLSidepanelItemInfo::setAssociatedExperience( LLHandle<LLSidepanelItemInfo> hInfo, const LLSD& experience )
+{
+    LLSidepanelItemInfo* info = hInfo.get();
+    if(info)
+    {
+        LLUUID id;
+        if(experience.has(LLExperienceCache::EXPERIENCE_ID))
+        {
+            id=experience[LLExperienceCache::EXPERIENCE_ID].asUUID();
+        }
+        if(id.notNull())
+        {
+            info->getChild<LLTextBox>("LabelItemExperience")->setText(LLSLURL("experience", id, "profile").getSLURLString());    
+        }
+        else
+        {
+            info->getChild<LLTextBox>("LabelItemExperience")->setText(LLTrans::getString("ExperienceNameNull"));
+        }
+    }
+}
+
 
 void LLSidepanelItemInfo::startObjectInventoryObserver()
 {
@@ -950,24 +993,10 @@ void LLSidepanelItemInfo::updateSaleInfo()
 		// turn on sale info
 		LLSaleInfo::EForSale sale_type = LLSaleInfo::FS_COPY;
 	
-		LLRadioGroup* RadioSaleType = getChild<LLRadioGroup>("RadioSaleType");
-		if(RadioSaleType)
+		LLComboBox* combo_sale_type = getChild<LLComboBox>("ComboBoxSaleType");
+		if (combo_sale_type)
 		{
-			switch (RadioSaleType->getSelectedIndex())
-			{
-			case 0:
-				sale_type = LLSaleInfo::FS_ORIGINAL;
-				break;
-			case 1:
-				sale_type = LLSaleInfo::FS_COPY;
-				break;
-			case 2:
-				sale_type = LLSaleInfo::FS_CONTENTS;
-				break;
-			default:
-				sale_type = LLSaleInfo::FS_COPY;
-				break;
-			}
+			sale_type = static_cast<LLSaleInfo::EForSale>(combo_sale_type->getValue().asInteger());
 		}
 
 		if (sale_type == LLSaleInfo::FS_COPY 

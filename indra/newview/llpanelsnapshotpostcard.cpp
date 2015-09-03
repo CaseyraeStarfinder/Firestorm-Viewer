@@ -53,6 +53,7 @@ class LLPanelSnapshotPostcard
 
 public:
 	LLPanelSnapshotPostcard();
+	/*virtual*/ ~LLPanelSnapshotPostcard(); // <FS:Ansariel> Store settings at logout
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void onOpen(const LLSD& key);
 	/*virtual*/ S32	notify(const LLSD& info);
@@ -63,8 +64,6 @@ private:
 	/*virtual*/ std::string getAspectRatioCBName() const	{ return "postcard_keep_aspect_check"; }
 	/*virtual*/ std::string getImageSizeComboName() const	{ return "postcard_size_combo"; }
 	/*virtual*/ std::string getImageSizePanelName() const	{ return "postcard_image_size_lp"; }
-	/*virtual*/ std::string getTempUploadCBName() const		{ return LLStringUtil::null; } //FS:LO Fire-6268 [Regression] Temp upload for snapshots missing after FUI merge.
-	/*virtual*/ std::string getImageSizeControlName() const	{ return "LastSnapshotToEmailResolution"; }	// <FS:Zi> Save all settings
 	/*virtual*/ LLFloaterSnapshot::ESnapshotFormat getImageFormat() const { return LLFloaterSnapshot::SNAPSHOT_FORMAT_JPEG; }
 	/*virtual*/ void updateControls(const LLSD& info);
 
@@ -74,7 +73,6 @@ private:
 	void onMsgFormFocusRecieved();
 	void onFormatComboCommit(LLUICtrl* ctrl);
 	void onQualitySliderCommit(LLUICtrl* ctrl);
-	void onTabButtonPress(S32 btn_idx);
 	void onSend();
 
 	bool mHasFirstMsgFocus;
@@ -88,8 +86,6 @@ LLPanelSnapshotPostcard::LLPanelSnapshotPostcard()
 {
 	mCommitCallbackRegistrar.add("Postcard.Send",		boost::bind(&LLPanelSnapshotPostcard::onSend,	this));
 	mCommitCallbackRegistrar.add("Postcard.Cancel",		boost::bind(&LLPanelSnapshotPostcard::cancel,	this));
-	mCommitCallbackRegistrar.add("Postcard.Message",	boost::bind(&LLPanelSnapshotPostcard::onTabButtonPress,	this, 0));
-	mCommitCallbackRegistrar.add("Postcard.Settings",	boost::bind(&LLPanelSnapshotPostcard::onTabButtonPress,	this, 1));
 
 }
 
@@ -110,7 +106,11 @@ BOOL LLPanelSnapshotPostcard::postBuild()
 
 	getChild<LLUICtrl>("image_quality_slider")->setCommitCallback(boost::bind(&LLPanelSnapshotPostcard::onQualitySliderCommit, this, _1));
 
-	getChild<LLButton>("message_btn")->setToggleState(TRUE);
+	// <FS:Ansariel> Store settings at logout
+	getImageSizeComboBox()->setCurrentByIndex(gSavedSettings.getS32("LastSnapshotToEmailResolution"));
+	getWidthSpinner()->setValue(gSavedSettings.getS32("LastSnapshotToEmailWidth"));
+	getHeightSpinner()->setValue(gSavedSettings.getS32("LastSnapshotToEmailHeight"));
+	// </FS:Ansariel>
 
 	return LLPanelSnapshot::postBuild();
 }
@@ -185,12 +185,16 @@ void LLPanelSnapshotPostcard::sendPostcard()
 	postcard["name"] = getChild<LLUICtrl>("name_form")->getValue().asString();
 	postcard["subject"] = subject;
 	postcard["msg"] = getChild<LLUICtrl>("msg_form")->getValue().asString();
-	LLPostCard::send(LLFloaterSnapshot::getImageData(), postcard);
+	// <FS:Ansariel> FIRE-16201: Snapshot floater might get stuck if snapshot to email fails
+	//LLPostCard::send(LLFloaterSnapshot::getImageData(), postcard);
 
 	// Give user feedback of the event.
 	gViewerWindow->playSnapshotAnimAndSound();
 
 	LLFloaterSnapshot::postSave();
+
+	// <FS:Ansariel> FIRE-16201: Snapshot floater might get stuck if snapshot to email fails
+	LLPostCard::send(LLFloaterSnapshot::getImageData(), postcard);
 }
 
 void LLPanelSnapshotPostcard::onMsgFormFocusRecieved()
@@ -218,27 +222,6 @@ void LLPanelSnapshotPostcard::onQualitySliderCommit(LLUICtrl* ctrl)
 	LLSD info;
 	info["image-quality-change"] = quality_val;
 	LLFloaterSnapshot::getInstance()->notify(info); // updates the "SnapshotQuality" setting
-}
-
-void LLPanelSnapshotPostcard::onTabButtonPress(S32 btn_idx)
-{
-	LLButton* buttons[2] = {
-			getChild<LLButton>("message_btn"),
-			getChild<LLButton>("settings_btn"),
-	};
-
-	// Switch between Message and Settings tabs.
-	LLButton* clicked_btn = buttons[btn_idx];
-	LLButton* other_btn = buttons[!btn_idx];
-	LLSideTrayPanelContainer* container =
-		getChild<LLSideTrayPanelContainer>("postcard_panel_container");
-
-	container->selectTab(clicked_btn->getToggleState() ? btn_idx : !btn_idx);
-	//clicked_btn->setEnabled(FALSE);
-	other_btn->toggleState();
-	//other_btn->setEnabled(TRUE);
-
-	LL_DEBUGS() << "Button #" << btn_idx << " (" << clicked_btn->getName() << ") clicked" << LL_ENDL;
 }
 
 void LLPanelSnapshotPostcard::onSend()
@@ -270,3 +253,12 @@ void LLPanelSnapshotPostcard::onSend()
 	// Send postcard.
 	sendPostcard();
 }
+
+// <FS:Ansariel> Store settings at logout
+LLPanelSnapshotPostcard::~LLPanelSnapshotPostcard()
+{
+	gSavedSettings.setS32("LastSnapshotToEmailResolution", getImageSizeComboBox()->getCurrentIndex());
+	gSavedSettings.setS32("LastSnapshotToEmailWidth", getTypedPreviewWidth());
+	gSavedSettings.setS32("LastSnapshotToEmailHeight", getTypedPreviewHeight());
+}
+// </FS:Ansariel>

@@ -34,7 +34,7 @@
 #include <iostream>
 #include "apr_base64.h"
 
-#ifdef LL_STANDALONE
+#ifdef LL_USESYSTEMLIBS
 # include <zlib.h>
 #else
 # include "zlib/zlib.h"  // for davep's dirty little zip functions
@@ -873,7 +873,7 @@ S32 LLSDBinaryParser::doParse(std::istream& istr, LLSD& data) const
 {
 /**
  * Undefined: '!'<br>
- * Boolean: 't' for true 'f' for false<br>
+ * Boolean: '1' for true '0' for false<br>
  * Integer: 'i' + 4 bytes network byte order<br>
  * Real: 'r' + 8 bytes IEEE double<br>
  * UUID: 'u' + 16 byte unsigned integer<br>
@@ -1261,12 +1261,37 @@ std::string LLSDNotationFormatter::escapeString(const std::string& in)
 // virtual
 S32 LLSDNotationFormatter::format(const LLSD& data, std::ostream& ostr, U32 options) const
 {
+	S32 rv = format_impl(data, ostr, options, 0);
+	return rv;
+}
+
+S32 LLSDNotationFormatter::format_impl(const LLSD& data, std::ostream& ostr, U32 options, U32 level) const
+{
 	S32 format_count = 1;
+	std::string pre;
+	std::string post;
+
+	if (options & LLSDFormatter::OPTIONS_PRETTY)
+	{
+		for (U32 i = 0; i < level; i++)
+		{
+			pre += "    ";
+		}
+		post = "\n";
+	}
+
 	switch(data.type())
 	{
 	case LLSD::TypeMap:
 	{
+		if (0 != level) ostr << post << pre;
 		ostr << "{";
+		std::string inner_pre;
+		if (options & LLSDFormatter::OPTIONS_PRETTY)
+		{
+			inner_pre = pre + "    ";
+		}
+
 		bool need_comma = false;
 		LLSD::map_const_iterator iter = data.beginMap();
 		LLSD::map_const_iterator end = data.endMap();
@@ -1274,18 +1299,18 @@ S32 LLSDNotationFormatter::format(const LLSD& data, std::ostream& ostr, U32 opti
 		{
 			if(need_comma) ostr << ",";
 			need_comma = true;
-			ostr << '\'';
+			ostr << post << inner_pre << '\'';
 			serialize_string((*iter).first, ostr);
 			ostr << "':";
-			format_count += format((*iter).second, ostr);
+			format_count += format_impl((*iter).second, ostr, options, level + 2);
 		}
-		ostr << "}";
+		ostr << post << pre << "}";
 		break;
 	}
 
 	case LLSD::TypeArray:
 	{
-		ostr << "[";
+		ostr << post << pre << "[";
 		bool need_comma = false;
 		LLSD::array_const_iterator iter = data.beginArray();
 		LLSD::array_const_iterator end = data.endArray();
@@ -1293,7 +1318,7 @@ S32 LLSDNotationFormatter::format(const LLSD& data, std::ostream& ostr, U32 opti
 		{
 			if(need_comma) ostr << ",";
 			need_comma = true;
-			format_count += format(*iter, ostr);
+			format_count += format_impl(*iter, ostr, options, level + 1);
 		}
 		ostr << "]";
 		break;
@@ -1343,7 +1368,7 @@ S32 LLSDNotationFormatter::format(const LLSD& data, std::ostream& ostr, U32 opti
 
 	case LLSD::TypeString:
 		ostr << '\'';
-		serialize_string(data.asString(), ostr);
+		serialize_string(data.asStringRef(), ostr);
 		ostr << '\'';
 		break;
 
@@ -1360,9 +1385,26 @@ S32 LLSDNotationFormatter::format(const LLSD& data, std::ostream& ostr, U32 opti
 	case LLSD::TypeBinary:
 	{
 		// *FIX: memory inefficient.
-		std::vector<U8> buffer = data.asBinary();
+		const std::vector<U8>& buffer = data.asBinary();
 		ostr << "b(" << buffer.size() << ")\"";
-		if(buffer.size()) ostr.write((const char*)&buffer[0], buffer.size());
+		if(buffer.size())
+		{
+			if (options & LLSDFormatter::OPTIONS_PRETTY_BINARY)
+			{
+				std::ios_base::fmtflags old_flags = ostr.flags();
+				ostr.setf( std::ios::hex, std::ios::basefield );
+				ostr << "0x";
+				for (int i = 0; i < buffer.size(); i++)
+				{
+					ostr << (int) buffer[i];
+				}
+				ostr.flags(old_flags);
+			}
+			else
+			{
+				ostr.write((const char*)&buffer[0], buffer.size());
+			}
+		}
 		ostr << "\"";
 		break;
 	}
@@ -1460,7 +1502,7 @@ S32 LLSDBinaryFormatter::format(const LLSD& data, std::ostream& ostr, U32 option
 
 	case LLSD::TypeString:
 		ostr.put('s');
-		formatString(data.asString(), ostr);
+		formatString(data.asStringRef(), ostr);
 		break;
 
 	case LLSD::TypeDate:
@@ -1478,9 +1520,8 @@ S32 LLSDBinaryFormatter::format(const LLSD& data, std::ostream& ostr, U32 option
 
 	case LLSD::TypeBinary:
 	{
-		// *FIX: memory inefficient.
 		ostr.put('b');
-		std::vector<U8> buffer = data.asBinary();
+		const std::vector<U8>& buffer = data.asBinary();
 		U32 size_nbo = htonl(buffer.size());
 		ostr.write((const char*)(&size_nbo), sizeof(U32));
 		if(buffer.size()) ostr.write((const char*)&buffer[0], buffer.size());
@@ -2211,7 +2252,7 @@ U8* unzip_llsdNavMesh( bool& valid, unsigned int& outsize, std::istream& is, S32
 	strm.avail_in = size;
 	strm.next_in = in;
 
-	
+	valid = true; // <FS:ND/> Default is all okay.
 	S32 ret = inflateInit2(&strm,  windowBits | ENABLE_ZLIB_GZIP );
 	do
 	{
@@ -2223,6 +2264,7 @@ U8* unzip_llsdNavMesh( bool& valid, unsigned int& outsize, std::istream& is, S32
 			inflateEnd(&strm);
 			free(result);
 			delete [] in;
+			in = NULL; result = NULL;// <FS:ND> Or we get a double free aftr the while loop ...
 			valid = false;
 		}
 		
@@ -2233,17 +2275,24 @@ U8* unzip_llsdNavMesh( bool& valid, unsigned int& outsize, std::istream& is, S32
 		case Z_DATA_ERROR:
 		case Z_MEM_ERROR:
 			inflateEnd(&strm);
-			free(result);
+			// free(result);
+			if( result )
+				free(result);
 			delete [] in;
 			valid = false;
+			in = NULL; result = NULL;// <FS:ND> Or we get a double free aftr the while loop ...
 			break;
 		}
 
+		if( valid ) {// <FS:ND> in case this stream is invalid, do not pass the already freed buffer to realloc.
+			
 		U32 have = CHUNK-strm.avail_out;
 
 		result = (U8*) realloc(result, cur_size + have);
 		memcpy(result+cur_size, out, have);
 		cur_size += have;
+
+		} // </FS:ND>
 
 	} while (ret == Z_OK);
 
@@ -2252,7 +2301,12 @@ U8* unzip_llsdNavMesh( bool& valid, unsigned int& outsize, std::istream& is, S32
 
 	if (ret != Z_STREAM_END)
 	{
-		free(result);
+		// <FS:ND> result might have been freed above. And calling free with a null pointer is not defined.
+		// free(result);
+		if( result )
+			free(result);
+		// </FS:ND>
+		
 		valid = false;
 		return NULL;
 	}

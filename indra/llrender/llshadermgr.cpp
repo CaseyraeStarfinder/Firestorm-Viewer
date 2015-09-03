@@ -73,7 +73,11 @@ BOOL LLShaderMgr::attachShaderFeatures(LLGLSLShader * shader)
 {
 	llassert_always(shader != NULL);
 	LLShaderFeatures *features = & shader->mFeatures;
-	
+
+	if (features->attachNothing)
+	{
+		return TRUE;
+	}
 	//////////////////////////////////////
 	// Attach Vertex Shader Features First
 	//////////////////////////////////////
@@ -502,6 +506,12 @@ static std::string get_object_log(GLhandleARB ret)
 		res = std::string((char *)log);
 		delete[] log;
 	}
+	// <FS:LO> Fix intel GLSL compiler spitting out "No errors." instead of an empty string like others do when there are no errors, causing log spam.
+	if(!strcmp(res.c_str(),"No errors.\n"))
+	{
+		res = "";
+	}
+	// </FS:LO>
 	return res;
 }
 
@@ -670,17 +680,17 @@ GLhandleARB LLShaderMgr::loadShaderFile(const std::string& filename, S32 & shade
 	if (defines)
 	{
 		for (boost::unordered_map<std::string,std::string>::iterator iter = defines->begin(); iter != defines->end(); ++iter)
-	{
-		std::string define = "#define " + iter->first + " " + iter->second + "\n";
-		text[count++] = (GLcharARB *) strdup(define.c_str());
-	}
+		{
+			std::string define = "#define " + iter->first + " " + iter->second + "\n";
+			text[count++] = (GLcharARB *) strdup(define.c_str());
+		}
 	}
 
-	// <FS:ND> add define for ATI/AMD so we can do some special ifdef magic in shaders.
 	if( gGLManager.mIsATI )
-		text[ count++ ] = strdup( "#define ND_IS_AMD_CARD 1\n" );
-	// </FS:ND>
-
+	{
+		text[ count++ ] = strdup( "#define IS_AMD_CARD 1\n" );
+	}
+	
 	if (texture_index_channels > 0 && type == GL_FRAGMENT_SHADER_ARB)
 	{
 		//use specified number of texture channels for indexed texture rendering

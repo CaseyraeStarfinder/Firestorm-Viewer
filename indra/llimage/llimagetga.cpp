@@ -1163,8 +1163,17 @@ bool LLImageTGA::loadFile( const std::string& path )
 	{
 		return false;
 	}
-	
+	//< FS:ND> FIRE-16342 make sure no one overwrites this file while we load it	
+
+	// LLFILE* file = LLFile::fopen(path, "rb");	/* Flawfinder: ignore */
+#ifndef LL_WINDOWS
 	LLFILE* file = LLFile::fopen(path, "rb");	/* Flawfinder: ignore */
+#else
+	LLFILE* file = LLFile::_fsopen(path, "rb", _SH_DENYWR);/* Flawfinder: ignore */
+#endif
+
+	// </FS:ND:
+	
 	if( !file )
 	{
 		LL_WARNS() << "Couldn't open file " << path << LL_ENDL;
@@ -1182,6 +1191,7 @@ bool LLImageTGA::loadFile( const std::string& path )
 	if(!buffer)
 	{
 		LL_WARNS() << "could not allocate memory for image loading, size: " << file_size << LL_ENDL;
+		fclose(file); // <FS:ND/> Do not leak the file handle.
 		return false;
 	}
 
@@ -1190,6 +1200,7 @@ bool LLImageTGA::loadFile( const std::string& path )
 	{
 		deleteData();
 		LL_WARNS() << "Couldn't read file " << path << LL_ENDL;
+		fclose(file); // <FS:ND/> Do not leak the file handle.
 		return false;
 	}
 

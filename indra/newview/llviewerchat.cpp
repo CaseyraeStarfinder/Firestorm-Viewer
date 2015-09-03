@@ -41,15 +41,21 @@
 #include "rlvhandler.h"
 
 #include "lfsimfeaturehandler.h"	// <FS:CR> Opensim
-#include "growlmanager.h" // <FS:LO> Growl include
 
 
 // LLViewerChat
 LLViewerChat::font_change_signal_t LLViewerChat::sChatFontChangedSignal;
 
 //static 
-void LLViewerChat::getChatColor(const LLChat& chat, LLColor4& r_color, bool is_local)
+// <FS:Ansariel> Add additional options
+//void LLViewerChat::getChatColor(const LLChat& chat, LLColor4& r_color)
+//{
+void LLViewerChat::getChatColor(const LLChat& chat, LLColor4& r_color, LLSD args)
 {
+	const bool is_local = args.has("is_local") ? args["is_local"].asBoolean() : true;
+	const bool for_console = args.has("for_console") && args["for_console"].asBoolean();
+// </FS:Ansariel>
+
 	// <FS:Ansariel> FIRE-1061 - Color friends, lindens, muted, etc
 	//if(chat.mMuted)
 	//{
@@ -78,19 +84,30 @@ void LLViewerChat::getChatColor(const LLChat& chat, LLColor4& r_color, bool is_l
 					//}
 					//else
 					//{
-						r_color = LLUIColorTable::instance().getColor("AgentChatColor");
+					//	r_color = LLUIColorTable::instance().getColor("AgentChatColor");
 					//}
-					if (chat.mChatType == CHAT_TYPE_IM || chat.mChatType == CHAT_TYPE_IM_GROUP)
-						r_color = LGGContactSets::getInstance()->colorize(chat.mFromID, r_color, LGG_CS_IM);
+					static LLCachedControl<bool> im_coloring(gSavedSettings, "FSColorIMsDistinctly");
+					if (for_console && im_coloring)
+					{
+						r_color = LLUIColorTable::instance().getColor("AgentIMColor");
+					}
 					else
+					{
+						r_color = LLUIColorTable::instance().getColor("AgentChatColor");
+					}
+
+					if (chat.mChatType == CHAT_TYPE_IM || chat.mChatType == CHAT_TYPE_IM_GROUP)
+					{
+						r_color = LGGContactSets::getInstance()->colorize(chat.mFromID, r_color, LGG_CS_IM);
+					}
+					else
+					{
 						r_color = LGGContactSets::getInstance()->colorize(chat.mFromID, r_color, LGG_CS_CHAT);
+					}
 					// </FS:CR>
 
 					//color based on contact sets prefs
-					if(LGGContactSets::getInstance()->hasFriendColorThatShouldShow(chat.mFromID, LGG_CS_CHAT))
-					{
-						r_color = LGGContactSets::getInstance()->getFriendColor(chat.mFromID);
-					}
+					LGGContactSets::getInstance()->hasFriendColorThatShouldShow(chat.mFromID, LGG_CS_CHAT, r_color);
 				}
 				break;
 			case CHAT_SOURCE_OBJECT:
@@ -109,23 +126,6 @@ void LLViewerChat::getChatColor(const LLChat& chat, LLColor4& r_color, bool is_l
 				else if ( chat.mChatType == CHAT_TYPE_IM )
 				{
 					r_color = LLUIColorTable::instance().getColor("ObjectIMColor");
-					// <FS:LO> FIRE-5889: Object IM's Not Triggering Growl Notifications
-					std::string msg = chat.mFromName;
-					std::string prefix = chat.mText.substr(0, 4);
-					if (prefix == "/me " || prefix == "/me'")
-					{
-						msg += chat.mText.substr(3);
-					}
-					else
-					{
-						msg += (": " + chat.mText);
-					}
-
-					if (!chat.mMuted)
-					{
-						gGrowlManager->notify(chat.mFromName, msg, GROWL_IM_MESSAGE_TYPE);
-					}
-					// </FS:LO>
 				}
 				else
 				{
@@ -136,32 +136,14 @@ void LLViewerChat::getChatColor(const LLChat& chat, LLColor4& r_color, bool is_l
 				r_color.setToWhite();
 		}
 		
-		//Keyword alerts -KC
-		if ((gAgentID != chat.mFromID || chat.mFromName == SYSTEM_FROM) && FSKeywords::getInstance()->chatContainsKeyword(chat, is_local))
+		// <FS:KC> Keyword alerts
+		static LLCachedControl<LLColor4> sFSKeywordColor(gSavedPerAccountSettings, "FSKeywordColor");
+		static LLCachedControl<bool> sFSKeywordChangeColor(gSavedPerAccountSettings, "FSKeywordChangeColor");
+		if (sFSKeywordChangeColor && FSKeywords::getInstance()->chatContainsKeyword(chat, is_local))
 		{
-			static LLCachedControl<bool> FSEnableGrowl(gSavedSettings, "FSEnableGrowl");
-			if (FSEnableGrowl)
-			{
-				std::string msg = chat.mFromName;
-				std::string prefix = chat.mText.substr(0, 4);
-				if(prefix == "/me " || prefix == "/me'" || prefix == "/ME " || prefix == "/ME'")
-				{
-					msg = msg + chat.mText.substr(3);
-				}
-				else
-				{
-					msg = msg + ": " + chat.mText;
-				}
-				gGrowlManager->notify("Keyword Alert", msg, "Keyword Alert");
-			}
-
-			static LLCachedControl<bool> sFSKeywordChangeColor(gSavedPerAccountSettings, "FSKeywordChangeColor");
-			if (sFSKeywordChangeColor)
-			{
-				static LLCachedControl<LLColor4> sFSKeywordColor(gSavedPerAccountSettings, "FSKeywordColor");
-				r_color = sFSKeywordColor;
-			}
+			r_color = sFSKeywordColor;
 		}
+		// </FS:KC>
 		
 		if (!chat.mPosAgent.isExactlyZero())
 		{
@@ -175,7 +157,11 @@ void LLViewerChat::getChatColor(const LLChat& chat, LLColor4& r_color, bool is_l
 			if (distance_squared > dist_near_chat * dist_near_chat)
 			{
 				// diminish far-off chat
-				r_color.mV[VALPHA] = 0.8f;
+				// <FS:Ansariel> FIRE-3572: Customize local chat color brightness change based on distance
+				//r_color.mV[VALPHA] = 0.8f;
+				static LLCachedControl<F32> fsBeyondNearbyChatColorDiminishFactor(gSavedSettings, "FSBeyondNearbyChatColorDiminishFactor", 0.8f);
+				r_color.mV[VALPHA] = fsBeyondNearbyChatColorDiminishFactor();
+				// </FS:Ansariel>
 			}
 		}
 	}
@@ -252,7 +238,11 @@ void LLViewerChat::getChatColor(const LLChat& chat, std::string& r_color_name, F
 			if (distance_squared > dist_near_chat * dist_near_chat)
 			{
 				// diminish far-off chat
-				r_color_alpha = 0.8f; 
+				// <FS:Ansariel> FIRE-3572: Customize local chat color brightness change based on distance
+				//r_color_alpha = 0.8f;
+				static LLCachedControl<F32> fsBeyondNearbyChatColorDiminishFactor(gSavedSettings, "FSBeyondNearbyChatColorDiminishFactor", 0.8f);
+				r_color_alpha = fsBeyondNearbyChatColorDiminishFactor();
+				// </FS:Ansariel>
 			}
 			else
 			{

@@ -247,8 +247,7 @@ BOOL LLVorbisDecodeState::initDecode()
 		LL_WARNS("AudioEngine") << "Illegal sample count: " << sample_count << LL_ENDL;
 	}
 	
-	if( size_guess > LLVORBIS_CLIP_REJECT_SIZE ||
-	    size_guess < 0)
+	if( size_guess > LLVORBIS_CLIP_REJECT_SIZE )
 	{
 		abort_decode = true;
 		LL_WARNS("AudioEngine") << "Illegal sample size: " << size_guess << LL_ENDL;
@@ -528,6 +527,11 @@ void LLVorbisDecodeState::flushBadFile()
 	{
 		LL_WARNS("AudioEngine") << "Flushing bad vorbis file from VFS for " << mUUID << LL_ENDL;
 		mInFilep->remove();
+
+		// <FS:ND> FIRE-15975; Delete the current file, or we might end with stale locks during the re-transfer
+		delete mInFilep;
+		mInFilep = NULL;
+		// </FS:ND>
 	}
 }
 
@@ -699,18 +703,17 @@ BOOL LLAudioDecodeMgr::addDecodeRequest(const LLUUID &uuid)
 	{
 		// Just put it on the decode queue.
 		LL_DEBUGS("AudioEngine") << "addDecodeRequest for " << uuid << " has local asset file already" << LL_ENDL;
-		mImpl->mDecodeQueue.push_back(uuid);
+		// <FS:Ansariel> FIRE-480: Opening multiple instances causes sound failures
+		//mImpl->mDecodeQueue.push_back(uuid);
+		// ...only add it if it's note already in the queue
+		if (std::find(mImpl->mDecodeQueue.begin(), mImpl->mDecodeQueue.end(), uuid) == mImpl->mDecodeQueue.end())
+		{
+			mImpl->mDecodeQueue.push_back(uuid);
+		}
+		// </FS:Ansariel>
 		return TRUE;
 	}
 
 	LL_DEBUGS("AudioEngine") << "addDecodeRequest for " << uuid << " no file available" << LL_ENDL;
 	return FALSE;
 }
-
-#if LL_DARWIN || LL_LINUX
-// HACK: to fool the compiler into not emitting unused warnings.
-namespace {
-	const ov_callbacks callback_array[4] = {OV_CALLBACKS_DEFAULT, OV_CALLBACKS_NOCLOSE, OV_CALLBACKS_STREAMONLY, 
-		OV_CALLBACKS_STREAMONLY_NOCLOSE};
-}
-#endif

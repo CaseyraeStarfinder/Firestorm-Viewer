@@ -43,6 +43,7 @@ public:
 
 	// singleton pattern implementation
 	static LLViewerShaderMgr * instance();
+	static void releaseInstance();
 
 	void initAttribsAndUniforms(void);
 	void setShaders();
@@ -58,7 +59,7 @@ public:
 	BOOL loadShadersInterface();
 	BOOL loadShadersWindLight();
 	BOOL loadTransformShaders();
-	
+
 	std::vector<S32> mVertexShaderLevel;
 	S32	mMaxAvatarShaderLevel;
 

@@ -67,6 +67,7 @@ class LLPanelLandBan;
 class LLPanelLandRenters;
 class LLPanelLandCovenant;
 class LLParcel;
+class LLPanelLandExperiences;
 
 class LLFloaterLand
 :	public LLFloater
@@ -102,6 +103,7 @@ protected:
 	static void* createPanelLandAudio(void* data);
 	static void* createPanelLandMedia(void* data);
 	static void* createPanelLandAccess(void* data);
+	static void* createPanelLandExperiences(void* data);
 	static void* createPanelLandBan(void* data);
 
 
@@ -117,6 +119,7 @@ protected:
 	LLPanelLandMedia*		mPanelMedia;
 	LLPanelLandAccess*		mPanelAccess;
 	LLPanelLandCovenant*	mPanelCovenant;
+	LLPanelLandExperiences*	mPanelExperiences;
 
 	LLSafeHandle<LLParcelSelection>	mParcel;
 
@@ -244,7 +247,7 @@ protected:
 // LLRemoteParcelInfoObserver interface:
 /*virtual*/ void processParcelInfo(const LLParcelData& parcel_data);
 /*virtual*/ void setParcelID(const LLUUID& parcel_id);
-/*virtual*/ void setErrorStatus(U32 status, const std::string& reason);
+/*virtual*/ void setErrorStatus(S32 status, const std::string& reason);
 };
 
 class LLPanelLandObjects
@@ -402,7 +405,6 @@ protected:
 	LLSafeHandle<LLParcelSelection>&	mParcel;
 };
 
-class LLViewerRegion;		// <FS:Zi> Fix covenant loading slowdowns
 
 class LLPanelLandCovenant
 :	public LLPanel
@@ -410,6 +412,7 @@ class LLPanelLandCovenant
 public:
 	LLPanelLandCovenant(LLSafeHandle<LLParcelSelection>& parcelp);
 	virtual ~LLPanelLandCovenant();
+	virtual BOOL postBuild();
 	void refresh();
 	static void updateCovenantText(const std::string& string);
 	static void updateEstateName(const std::string& name);
@@ -419,11 +422,9 @@ public:
 protected:
 	LLSafeHandle<LLParcelSelection>&	mParcel;
 
-	// <FS:Zi> Fix covenant loading slowdowns
-	bool mCovenantChanged;				// flag to allow covenant to be changed
-	bool mCovenantRequested;			// flag to remember if a covenant was already requested
-	LLViewerRegion* mPreviousRegion;	// remember the last region we requested a covenant from
-	// </FS:Zi>
+private:
+	LLUUID mLastRegionID;
+	F64 mNextUpdateTime; //seconds since client start
 };
 
 #endif

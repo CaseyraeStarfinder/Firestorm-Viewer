@@ -1,5 +1,5 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="Snapshot" title="Podgląd zdjęcia">
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater name="Snapshot" title="Zdjęcie">
 	<floater.string name="unknown">
 		nieznany
 	</floater.string>
@@ -11,9 +11,6 @@
 	</string>
 	<string name="profile_progress_str">
 		Wysyłanie
-	</string>
-	<string name="flickr_progress_str">
-		Komunikacja z Flickr
 	</string>
 	<string name="inventory_progress_str">
 		Zapisywanie do Szafy
@@ -27,37 +24,53 @@
 	<string name="profile_succeeded_str">
 		Obraz załadowany
 	</string>
-	<string name="flickr_succeeded_str">
-		Obraz załadowany na Flickr
-	</string>
 	<string name="postcard_succeeded_str">
-		Mail wysłany
+		Mail wysłany!
 	</string>
 	<string name="inventory_succeeded_str">
-		Zapisano do Szafy
+		Zapisano do Szafy!
 	</string>
 	<string name="local_succeeded_str">
-		Zapisano na komputerze
+		Zapisano na dysku!
 	</string>
 	<string name="facebook_failed_str">
-		Publikacja obrazu na osi czasu nie powiodła się.
+		Publikacja nie powiodła się.
 	</string>
 	<string name="profile_failed_str">
-		Publikacja obrazu na kanale nie powiodła się.
+		Publikacja nie powiodła się.
 	</string>
 	<string name="postcard_failed_str">
-		Wysyłanie maila nie powiodło się.
+		Wysyłanie maila nieudane.
 	</string>
 	<string name="inventory_failed_str">
-		Zapis do Szafy nie powiódł się.
+		Zapis do Szafy nieudany.
 	</string>
 	<string name="local_failed_str">
-		Zapis na komputerze nie powiódł się.
+		Zapis na dysku nieudany.
 	</string>
-	<string name="flickr_failed_str">
-		Ładowanie na Flickr nie powiodło się.
-	</string>
-	<ui_ctrl name="thumbnail_placeholder">
+	<panel name="controls_container">
+		<button label="Odśwież" name="new_snapshot_btn" />
+		<panel name="advanced_options_panel">
+			<text name="layer_type_label">
+				Uchwyć:
+			</text>
+			<combo_box label="Warstwy obrazu" name="layer_types">
+				<combo_box.item label="Kolory" name="Colors" />
+				<combo_box.item label="Głębia" name="Depth" />
+				<combo_box.item label="Głębia (24 bity)" name="Depth24" />
+			</combo_box>
+			<check_box label="Interfejs" name="ui_check" />
+			<check_box label="Stan L$" name="currency_check"/>
+			<check_box label="Obiekty HUD" name="hud_check" />
+			<check_box label="Wstrzymaj (pełny ekran)" name="freeze_frame_check" />
+			<check_box label="Autoodświeżanie" name="auto_snapshot_check" />
+			<text name="filter_list_label">
+				Filtr:
+			</text>
+			<combo_box name="filters_combobox" tool_tip="Filtry obrazu">
+				<combo_box.item label="Brak filtra" name="NoFilter" />
+			</combo_box>
+		</panel>
 		<panel name="succeeded_panel">
 			<text name="succeeded_lbl">
 				Powodzenie
@@ -74,25 +87,8 @@
 		<text name="refresh_lbl">
 			Zrób na nowo
 		</text>
-	</ui_ctrl>
-	<tab_container name="panel_tab_container">
-		<panel label="Profil" name="panel_snapshot_profile"/>
-		<panel label="Szafa" name="panel_snapshot_inventory"/>
-		<panel label="Dysk" name="panel_snapshot_local"/>
-	</tab_container>
-	<panel name="advanced_options_panel">
-		<text name="layer_type_label">
-			Uchwyć:
-		</text>
-		<combo_box label="Warstwy" name="layer_types">
-			<combo_box.item label="Kolory" name="Colors"/>
-			<combo_box.item label="Głębia" name="Depth"/>
-		</combo_box>
-		<check_box label="Interfejs" name="ui_check"/>
-		<check_box label="Stan L$" name="currency_check"/>
-		<check_box label="Obiekty HUD" name="hud_check"/>
-		<check_box label="Wstrzymaj (pełny ekran)" name="freeze_frame_check"/>
-		<check_box label="Autoodświeżanie" name="auto_snapshot_check"/>
 	</panel>
-	<button name="advanced_options_btn" tool_tip="Opcje zaawansowane" />
+	<text name="image_res_text">
+		[WIDTH]px (szerokość) x [HEIGHT]px (wysokość)
+	</text>
 </floater>

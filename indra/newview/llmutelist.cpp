@@ -59,6 +59,9 @@
 #include "llviewerobjectlist.h"
 #include "lltrans.h"
 
+#include "llviewercontrol.h"
+#include "fscommon.h"
+
 namespace 
 {
 	// This method is used to return an object to mute given an object id.
@@ -346,6 +349,15 @@ void LLMuteList::updateAdd(const LLMute& mute)
 	gAgent.sendReliableMessage();
 
 	mIsLoaded = TRUE; // why is this here? -MG
+
+	// <FS:Ansariel> FIRE-15746: Show block report in nearby chat
+	if (gSavedSettings.getBOOL("FSReportBlockToNearbyChat"))
+	{
+		LLStringUtil::format_map_t args;
+		args["NAME"] = mute.mName;
+		reportToNearbyChat(LLTrans::getString("Mute_Add", args));
+	}
+	// </FS:Ansariel>
 }
 
 
@@ -444,6 +456,15 @@ void LLMuteList::updateRemove(const LLMute& mute)
 	msg->addUUIDFast(_PREHASH_MuteID, mute.mID);
 	msg->addString("MuteName", mute.mName);
 	gAgent.sendReliableMessage();
+
+	// <FS:Ansariel> FIRE-15746: Show block report in nearby chat
+	if (gSavedSettings.getBOOL("FSReportBlockToNearbyChat"))
+	{
+		LLStringUtil::format_map_t args;
+		args["NAME"] = mute.mName;
+		reportToNearbyChat(LLTrans::getString("Mute_Remove", args));
+	}
+	// </FS:Ansariel>
 }
 
 void notify_automute_callback(const LLUUID& agent_id, const std::string& full_name, bool is_group, LLMuteList::EAutoReason reason)
@@ -666,6 +687,22 @@ BOOL LLMuteList::isMuted(const LLUUID& id, const std::string& name, U32 flags) c
 	// Look in legacy pile
 	string_set_t::const_iterator legacy_it = mLegacyMutes.find(name);
 	return legacy_it != mLegacyMutes.end();
+}
+
+BOOL LLMuteList::isMuted(const std::string& username, U32 flags) const
+{
+	mute_set_t::const_iterator mute_iter = mMutes.begin();
+	while(mute_iter != mMutes.end())
+	{
+		// can't convert "leha.test" into "LeHa TesT" so username comparison is more reliable
+		if (mute_iter->mType == LLMute::AGENT
+			&& LLCacheName::buildUsername(mute_iter->mName) == username)
+		{
+			return TRUE;
+		}
+		mute_iter++;
+	}
+	return FALSE;
 }
 
 //-----------------------------------------------------------------------------

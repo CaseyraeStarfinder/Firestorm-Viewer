@@ -41,11 +41,13 @@
          label="English"
          name="English"
          value="en" />
+        <!--
         <combo_box.item
          enabled="true"
          label="Dansk (Danish) - Beta"
          name="Danish"
          value="da" />
+        -->
         <combo_box.item
          enabled="true"
          label="Deutsch (German)"
@@ -56,46 +58,54 @@
          label="Español (Spanish) - Beta"
          name="Spanish"
          value="es" />
+        <!--
         <combo_box.item
          enabled="true"
          label="Français (French) - Beta"
          name="French"
          value="fr" />
+        -->
         <combo_box.item
          enabled="true"
          label="Italiano (Italian) - Beta"
          name="Italian"
-         value="it" />
+         value="it" />        
         <combo_box.item
          enabled="true"
          label="Polski (Polish)"
          name="Polish"
          value="pl" />
+        <!--
         <combo_box.item
          enabled="true"
          label="Português (Portuguese) - Beta"
          name="Portugese"
          value="pt" />
+        -->
         <combo_box.item
          enabled="true"
          label="Русский (Russian) - Beta"
          name="Russian"
          value="ru" />
+        <!--
         <combo_box.item
          enabled="true"
          label="Türkçe (Turkish) - Beta"
          name="Turkish"
          value="tr" />
+        -->
         <combo_box.item
          enabled="true"
          label="日本語 (Japanese) - Beta"
          name="(Japanese)"
          value="ja" />
+        <!--
         <combo_box.item
          enabled="true"
          label="正體中文 (Traditional Chinese) - Beta"
          name="Traditional Chinese"
          value="zh" />
+        -->
     </combo_box>
     <text
 	 top_delta="4"
@@ -240,7 +250,7 @@
     <radio_group
      control_name="AvatarNameTagMode"
      height="20"
-     width="280"
+     width="200"
      layout="topleft"
      left="30"
      top_pad="0"
@@ -253,7 +263,7 @@
          height="16"
          left="0"
          value="0"
-         width="95" />
+         width="50" />
         <radio_item
          label="On"
          left_pad="0"
@@ -262,7 +272,7 @@
          height="16"
          name="radio2"
          value="1"
-         width="95" />
+         width="50" />
         <radio_item
          label="Show briefly"
          left_pad="0"
@@ -271,7 +281,7 @@
          layout="topleft"
          top_delta="0"
          value="2"
-         width="120" />
+         width="75" />
     </radio_group>
     <text
      type="string"
@@ -279,7 +289,7 @@
      follows="left|top"
      height="15"
      layout="topleft"
-     left_pad="100"
+     left_pad="0"
      name="RenderNameShowTime_LabelPrefix"
      top_delta="0"
      width="5">
@@ -415,6 +425,18 @@
      tool_tip="If enabled, the nametag will stay fixed at the avatar position and not follow the avatar head if it moves because of animations."
      top_delta="0" />
 
+  <check_box
+   enabled_control="AvatarNameTagMode"
+   control_name="FSShowAutorespondInNametag"
+   height="16"
+   label="Show autorespond mode in nametag"
+   layout="topleft"
+   left_pad="50"
+   name="FSShowAutorespondInNameTag"
+   width="100"
+   tool_tip="This will show whether you have autoresponse enabled in your own nametag."
+   top_delta="0"/>
+    
 <!--away/logout-->
 	 <text
      type="string"
@@ -535,84 +557,5 @@
      width="500">
        Unavailable and Autoresponse messages can be found under Privacy / Autoresponse
     </text>
-<!--extras-->
-    <panel
-     border="true"
-     bevel_style="none"
-     top="10"
-     right="-10"
-     height="110"
-     width="200"
-     follows="top|right"
-     layout="topleft"
-     name="general_extras" >
-
-        <text
-         top_pad="10"
-         left="5"
-         type="string"
-         length="1"
-         follows="left|top"
-         height="13"
-         layout="topleft"
-         mouse_opaque="false"
-         name="text_box3"
-         width="180">
-           Extras:
-        </text>
-        <check_box
-         top_pad="5"
-         left="2"
-         control_name="FSUseWebProfiles"
-         follows="left|top"
-         layout="topleft"
-         height="16"
-         name="FSUseWebProfiles"
-         label="Use web profiles by default"
-         width="270"
-         tool_tip="Shows profiles as a web page instead of a v1-style panel"/>
-
-<!-- This option is duplicated here for ease of locating and to replicate LLv3 -->
-        <text
-         type="string"
-         length="1"
-         follows="left|top"
-         height="15"
-         layout="topleft"
-         left="5"
-         name="inworld_typing_rg_label"
-         top_pad="10"
-         width="200">
-           Pressing letter keys:
-        </text>
-        <radio_group
-         control_name="LetterKeysFocusChatBar"
-         height="34"
-         width="200"
-         layout="topleft"
-         left="2"
-         top_pad="0"
-         name="inworld_typing_preference">
-            <radio_item
-             label="Starts local chat"
-             name="radio_start_chat"
-             top="0"
-             layout="topleft"
-             height="16"
-             left="0"
-             value="1"
-             width="150" />
-            <radio_item
-             label="Affects movement (i.e. WASD)"
-             left="0"
-             layout="topleft"
-             top="18"
-             height="16"
-             name="radio_move"
-             value="0"
-             width="75" />
-        </radio_group>
-
-    </panel>
 
 </panel>

@@ -30,6 +30,7 @@
 #include "llfloatersnapshot.h"
 
 class LLSideTrayPanelContainer;
+class LLComboBox; // <FS:Ansariel> Store settings at logout
 
 /**
  * Snapshot panel base class.
@@ -37,6 +38,9 @@ class LLSideTrayPanelContainer;
 class LLPanelSnapshot: public LLPanel
 {
 public:
+	// <FS:Ansariel> Store settings at logout
+	/*virtual*/ ~LLPanelSnapshot() {}
+
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void onOpen(const LLSD& key);
 
@@ -45,13 +49,12 @@ public:
 	virtual std::string getAspectRatioCBName() const = 0;
 	virtual std::string getImageSizeComboName() const = 0;
 	virtual std::string getImageSizePanelName() const = 0;
-	virtual std::string getTempUploadCBName() const = 0; //FS:LO Fire-6268 [Regression] Temp upload for snapshots missing after FUI merge.
-	virtual std::string getImageSizeControlName() const = 0; // <FS:Zi> Since combo boxes don't save their control variable for some reason, we have to do that manually.
 
 	virtual S32 getTypedPreviewWidth() const;
 	virtual S32 getTypedPreviewHeight() const;
 	virtual LLSpinCtrl* getWidthSpinner();
 	virtual LLSpinCtrl* getHeightSpinner();
+	virtual LLComboBox* getImageSizeComboBox(); // <FS:Ansariel> Store settings at logout
 	virtual void enableAspectRatioCheckbox(BOOL enable);
 	virtual LLFloaterSnapshot::ESnapshotFormat getImageFormat() const;
 	virtual void updateControls(const LLSD& info) = 0; ///< Update controls from saved settings
@@ -59,7 +62,6 @@ public:
 
 protected:
 	LLSideTrayPanelContainer* getParentContainer();
-	virtual void updateCustomResControls();
 	void updateImageQualityLevel();
 	void goBack(); ///< Switch to the default (Snapshot Options) panel
 	void cancel();
@@ -68,7 +70,6 @@ protected:
 	void onCustomResolutionCommit();
 	void onResolutionComboCommit(LLUICtrl* ctrl);
 	void onKeepAspectRatioCommit(LLUICtrl* ctrl);
-	void onTempUploadCommit(LLUICtrl* ctrl); //FS:LO Fire-6268 [Regression] Temp upload for snapshots missing after FUI merge.
 };
 
 #endif // LL_LLPANELSNAPSHOT_H

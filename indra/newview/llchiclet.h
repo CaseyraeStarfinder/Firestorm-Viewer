@@ -378,6 +378,8 @@ public:
 	 */
 	virtual BOOL handleRightMouseDown(S32 x, S32 y, MASK mask);
 
+	void hidePopupMenu();
+
 	// <FS:Ansariel> [FS communication UI]
 	/**
 	 * Gets id of person/group user is chatting with.
@@ -1043,6 +1045,13 @@ public:
 	 * Returns index of chiclet in list.
 	 */
 	S32 getChicletIndex(const LLChiclet* chiclet);
+
+// [SL:KB] - Patch: UI-TabRearrange | Checked: 2012-05-05 (Catznip-3.3.0)
+	/**
+	 * Sets the index of the specified chiclet in the list.
+	 */
+	void setChicletIndex(const LLChiclet* chiclet, S32 index);
+// [/SL:KB]
 
 	/**
 	 * Removes chiclet by index.

@@ -59,11 +59,14 @@
 
 //#include "llsdserialize.h"
 
-#include "fsavatarsearchlistctrl.h"
 #include "fsavatarsearchmenu.h"
+#include "fsscrolllistctrl.h"
 
 //put it back as a member once the legacy path is out?
 static std::map<LLUUID, LLAvatarName> sAvatarNameMap;
+
+// <FS:Ansariel> FIRE-15194: Avatar picker doesn't work anymore when using legacy simulator messages
+LLFloaterAvatarPicker::query_id_name_map_t LLFloaterAvatarPicker::sQueryNameMap;
 
 LLFloaterAvatarPicker* LLFloaterAvatarPicker::show(select_callback_t callback,
 												   BOOL allow_multiple,
@@ -134,7 +137,7 @@ BOOL LLFloaterAvatarPicker::postBuild()
 	
 	// <FS:Ansariel> FIRE-5096: Add context menu for result lists
 	//LLScrollListCtrl* searchresults = getChild<LLScrollListCtrl>("SearchResults");
-	FSAvatarSearchListCtrl* searchresults = getChild<FSAvatarSearchListCtrl>("SearchResults");
+	FSScrollListCtrl* searchresults = getChild<FSScrollListCtrl>("SearchResults");
 	searchresults->setContextMenu(&gFSAvatarSearchMenu);
 	// </FS:Ansariel>
 	searchresults->setDoubleClickCallback( boost::bind(&LLFloaterAvatarPicker::onBtnSelect, this));
@@ -143,7 +146,7 @@ BOOL LLFloaterAvatarPicker::postBuild()
 	
 	// <FS:Ansariel> FIRE-5096: Add context menu for result lists
 	//LLScrollListCtrl* nearme = getChild<LLScrollListCtrl>("NearMe");
-	FSAvatarSearchListCtrl* nearme = getChild<FSAvatarSearchListCtrl>("NearMe");
+	FSScrollListCtrl* nearme = getChild<FSScrollListCtrl>("NearMe");
 	nearme->setContextMenu(&gFSAvatarSearchMenu);
 	// </FS:Ansariel>
 	nearme->setDoubleClickCallback(boost::bind(&LLFloaterAvatarPicker::onBtnSelect, this));
@@ -151,7 +154,7 @@ BOOL LLFloaterAvatarPicker::postBuild()
 
 	// <FS:Ansariel> FIRE-5096: Add context menu for result lists
 	//LLScrollListCtrl* friends = getChild<LLScrollListCtrl>("Friends");
-	FSAvatarSearchListCtrl* friends = getChild<FSAvatarSearchListCtrl>("Friends");
+	FSScrollListCtrl* friends = getChild<FSScrollListCtrl>("Friends");
 	friends->setContextMenu(&gFSAvatarSearchMenu);
 	// </FS:Ansariel>
 	friends->setDoubleClickCallback(boost::bind(&LLFloaterAvatarPicker::onBtnSelect, this));
@@ -180,7 +183,7 @@ BOOL LLFloaterAvatarPicker::postBuild()
 	childSetAction("FindUUID", boost::bind(&LLFloaterAvatarPicker::onBtnFindUUID, this));
 	getChildView("FindUUID")->setEnabled(FALSE);
 
-	FSAvatarSearchListCtrl* searchresultsuuid = getChild<FSAvatarSearchListCtrl>("SearchResultsUUID");
+	FSScrollListCtrl* searchresultsuuid = getChild<FSScrollListCtrl>("SearchResultsUUID");
 	searchresultsuuid->setContextMenu(&gFSAvatarSearchMenu);
 	searchresultsuuid->setDoubleClickCallback( boost::bind(&LLFloaterAvatarPicker::onBtnSelect, this));
 	searchresultsuuid->setCommitCallback(boost::bind(&LLFloaterAvatarPicker::onList, this));
@@ -216,6 +219,14 @@ LLFloaterAvatarPicker::~LLFloaterAvatarPicker()
 	if (mFindUUIDAvatarNameCacheConnection.connected())
 	{
 		mFindUUIDAvatarNameCacheConnection.disconnect();
+	}
+	// </FS:Ansariel>
+
+	// <FS:Ansariel> FIRE-15194: Avatar picker doesn't work anymore when using legacy simulator messages
+	query_id_name_map_t::iterator found = sQueryNameMap.find(mQueryID);
+	if (found != sQueryNameMap.end())
+	{
+		sQueryNameMap.erase(found);
 	}
 	// </FS:Ansariel>
 
@@ -470,11 +481,11 @@ void LLFloaterAvatarPicker::populateFriend()
 	
 	for(it = collector.mOnline.begin(); it!=collector.mOnline.end(); it++)
 	{
-		friends_scroller->addStringUUIDItem(it->first, it->second);
+		friends_scroller->addStringUUIDItem(it->second, it->first);
 	}
 	for(it = collector.mOffline.begin(); it!=collector.mOffline.end(); it++)
 	{
-			friends_scroller->addStringUUIDItem(it->first, it->second);
+		friends_scroller->addStringUUIDItem(it->second, it->first);
 	}
 	friends_scroller->sortByColumnIndex(0, TRUE);
 }
@@ -586,13 +597,15 @@ BOOL LLFloaterAvatarPicker::visibleItemsSelected() const
 
 class LLAvatarPickerResponder : public LLHTTPClient::Responder
 {
+	LOG_CLASS(LLAvatarPickerResponder);
 public:
 	LLUUID mQueryID;
     std::string mName;
 
 	LLAvatarPickerResponder(const LLUUID& id, const std::string& name) : mQueryID(id), mName(name) { }
 
-	/*virtual*/ void completed(U32 status, const std::string& reason, const LLSD& content)
+protected:
+	/*virtual*/ void httpCompleted()
 	{
 		//std::ostringstream ss;
 		//LLSDSerialize::toPrettyXML(content, ss);
@@ -600,19 +613,18 @@ public:
 
 		// in case of invalid characters, the avatar picker returns a 400
 		// just set it to process so it displays 'not found'
-		if (isGoodStatus(status) || status == 400)
+		if (isGoodStatus() || getStatus() == HTTP_BAD_REQUEST)
 		{
 			LLFloaterAvatarPicker* floater =
 				LLFloaterReg::findTypedInstance<LLFloaterAvatarPicker>("avatar_picker", mName);
 			if (floater)
 			{
-				floater->processResponse(mQueryID, content);
+				floater->processResponse(mQueryID, getContent());
 			}
 		}
 		else
 		{
-			LL_WARNS() << "avatar picker failed [status:" << status << "]: " << content << LL_ENDL;
-			
+			LL_WARNS() << "avatar picker failed " << dumpResponse() << LL_ENDL;
 		}
 	}
 };
@@ -648,6 +660,9 @@ void LLFloaterAvatarPicker::find()
 	}
 	else
 	{
+		// <FS:Ansariel> FIRE-15194: Avatar picker doesn't work anymore when using legacy simulator messages
+		sQueryNameMap[mQueryID] = getKey().asString();
+
 		LLMessageSystem* msg = gMessageSystem;
 		msg->newMessage("AvatarPickerRequest");
 		msg->nextBlock("AgentData");
@@ -774,7 +789,17 @@ void LLFloaterAvatarPicker::processAvatarPickerReply(LLMessageSystem* msg, void*
 	// Not for us
 	if (agent_id != gAgent.getID()) return;
 	
-	LLFloaterAvatarPicker* floater = LLFloaterReg::findTypedInstance<LLFloaterAvatarPicker>("avatar_picker");
+	// <FS:Ansariel> FIRE-15194: Avatar picker doesn't work anymore when using legacy simulator messages
+	//LLFloaterAvatarPicker* floater = LLFloaterReg::findTypedInstance<LLFloaterAvatarPicker>("avatar_picker");
+	query_id_name_map_t::iterator found = sQueryNameMap.find(query_id);
+	if (found == sQueryNameMap.end())
+	{
+		return;
+	}
+	const LLSD floater_key(found->second);
+	sQueryNameMap.erase(found);
+	LLFloaterAvatarPicker* floater = LLFloaterReg::findTypedInstance<LLFloaterAvatarPicker>("avatar_picker", floater_key);
+	// </FS:Ansariel>
 
 	// floater is closed or these are not results from our last request
 	if (NULL == floater || query_id != floater->mQueryID)
@@ -951,7 +976,7 @@ bool LLFloaterAvatarPicker::isSelectBtnEnabled()
 {
 	bool ret_val = visibleItemsSelected();
 
-	if ( ret_val && mOkButtonValidateSignal.num_slots() )
+	if ( ret_val )
 	{
 		std::string acvtive_panel_name;
 		LLScrollListCtrl* list =  NULL;
@@ -988,7 +1013,7 @@ bool LLFloaterAvatarPicker::isSelectBtnEnabled()
 			getSelectedAvatarData(list, avatar_ids, avatar_names);
 			if (avatar_ids.size() >= 1) 
 			{
-				ret_val = mOkButtonValidateSignal(avatar_ids);
+				ret_val = mOkButtonValidateSignal.num_slots()?mOkButtonValidateSignal(avatar_ids):true;
 			}
 			else
 			{

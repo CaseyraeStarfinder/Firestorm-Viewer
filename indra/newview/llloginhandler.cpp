@@ -31,7 +31,10 @@
 // viewer includes
 #include "llsecapi.h"
 #include "lllogininstance.h"		// to check if logged in yet
-#include "llpanellogin.h"
+// <FS:Ansariel> [FS Login Panel]
+//#include "llpanellogin.h"
+#include "fspanellogin.h"
+// </FS:Ansariel> [FS Login Panel]
 #include "llstartup.h"				// getStartupState()
 #include "llslurl.h"
 #include "llviewercontrol.h"		// gSavedSettings
@@ -96,11 +99,12 @@ bool LLLoginHandler::handle(const LLSD& tokens,
 		return true;
 	}
 
+	// <FS:Ansariel> [FS Login Panel]
 	if (tokens.size() == 1
 		&& tokens[0].asString() == "show")
 	{
 		// We're using reg-in-client, so show the XUI login widgets
-		LLPanelLogin::showLoginWidgets();
+		FSPanelLogin::showLoginWidgets();
 		return true;
 	}
 
@@ -122,6 +126,7 @@ bool LLLoginHandler::handle(const LLSD& tokens,
 		window->minimize();
 		return true;
 	}
+	// </FS:Ansariel> [FS Login Panel]
 
 	// Make sure window is visible
 	LLWindow* window = gViewerWindow->getWindow();
@@ -144,7 +149,10 @@ bool LLLoginHandler::handle(const LLSD& tokens,
 	  // as the login page may change from grid to grid, as well as
 	  // things like username/password/etc, we simply refresh the
 	  // login page to make sure everything is set up correctly
-	  LLPanelLogin::loadLoginPage();
+	  // <FS:Ansariel> [FS Login Panel]
+	  //LLPanelLogin::loadLoginPage();
+	  FSPanelLogin::loadLoginPage();
+	  // </FS:Ansariel> [FS Login Panel]
 	  LLStartUp::setStartupState( STATE_LOGIN_CLEANUP );
 	}
 	return true;

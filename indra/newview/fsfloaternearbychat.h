@@ -22,6 +22,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  * 
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * http://www.firestormviewer.org
  * $/LicenseInfo$
  */
 
@@ -30,15 +31,17 @@
 #ifndef FS_FLOATERNEARBYCHAT_H
 #define FS_FLOATERNEARBYCHAT_H
 
-#include "lldockablefloater.h"
-#include "llscrollbar.h"
+#include "llfloater.h"
 #include "llviewerchat.h"
 
-class LLResizeBar;
-class LLComboBox;
 class FSChatHistory;
-#include "llchatentry.h"
-#include "lllayoutstack.h"
+class LLChatEntry;
+class LLComboBox;
+class LLLayoutStack;
+class LLLayoutPanel;
+class LLResizeBar;
+class LLTextBox;
+
 
 class FSFloaterNearbyChat: public LLFloater
 {
@@ -49,7 +52,7 @@ public:
 	BOOL	postBuild			();
 
 	/** @param archive true - to save a message to the chat history log */
-	void	addMessage			(const LLChat& message,bool archive = true, const LLSD &args = LLSD());	
+	void	addMessage			(const LLChat& message,bool archive = true, const LLSD &args = LLSD());
 	void	onNearbyChatContextMenuItemClicked(const LLSD& userdata);
 	bool	onNearbyChatCheckContextMenuItem(const LLSD& userdata);
 
@@ -75,7 +78,7 @@ public:
 	
 	BOOL getVisible();
 
-	static void onHistoryButtonClicked(LLUICtrl* ctrl, void* userdata);
+	void onHistoryButtonClicked();
 
 	// overridden to fix the multitab focus bug -Zi
 	BOOL focusFirstItem(BOOL prefer_text_fields = FALSE, BOOL focus_flash = TRUE );
@@ -95,7 +98,10 @@ public:
 	
 	static void sendChatFromViewer(const std::string &utf8text, EChatType type, BOOL animate);
 	static void sendChatFromViewer(const LLWString &wtext, EChatType type, BOOL animate);
-	
+
+	void updateUnreadMessageNotification(S32 unread_messages, bool muted_history);
+	void updateShowMutedChatHistory(const LLSD &data);
+
 protected:
 	static BOOL matchChatTypeTrigger(const std::string& in_str, std::string* out_str);
 	void onChatBoxKeystroke();
@@ -113,12 +119,11 @@ protected:
 	static S32 sLastSpecialChatChannel;
 
 private:
-	void	onNearbySpeakers	();
+	void	onNearbySpeakers();
 
 private:
 	LLHandle<LLView>	mPopupMenuHandle;
 	FSChatHistory*		mChatHistory;
-	// <FS:Ansariel> Optional muted chat history
 	FSChatHistory*		mChatHistoryMuted;
 	LLChatEntry*		mInputEditor;
 
@@ -128,7 +133,12 @@ private:
 
 	LLLayoutPanel*		mChatLayoutPanel;
 	LLLayoutStack*		mInputPanels;
-	
+
+	LLLayoutPanel*		mUnreadMessagesNotificationPanel;
+	LLTextBox*			mUnreadMessagesNotificationTextBox;
+	S32					mUnreadMessages;
+	S32					mUnreadMessagesMuted;
+
 	S32 mInputEditorPad;
 	S32 mChatLayoutPanelHeight;
 	S32 mFloaterHeight;

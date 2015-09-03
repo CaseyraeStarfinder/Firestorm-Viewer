@@ -118,6 +118,38 @@
 // </AW: opensim-limits>
 #include "nd/ndboolswitch.h" // <FS:ND/> To toggle LLRender::sGLCoreProfile 
 
+// <FS:ND> Logging for error and warning messages from colladadom
+#include "dae/daeErrorHandler.h"
+
+class FSdaeErrorHandler: public daeErrorHandler
+{
+public:
+	virtual void handleError( daeString msg )
+	{
+		LL_WARNS( "ColladaDom" ) << msg << LL_ENDL;
+	}
+	virtual void handleWarning( daeString msg )
+	{
+		LL_WARNS( "ColladaDom" ) << msg << LL_ENDL;
+	}
+};
+
+FSdaeErrorHandler gDaeErrorHandler;
+class FSDaeSetErrorHandler
+{
+public:
+	FSDaeSetErrorHandler()
+	{
+		daeErrorHandler::setErrorHandler( &gDaeErrorHandler );
+	}
+	~FSDaeSetErrorHandler()
+	{
+		daeErrorHandler::setErrorHandler( NULL );
+	}
+};
+
+// </FS:ND>
+
 // <FS:Ansariel> Proper matrix array length for fitted mesh
 #define JOINT_COUNT 52
 
@@ -127,12 +159,6 @@ const S32 SLM_SUPPORTED_VERSION = 3;
 S32 LLFloaterModelPreview::sUploadAmount = 10;
 LLFloaterModelPreview* LLFloaterModelPreview::sInstance = NULL;
 std::list<LLModelLoader*> LLModelLoader::sActiveLoaderList;
-
-const S32 PREVIEW_BORDER_WIDTH = 2;
-const S32 PREVIEW_RESIZE_HANDLE_SIZE = S32(RESIZE_HANDLE_WIDTH * OO_SQRT2) + PREVIEW_BORDER_WIDTH;
-const S32 PREVIEW_HPAD = PREVIEW_RESIZE_HANDLE_SIZE;
-const S32 PREF_BUTTON_HEIGHT = 16 + 7 + 16;
-const S32 PREVIEW_TEXTURE_HEIGHT = 300;
 
 // "Retain%" decomp parameter has values from 0.0 to 1.0 by 0.01
 // But according to the UI spec for upload model floater, this parameter
@@ -423,7 +449,6 @@ mCalculateBtn(NULL)
 	mLastMouseY = 0;
 	mStatusLock = new LLMutex(NULL);
 	mModelPreview = NULL;
-
 	mLODMode[LLModel::LOD_HIGH] = 0;
 	for (U32 i = 0; i < LLModel::LOD_HIGH; i++)
 	{
@@ -659,6 +684,13 @@ void LLFloaterModelPreview::disableViewOption(const std::string& option)
 
 void LLFloaterModelPreview::loadModel(S32 lod)
 {
+	// <FS:Ansariel> FIRE-15204: Viewer crashes when clicking "upload model" quickly twice then closing both filepickers
+	if (mModelPreview->mLoading)
+	{
+		return;
+	}
+	// </FS:Ansariel>
+
 	mModelPreview->mLoading = true;
 
 	(new LLMeshFilePicker(mModelPreview, lod))->getFile();
@@ -666,6 +698,13 @@ void LLFloaterModelPreview::loadModel(S32 lod)
 
 void LLFloaterModelPreview::loadModel(S32 lod, const std::string& file_name, bool force_disable_slm)
 {
+	// <FS:Ansariel> FIRE-15204: Viewer crashes when clicking "upload model" quickly twice then closing both filepickers
+	if (mModelPreview->mLoading)
+	{
+		return;
+	}
+	// </FS:Ansariel>
+
 	mModelPreview->mLoading = true;
 
 	mModelPreview->loadModel(file_name, lod, force_disable_slm);
@@ -779,6 +818,11 @@ void LLFloaterModelPreview::toggleGenarateNormals()
 {
 	bool enabled = childGetValue("gen_normals").asBoolean();
 	childSetEnabled("crease_angle", enabled);
+	if(enabled) {
+		mModelPreview->generateNormals();
+	} else {
+		mModelPreview->restoreNormals();
+	}
 }
 
 //static
@@ -1530,6 +1574,8 @@ bool LLModelLoader::doLoadModel()
 	//first, look for a .slm file of the same name that was modified later
 	//than the .dae
 
+	FSDaeSetErrorHandler oErrorHandlerSerror; // <FS:ND/> Set up colladadom error handler.
+
 	if (mTrySLM)
 	{
 		std::string filename = mFilename;
@@ -1976,7 +2022,9 @@ bool LLModelLoader::doLoadModel()
 										LLJoint* pJoint = mPreview->getPreviewAvatar()->getJoint( lookingForJoint );
 										if ( pJoint )
 										{   
-											pJoint->storeCurrentXform( jointTransform.getTranslation() );												
+											LLUUID fake_mesh_id;
+											fake_mesh_id.generate();
+											pJoint->addAttachmentPosOverride( jointTransform.getTranslation(), fake_mesh_id, gAgentAvatarp->avString());
 										}
 										else
 										{
@@ -2200,7 +2248,7 @@ bool LLModelLoader::loadFromSLM(const std::string& filename)
 
 	S32 file_size = (S32) stat.st_size;
 	
-	llifstream ifstream(filename, std::ifstream::in | std::ifstream::binary);
+	llifstream ifstream(filename.c_str(), std::ifstream::in | std::ifstream::binary);
 	LLSD data;
 	LLSDSerialize::fromBinary(data, ifstream, file_size);
 	ifstream.close();
@@ -3288,7 +3336,11 @@ U32 LLModelPreview::calcResourceCost()
 	
 	if ( mFMP && mFMP->childGetValue("upload_joints").asBoolean() )
 	{
-		getPreviewAvatar()->setPelvisOffset( mPelvisZOffset );
+		// FIXME if preview avatar ever gets reused, this fake mesh ID stuff will fail.
+		// see also call to addAttachmentPosOverride.
+		LLUUID fake_mesh_id;
+		fake_mesh_id.generate();
+		getPreviewAvatar()->addPelvisFixup( mPelvisZOffset, fake_mesh_id );
 	}
 
 	F32 streaming_cost = 0.f;
@@ -3563,7 +3615,7 @@ void LLModelPreview::saveUploadData(const std::string& filename, bool save_skinw
 		data["instance"][i] = instance.asLLSD();
 	}
 
-	llofstream out(filename, std::ios_base::out | std::ios_base::binary);
+	llofstream out(filename.c_str(), std::ios_base::out | std::ios_base::binary);
 	LLSDSerialize::toBinary(data, out);
 	out.flush();
 	out.close();
@@ -3855,11 +3907,8 @@ void LLModelPreview::loadModelCallback(S32 lod)
 		mFMP->getChild<LLCheckBoxCtrl>("confirm_checkbox")->set(FALSE);
 		if (!mBaseModel.empty())
 		{
-			if (mFMP->getChild<LLUICtrl>("description_form")->getValue().asString().empty())
-			{
-				const std::string& model_name = mBaseModel[0]->getName();
-				mFMP->getChild<LLUICtrl>("description_form")->setValue(model_name);
-			}
+			const std::string& model_name = mBaseModel[0]->getName();
+			mFMP->getChild<LLUICtrl>("description_form")->setValue(model_name);
 		}
 	}
 	refresh();
@@ -3884,7 +3933,6 @@ void LLModelPreview::generateNormals()
 
 	S32 which_lod = mPreviewLOD;
 
-
 	if (which_lod > 4 || which_lod < 0 ||
 		mModel[which_lod].empty())
 	{
@@ -3899,19 +3947,81 @@ void LLModelPreview::generateNormals()
 
 	if (which_lod == 3 && !mBaseModel.empty())
 	{
-		for (LLModelLoader::model_list::iterator iter = mBaseModel.begin(); iter != mBaseModel.end(); ++iter)
+		if(mBaseModelFacesCopy.empty())
 		{
-			(*iter)->generateNormals(angle_cutoff);
+			mBaseModelFacesCopy.reserve(mBaseModel.size());
+			for (LLModelLoader::model_list::iterator it = mBaseModel.begin(), itE = mBaseModel.end(); it != itE; ++it)
+			{
+				v_LLVolumeFace_t faces;
+				(*it)->copyFacesTo(faces);
+				mBaseModelFacesCopy.push_back(faces);
+			}
+		}
+
+		for (LLModelLoader::model_list::iterator it = mBaseModel.begin(), itE = mBaseModel.end(); it != itE; ++it)
+		{
+			(*it)->generateNormals(angle_cutoff);
 		}
 
 		mVertexBuffer[5].clear();
 	}
 
-	for (LLModelLoader::model_list::iterator iter = mModel[which_lod].begin(); iter != mModel[which_lod].end(); ++iter)
-	{
-		(*iter)->generateNormals(angle_cutoff);
+	bool perform_copy = mModelFacesCopy[which_lod].empty();
+	if(perform_copy) {
+		mModelFacesCopy[which_lod].reserve(mModel[which_lod].size());
 	}
 
+	for (LLModelLoader::model_list::iterator it = mModel[which_lod].begin(), itE = mModel[which_lod].end(); it != itE; ++it)
+	{
+		if(perform_copy)
+		{
+			v_LLVolumeFace_t faces;
+			(*it)->copyFacesTo(faces);
+			mModelFacesCopy[which_lod].push_back(faces);
+		}
+
+		(*it)->generateNormals(angle_cutoff);
+	}
+
+	mVertexBuffer[which_lod].clear();
+	refresh();
+	updateStatusMessages();
+}
+
+void LLModelPreview::restoreNormals()
+{
+	S32 which_lod = mPreviewLOD;
+
+	if (which_lod > 4 || which_lod < 0 ||
+		mModel[which_lod].empty())
+	{
+		return;
+	}
+
+	if(!mBaseModelFacesCopy.empty())
+	{
+		llassert(mBaseModelFacesCopy.size() == mBaseModel.size());
+
+		vv_LLVolumeFace_t::const_iterator itF = mBaseModelFacesCopy.begin();
+		for (LLModelLoader::model_list::iterator it = mBaseModel.begin(), itE = mBaseModel.end(); it != itE; ++it, ++itF)
+		{
+			(*it)->copyFacesFrom((*itF));
+		}
+
+		mBaseModelFacesCopy.clear();
+	}
+	
+	if(!mModelFacesCopy[which_lod].empty())
+	{
+		vv_LLVolumeFace_t::const_iterator itF = mModelFacesCopy[which_lod].begin();
+		for (LLModelLoader::model_list::iterator it = mModel[which_lod].begin(), itE = mModel[which_lod].end(); it != itE; ++it, ++itF)
+		{
+			(*it)->copyFacesFrom((*itF));
+		}
+
+		mModelFacesCopy[which_lod].clear();
+	}
+	
 	mVertexBuffer[which_lod].clear();
 	refresh();
 	updateStatusMessages();
@@ -4846,7 +4956,7 @@ void LLModelPreview::genBuffers(S32 lod, bool include_skin_weights)
 		LLModel* base_mdl = *base_iter;
 		base_iter++;
 
-		for (S32 i = 0; i < mdl->getNumVolumeFaces(); ++i)
+		for (S32 i = 0, e = mdl->getNumVolumeFaces(); i < e; ++i)
 		{
 			const LLVolumeFace &vf = mdl->getVolumeFace(i);
 			U32 num_vertices = vf.mNumVertices;
@@ -5146,8 +5256,11 @@ BOOL LLModelPreview::render()
 			mViewOption["show_skin_weight"] = false;
 			fmp->disableViewOption("show_skin_weight");
 			fmp->disableViewOption("show_joint_positions");
+
+			skin_weight = false;
+			mFMP->childSetValue("show_skin_weight", false);
+			fmp->setViewOptionEnabled("show_skin_weight", skin_weight);
 		}
-		skin_weight = false;
 	}
 
 	if (upload_skin && !has_skin_weights)
@@ -5251,6 +5364,16 @@ BOOL LLModelPreview::render()
 				const LLVertexBuffer* buff = vb_vec[0];
 				regen = buff->hasDataType(LLVertexBuffer::TYPE_WEIGHT4) != skin_weight;
 			}
+			else
+			{
+				LL_INFOS(" ") << "Vertex Buffer[" << mPreviewLOD << "]" << " is EMPTY!!!" << LL_ENDL;
+				regen = TRUE;
+			}
+		}
+
+		if (regen)
+		{
+			genBuffers(mPreviewLOD, skin_weight);
 		}
 
 		//make sure material lists all match
@@ -5271,11 +5394,6 @@ BOOL LLModelPreview::render()
 			}
 		}
 
-		if (regen)
-		{
-			genBuffers(mPreviewLOD, skin_weight);
-		}
-
 		if (!skin_weight)
 		{
 			for (LLMeshUploadThread::instance_list::iterator iter = mUploadData.begin(); iter != mUploadData.end(); ++iter)
@@ -5294,7 +5412,7 @@ BOOL LLModelPreview::render()
 
 				gGL.multMatrix((GLfloat*) mat.mMatrix);
 
-				for (U32 i = 0; i < mVertexBuffer[mPreviewLOD][model].size(); ++i)
+				for (U32 i = 0, e = mVertexBuffer[mPreviewLOD][model].size(); i < e; ++i)
 				{
 					LLVertexBuffer* buffer = mVertexBuffer[mPreviewLOD][model][i];
 				
@@ -5569,7 +5687,7 @@ BOOL LLModelPreview::render()
 
 					if (!model->mSkinWeights.empty())
 					{
-						for (U32 i = 0; i < mVertexBuffer[mPreviewLOD][model].size(); ++i)
+						for (U32 i = 0, e = mVertexBuffer[mPreviewLOD][model].size(); i < e; ++i)
 						{
 							LLVertexBuffer* buffer = mVertexBuffer[mPreviewLOD][model][i];
 
@@ -5625,8 +5743,12 @@ BOOL LLModelPreview::render()
 								{
 									// <FS:Ansariel> Proper matrix array length for fitted mesh
 									//F32* src = (F32*) mat[idx[k]].mMatrix;
-									F32* src = (F32*) mat[idx[(k < JOINT_COUNT) ? k : 0]].mMatrix;
+									S32 l = idx[k];
+									if( l >= JOINT_COUNT )
+										l = 0;
+									F32* src = (F32*) mat[l].mMatrix;
 									// </FS:Ansariel>
+
 									F32* dst = (F32*) final_mat.mMatrix;
 
 									F32 w = wght.mV[k];
@@ -5652,6 +5774,7 @@ BOOL LLModelPreview::render()
 							{
 							// </FS:ND>
 
+							llassert(model->mMaterialList.size() > i);
 							const std::string& binding = instance.mModel->mMaterialList[i];
 							const LLImportMaterial& material = instance.mMaterial[binding];
 
@@ -5956,7 +6079,7 @@ void LLFloaterModelPreview::handleModelPhysicsFeeReceived()
 	mUploadBtn->setEnabled(mHasUploadPerm && !mUploadModelUrl.empty());
 }
 
-void LLFloaterModelPreview::setModelPhysicsFeeErrorStatus(U32 status, const std::string& reason)
+void LLFloaterModelPreview::setModelPhysicsFeeErrorStatus(S32 status, const std::string& reason)
 {
 	LL_WARNS() << "LLFloaterModelPreview::setModelPhysicsFeeErrorStatus(" << status << " : " << reason << ")" << LL_ENDL;
 	doOnIdleOneTime(boost::bind(&LLFloaterModelPreview::toggleCalculateButton, this, true));
@@ -6032,7 +6155,7 @@ void LLFloaterModelPreview::onPermissionsReceived(const LLSD& result)
 	getChild<LLTextBox>("warning_message")->setVisible(!mHasUploadPerm);
 }
 
-void LLFloaterModelPreview::setPermissonsErrorStatus(U32 status, const std::string& reason)
+void LLFloaterModelPreview::setPermissonsErrorStatus(S32 status, const std::string& reason)
 {
 	LL_WARNS() << "LLFloaterModelPreview::setPermissonsErrorStatus(" << status << " : " << reason << ")" << LL_ENDL;
 

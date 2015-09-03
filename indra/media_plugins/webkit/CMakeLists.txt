@@ -70,6 +70,7 @@ if (LINUX)
   endif (PULSEAUDIO_FOUND)
   list(APPEND media_plugin_webkit_LINK_LIBRARIES
        ${UI_LIBRARIES}     # for glib/GTK
+       Xext #<FS:ND/> force pulling libXext in, otherwise we get undefined symbols.
        )
 elseif (DARWIN)
   list(APPEND media_plugin_webkit_SOURCE_FILES mac_volume_catcher.cpp)
@@ -125,7 +126,7 @@ if (DARWIN)
 #     TARGET media_plugin_webkit POST_BUILD
 # #    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/libllqtwebkit.dylib
 #     COMMAND ${CMAKE_COMMAND} -E copy ${ARCH_PREBUILT_DIRS_RELEASE}/libllqtwebkit.dylib ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/
-#    DEPENDS media_plugin_webkit ${ARCH_PREBUILT_DIRS_RELEASE}/libllqtwebkit.dylib
+#     DEPENDS media_plugin_webkit ${ARCH_PREBUILT_DIRS_RELEASE}/libllqtwebkit.dylib
 #     )
     
 endif (DARWIN)

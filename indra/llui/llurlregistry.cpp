@@ -27,6 +27,7 @@
 
 #include "linden_common.h"
 #include "llurlregistry.h"
+#include "lluriparser.h"
 
 #include <boost/regex.hpp>
 #include <boost/algorithm/string/find.hpp> //for boost::ifind_first -KC
@@ -38,17 +39,34 @@ void LLUrlRegistryNullCallback(const std::string &url, const std::string &label,
 
 LLUrlRegistry::LLUrlRegistry()
 {
-//	mUrlEntry.reserve(21);
+//	mUrlEntry.reserve(20);
 // [RLVa:KB] - Checked: 2010-11-01 (RLVa-1.2.2a) | Added: RLVa-1.2.2a
-	mUrlEntry.reserve(22);
+	mUrlEntry.reserve(25);
 // [/RLVa:KB]
 
 	// Urls are matched in the order that they were registered
-	registerUrl(new LLUrlEntryNoLink());
-	registerUrl(new LLUrlEntryIcon());
+	// <FS:Ansariel> Fix the "nolink>" fail; Fix from Alchemy viewer, courtesy of Drake Arconis
+	//registerUrl(new LLUrlEntryNoLink());
+	mUrlEntryNoLink = new LLUrlEntryNoLink();
+	registerUrl(mUrlEntryNoLink);
+	// </FS:Ansariel>
+	mUrlEntryIcon = new LLUrlEntryIcon();
+	registerUrl(mUrlEntryIcon);
+	mLLUrlEntryInvalidSLURL = new LLUrlEntryInvalidSLURL();
+	registerUrl(mLLUrlEntryInvalidSLURL);
 	registerUrl(new LLUrlEntrySLURL());
+
+	// decorated links for host names like: secondlife.com and lindenlab.com
+	// <FS:Ansariel> Normalize only trusted URL
+	//registerUrl(new LLUrlEntrySeconlifeURL());
+	mUrlEntryTrustedUrl = new LLUrlEntrySecondlifeURL();
+	registerUrl(mUrlEntryTrustedUrl);
+	// </FS:Ansariel>
+	registerUrl(new LLUrlEntrySimpleSecondlifeURL());
+
 	registerUrl(new LLUrlEntryHTTP());
-	registerUrl(new LLUrlEntryHTTPLabel());
+	mUrlEntryHTTPLabel = new LLUrlEntryHTTPLabel();
+	registerUrl(mUrlEntryHTTPLabel);
 	registerUrl(new LLUrlEntryAgentCompleteName());
 	registerUrl(new LLUrlEntryAgentDisplayName());
 	registerUrl(new LLUrlEntryAgentUserName());
@@ -66,10 +84,12 @@ LLUrlRegistry::LLUrlRegistry()
 	registerUrl(new LLUrlEntryObjectIM());
 	registerUrl(new LLUrlEntryPlace());
 	registerUrl(new LLUrlEntryInventory());
+    registerUrl(new LLUrlEntryExperienceProfile());
 	//LLUrlEntrySL and LLUrlEntrySLLabel have more common pattern, 
 	//so it should be registered in the end of list
 	registerUrl(new LLUrlEntrySL());
-	registerUrl(new LLUrlEntrySLLabel());
+	mUrlEntrySLLabel = new LLUrlEntrySLLabel();
+	registerUrl(mUrlEntrySLLabel);
 	// most common pattern is a URL without any protocol,
 	// e.g., "secondlife.com"
 	registerUrl(new LLUrlEntryHTTPNoProtocol());	
@@ -135,6 +155,11 @@ static bool matchRegex(const char *text, boost::regex regex, U32 &start, U32 &en
 		end--;
 	}
 
+	else if (text[end] == ']' && std::string(text+start, end-start).find('[') == std::string::npos)
+	{
+			end--;
+	}
+
 	return true;
 }
 
@@ -197,7 +222,7 @@ static bool stringHasJira(const std::string &text)
 			text.find("WEB") != std::string::npos);
 }
 
-bool LLUrlRegistry::findUrl(const std::string &text, LLUrlMatch &match, const LLUrlLabelCallback &cb)
+bool LLUrlRegistry::findUrl(const std::string &text, LLUrlMatch &match, const LLUrlLabelCallback &cb, bool is_content_trusted)
 {
 	// avoid costly regexes if there is clearly no URL in the text
 	if (! (stringHasUrl(text) || stringHasJira(text)))
@@ -212,6 +237,12 @@ bool LLUrlRegistry::findUrl(const std::string &text, LLUrlMatch &match, const LL
 	std::vector<LLUrlEntryBase *>::iterator it;
 	for (it = mUrlEntry.begin(); it != mUrlEntry.end(); ++it)
 	{
+		//Skip for url entry icon if content is not trusted
+		if(!is_content_trusted && (mUrlEntryIcon == *it))
+		{
+			continue;
+		}
+
 		LLUrlEntryBase *url_entry = *it;
 
 		U32 start = 0, end = 0;
@@ -220,6 +251,23 @@ bool LLUrlRegistry::findUrl(const std::string &text, LLUrlMatch &match, const LL
 			// does this match occur in the string before any other match
 			if (start < match_start || match_entry == NULL)
 			{
+
+				if (mLLUrlEntryInvalidSLURL == *it)
+				{
+					if(url_entry && url_entry->isSLURLvalid(text.substr(start, end - start + 1)))
+					{
+						continue;
+					}
+				}
+
+				if((mUrlEntryHTTPLabel == *it) || (mUrlEntrySLLabel == *it))
+				{
+					if(url_entry && !url_entry->isWikiLinkCorrect(text.substr(start, end - start + 1)))
+					{
+						continue;
+					}
+				}
+
 				match_start = start;
 				match_end = end;
 				match_entry = url_entry;
@@ -232,16 +280,36 @@ bool LLUrlRegistry::findUrl(const std::string &text, LLUrlMatch &match, const LL
 	{
 		// fill in the LLUrlMatch object and return it
 		std::string url = text.substr(match_start, match_end - match_start + 1);
+
+		// <FS:Ansariel> Fix the "nolink>" fail; Fix from Alchemy viewer, courtesy of Drake Arconis
+		//if (match_entry == mUrlEntryTrusted)
+		//{
+		//	LLUriParser up(url);
+		//	up.normalize();
+		//	url = up.normalizedUri();
+		//}
+		if (match_entry != mUrlEntryNoLink && match_entry == mUrlEntryTrustedUrl)
+		{
+			LLUriParser up(url);
+			if (!up.normalize())
+			{
+				url = up.normalizedUri();
+			}
+		}
+		// </FS:Ansariel>
+
 		match.setValues(match_start, match_end,
 						match_entry->getUrl(url),
 						match_entry->getLabel(url, cb),
+						match_entry->getQuery(url),
 						match_entry->getTooltip(url),
 						match_entry->getIcon(url),
 						match_entry->getStyle(),
 						match_entry->getMenuName(),
 						match_entry->getLocation(url),
 						match_entry->getID(url),
-						match_entry->underlineOnHoverOnly(url));
+						match_entry->underlineOnHoverOnly(url),
+						match_entry->isTrusted());
 		return true;
 	}
 
@@ -261,7 +329,7 @@ bool LLUrlRegistry::findUrl(const LLWString &text, LLUrlMatch &match, const LLUr
 		// character encoding, so we need to update the start
 		// and end values to be correct for the wide string.
 		LLWString wurl = utf8str_to_wstring(match.getUrl());
-		S32 start = text.find(wurl);
+		size_t start = text.find(wurl);
 		if (start == std::string::npos)
 		{
 			return false;
@@ -270,6 +338,7 @@ bool LLUrlRegistry::findUrl(const LLWString &text, LLUrlMatch &match, const LLUr
 
 		match.setValues(start, end, match.getUrl(), 
 						match.getLabel(),
+						match.getQuery(),
 						match.getTooltip(),
 						match.getIcon(),
 						match.getStyle(),

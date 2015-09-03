@@ -151,14 +151,10 @@ private:
 // TODO: these values ought to be in the XML too
 const S32 MENU_PARCEL_SPACING = 1;	// Distance from right of menu item to parcel information
 const S32 SIM_STAT_WIDTH = 8;
-const F32 SIM_WARN_FRACTION = 0.75f;
-const F32 SIM_FULL_FRACTION = 0.98f;
 const LLColor4 SIM_OK_COLOR(0.f, 1.f, 0.f, 1.f);
 const LLColor4 SIM_WARN_COLOR(1.f, 1.f, 0.f, 1.f);
 const LLColor4 SIM_FULL_COLOR(1.f, 0.f, 0.f, 1.f);
 const F32 ICON_TIMER_EXPIRY		= 3.f; // How long the balance and health icons should flash after a change.
-const F32 ICON_FLASH_FREQUENCY	= 2.f;
-const S32 TEXT_HEIGHT = 18;
 
 static void onClickVolume(void*);
 
@@ -334,6 +330,7 @@ BOOL LLStatusBar::postBuild()
 	sgp.stat.count_stat_float(&LLStatViewer::ACTIVE_MESSAGE_DATA_RECEIVED);
 	sgp.units("Kbps");
 	sgp.precision(0);
+	sgp.per_sec(true);
 	mSGBandwidth = LLUICtrlFactory::create<LLStatGraph>(sgp);
 	addChild(mSGBandwidth);
 	x -= SIM_STAT_WIDTH + 2;
@@ -850,7 +847,7 @@ void LLStatusBar::onClickMediaToggle(void* data)
 	// "Selected" means it was showing the "play" icon (so media was playing), and now it shows "pause", so turn off media
 	bool enable = ! status_bar->mMediaToggle->getValue();
 
-	// <FS:Zi> Split up handling here to allow external controls to switch media on/off
+// <FS:Zi> Split up handling here to allow external controls to switch media on/off
 // 	LLViewerMedia::setAllMediaEnabled(enable);
 // }
 	status_bar->toggleMedia(enable);
@@ -858,11 +855,11 @@ void LLStatusBar::onClickMediaToggle(void* data)
 
 void LLStatusBar::toggleMedia(bool enable)
 {
-	// </FS:Zi>
+// </FS:Zi>
 	LLViewerMedia::setAllMediaEnabled(enable);
 }
 
-// ## Zi: Media/Stream separation
+// <FS:Zi> Media/Stream separation
 // static
 void LLStatusBar::onClickStreamToggle(void* data)
 {
@@ -871,19 +868,21 @@ void LLStatusBar::onClickStreamToggle(void* data)
 
 	LLStatusBar *status_bar = (LLStatusBar*)data;
 	bool enable = ! status_bar->mStreamToggle->getValue();
-	// <FS:Zi> Split up handling here to allow external controls to switch media on/off
 	status_bar->toggleStream(enable);
 }
 
 void LLStatusBar::toggleStream(bool enable)
 {
-	// </FS:Zi>
+	if (!gAudiop)
+	{
+		return;
+	}
+
 	if(enable)
 	{
 		if (LLAudioEngine::AUDIO_PAUSED == gAudiop->isInternetStreamPlaying())
 		{
 			// 'false' means unpause
-			//gAudiop->pauseInternetStream(false);
 			LLViewerAudio::getInstance()->startInternetStreamWithAutoFade(LLViewerMedia::getParcelAudioURL());
 		}
 		else
@@ -903,17 +902,14 @@ void LLStatusBar::toggleStream(bool enable)
 		LLViewerAudio::getInstance()->stopInternetStreamWithAutoFade();
 	}
 
-	// <FS:Zi> Split up handling cont.
-	// status_bar->mAudioStreamEnabled = enable;
 	mAudioStreamEnabled = enable;
-	// </FS:Zi>
 }
 
 BOOL LLStatusBar::getAudioStreamEnabled() const
 {
 	return mAudioStreamEnabled;
 }
-// ## Zi: Media/Stream separation
+// </FS:Zi> Media/Stream separation
 
 BOOL can_afford_transaction(S32 cost)
 {
@@ -925,12 +921,19 @@ void LLStatusBar::onVolumeChanged(const LLSD& newvalue)
 	refresh();
 }
 
-// <FS:PP> FIRE-6287: Clicking on traffic indicator toggles Statistics window
+// <FS:PP> FIRE-6287: Clicking on traffic indicator toggles Lag Meter window
 void LLStatusBar::onBandwidthGraphButtonClicked()
 {
-	LLFloaterReg::toggleInstance("stats");
+	if (gSavedSettings.getBOOL("FSUseStatsInsteadOfLagMeter"))
+	{
+		LLFloaterReg::toggleInstance("stats");
+	}
+	else
+	{
+		LLFloaterReg::toggleInstance("lagmeter");
+	}
 }
-// </FS:PP> FIRE-6287: Clicking on traffic indicator toggles Statistics window
+// </FS:PP> FIRE-6287: Clicking on traffic indicator toggles Lag Meter window
 
 // Implements secondlife:///app/balance/request to request a L$ balance
 // update via UDP message system. JC
@@ -1530,6 +1533,12 @@ void LLStatusBar::collectSearchableItems()
 
 void LLStatusBar::updateMenuSearchVisibility(const LLSD& data)
 {
-	mSearchPanel->setVisible(data.asBoolean());
+	bool visible = data.asBoolean();
+	mSearchPanel->setVisible(visible);
+	if (!visible)
+	{
+		mFilterEdit->setText(LLStringUtil::null);
+		onUpdateFilterTerm();
+	}
 	update();
 }

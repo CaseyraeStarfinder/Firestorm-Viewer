@@ -56,7 +56,6 @@
 
 // Firestorm includes
 #include "fscommon.h"
-#include "fsfloaterim.h"
 #include "fsfloaternearbychat.h"
 #include "fskeywords.h"
 #include "lggcontactsets.h"
@@ -706,7 +705,9 @@ void LLAvatarTracker::processChange(LLMessageSystem* msg)
 				if((mBuddyInfo[agent_id]->getRightsGrantedFrom() ^  new_rights) & LLRelationship::GRANT_MODIFY_OBJECTS)
 				{
 					LLSD args;
-					args["NAME"] = LLSLURL("agent", agent_id, "displayname").getSLURLString();
+					// <FS:Ansariel> Always show complete name in rights dialogs
+					//args["NAME"] = LLSLURL("agent", agent_id, "displayname").getSLURLString();
+					args["NAME"] = LLSLURL("agent", agent_id, "completename").getSLURLString();
 					
 					LLSD payload;
 					payload["from_id"] = agent_id;
@@ -887,17 +888,6 @@ void LLAvatarTracker::formFriendship(const LLUUID& id)
 			at.mBuddyInfo[id] = buddy_info;
 			at.addChangedMask(LLFriendObserver::ADD, id);
 			at.notifyObservers();
-
-			// <FS:Ansariel> FIRE-3248: Disable add friend button on IM floater if friendship request accepted
-			LLUUID im_session_id = LLIMMgr::computeSessionID(IM_NOTHING_SPECIAL, id);
-			// <FS:Ansariel> [FS communication UI]
-			FSFloaterIM* im_floater = FSFloaterIM::findInstance(im_session_id);
-			// </FS:Ansariel> [FS communication UI]
-			if (im_floater)
-			{
-				im_floater->setEnableAddFriendButton(FALSE);
-			}
-			// </FS:Ansariel>
 		}
 	}
 }
@@ -915,17 +905,6 @@ void LLAvatarTracker::processTerminateFriendship(LLMessageSystem* msg, void**)
 		at.addChangedMask(LLFriendObserver::REMOVE, id);
 		delete buddy;
 		at.notifyObservers();
-
-		// <FS:Ansariel> FIRE-3248: Disable add friend button on IM floater if friendship request accepted
-		LLUUID im_session_id = LLIMMgr::computeSessionID(IM_NOTHING_SPECIAL, id);
-		// <FS:Ansariel> [FS communication UI]
-		FSFloaterIM* im_floater = FSFloaterIM::findInstance(im_session_id);
-		// </FS:Ansariel> [FS communication UI]
-		if (im_floater)
-		{
-			im_floater->setEnableAddFriendButton(TRUE);
-		}
-		// </FS:Ansariel>
 	}
 }
 
@@ -1017,8 +996,7 @@ bool LLCollectMappableBuddies::operator()(const LLUUID& buddy_id, LLRelationship
 {
 	LLAvatarName av_name;
 	LLAvatarNameCache::get( buddy_id, &av_name);
-	// <FS:Ansariel> Friend names on worldmap should respect display name settings
-	buddy_map_t::value_type value(av_name.getDisplayName(), buddy_id);
+	buddy_map_t::value_type value(buddy_id, av_name.getDisplayName());
 	if(buddy->isOnline() && buddy->isRightGrantedFrom(LLRelationship::GRANT_MAP_LOCATION))
 	{ 
 		// <FS:Ansariel> Friend names on worldmap should respect display name settings
@@ -1030,12 +1008,12 @@ bool LLCollectMappableBuddies::operator()(const LLUUID& buddy_id, LLRelationship
 		if (LLAvatarName::useDisplayNames() && NameTagShowUsernames) 
 		// </FS:PP>
 		{
-			buddy_map_t::value_type value(av_name.getCompleteName(), buddy_id);
+			buddy_map_t::value_type value(buddy_id, av_name.getCompleteName());
 			mMappable.insert(value);
 		}
 		else
 		{
-			buddy_map_t::value_type value(av_name.getDisplayName(), buddy_id);
+			buddy_map_t::value_type value(buddy_id, av_name.getDisplayName());
 			mMappable.insert(value);
 		}
 	// </FS:Ansariel>
@@ -1046,7 +1024,7 @@ bool LLCollectMappableBuddies::operator()(const LLUUID& buddy_id, LLRelationship
 bool LLCollectOnlineBuddies::operator()(const LLUUID& buddy_id, LLRelationship* buddy)
 {
 	gCacheName->getFullName(buddy_id, mFullName);
-	buddy_map_t::value_type value(mFullName, buddy_id);
+	buddy_map_t::value_type value(buddy_id, mFullName);
 	if(buddy->isOnline())
 	{
 		mOnline.insert(value);
@@ -1062,7 +1040,7 @@ bool LLCollectAllBuddies::operator()(const LLUUID& buddy_id, LLRelationship* bud
 	//mFullName = av_name.getDisplayName();
 	mFullName = FSCommon::getAvatarNameByDisplaySettings(av_name);
 	// </FS:Ansariel>
-	buddy_map_t::value_type value(mFullName, buddy_id);
+	buddy_map_t::value_type value(buddy_id, mFullName);
 	if(buddy->isOnline())
 	{
 		mOnline.insert(value);

@@ -107,13 +107,14 @@ public:
 public:
 	virtual bool 	isSelf() const { return false; } // True if this avatar is for this viewer's agent
 	virtual BOOL	isValid() const;
-	virtual BOOL	isUsingServerBakes() const = 0;
 	virtual BOOL	isUsingLocalAppearance() const = 0;
 	virtual BOOL	isEditingAppearance() const = 0;
 
 	bool isBuilt() const { return mIsBuilt; }
 
-	
+	// <FS:Ansariel> [Legacy Bake]
+	virtual BOOL	isUsingServerBakes() const = 0;
+
 /**                    State
  **                                                                            **
  *******************************************************************************/
@@ -141,17 +142,18 @@ public:
 
 	joint_map_t			mJointMap;
 	
-	void				computeBodySize();
+	void		computeBodySize();
 
 
 protected:
 	static BOOL			parseSkeletonFile(const std::string& filename);
 	virtual void		buildCharacter();
 	virtual BOOL		loadAvatar();
-	virtual void		bodySizeChanged() = 0;
 // [RLVa:KB] - Checked: 2013-03-03 (RLVa-1.4.8)
 	virtual F32			getAvatarOffset() /*const*/;
 // [/RLVa:KB]
+	// <FS:Ansariel> [Legacy Bake]
+	virtual void		bodySizeChanged() = 0;
 
 	BOOL				setupBone(const LLAvatarBoneInfo* info, LLJoint* parent, S32 &current_volume_num, S32 &current_joint_num);
 	BOOL				allocateCharacterJoints(S32 num);
@@ -161,11 +163,17 @@ protected:
 	BOOL				mIsBuilt; // state of deferred character building
 	typedef std::vector<LLAvatarJoint*> avatar_joint_list_t;
 	avatar_joint_list_t	mSkeleton;
-	
+	LLPosOverrideMap	mPelvisFixups;
+
 	//--------------------------------------------------------------------
 	// Pelvis height adjustment members.
 	//--------------------------------------------------------------------
 public:
+	void				addPelvisFixup( F32 fixup, const LLUUID& mesh_id );
+	void 				removePelvisFixup( const LLUUID& mesh_id );
+	bool 				hasPelvisFixup( F32& fixup, LLUUID& mesh_id ) const;
+	bool 				hasPelvisFixup( F32& fixup ) const;
+	
 	LLVector3			mBodySize;
 	LLVector3			mAvatarOffset;
 protected:
@@ -232,6 +240,8 @@ public:
 	// Composites
 	//--------------------------------------------------------------------
 public:
+	// <FS:Ansariel> [Legacy Bake]
+	//virtual void	invalidateComposite(LLTexLayerSet* layerset) = 0;
 	virtual void	invalidateComposite(LLTexLayerSet* layerset, BOOL upload_result) = 0;
 
 /********************************************************************************
@@ -263,7 +273,10 @@ protected:
 	// Clothing colors (convenience functions to access visual parameters)
 	//--------------------------------------------------------------------
 public:
+	// <FS:Ansariel> [Legacy Bake]
+	//void			setClothesColor(LLAvatarAppearanceDefines::ETextureIndex te, const LLColor4& new_color);
 	void			setClothesColor(LLAvatarAppearanceDefines::ETextureIndex te, const LLColor4& new_color, BOOL upload_bake);
+	// </FS:Ansariel> [Legacy Bake]
 	LLColor4		getClothesColor(LLAvatarAppearanceDefines::ETextureIndex te);
 	static BOOL		teToColorParams(LLAvatarAppearanceDefines::ETextureIndex te, U32 *param_name);
 
@@ -272,7 +285,10 @@ public:
 	//--------------------------------------------------------------------
 public:
 	LLColor4		getGlobalColor(const std::string& color_name ) const;
+	// <FS:Ansariel> [Legacy Bake]
+	//virtual void	onGlobalColorChanged(const LLTexGlobalColor* global_color) = 0;
 	virtual void	onGlobalColorChanged(const LLTexGlobalColor* global_color, BOOL upload_bake) = 0;
+	// </FS:Ansariel> [Legacy Bake]
 protected:
 	LLTexGlobalColor* mTexSkinColor;
 	LLTexGlobalColor* mTexHairColor;

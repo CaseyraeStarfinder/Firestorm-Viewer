@@ -1,14 +1,22 @@
 # -*- cmake -*-
 include(Prebuilt)
 
-set(NDOF ON CACHE BOOL "Use NDOF space navigator joystick library.")
+if( NOT ND_BUILD64BIT_ARCH OR NOT LINUX )
+  set(NDOF ON CACHE BOOL "Use NDOF space navigator joystick library.")
+else( NOT ND_BUILD64BIT_ARCH OR NOT LINUX )
+  set(NDOF OFF CACHE BOOL "Use NDOF space navigator joystick library.")
+endif( NOT ND_BUILD64BIT_ARCH OR NOT LINUX )
 
 if (NDOF)
-  if (STANDALONE)
+  if (USESYSTEMLIBS)
     set(NDOF_FIND_REQUIRED ON)
     include(FindNDOF)
-  else (STANDALONE)
-    use_prebuilt_binary(ndofdev)
+  else (USESYSTEMLIBS)
+    if (WINDOWS OR DARWIN)
+      use_prebuilt_binary(libndofdev)
+    elseif (LINUX)
+      use_prebuilt_binary(open-libndofdev)
+    endif (WINDOWS OR DARWIN)
 
     if (WINDOWS)
       set(NDOF_LIBRARY libndofdev)
@@ -18,7 +26,7 @@ if (NDOF)
 
     set(NDOF_INCLUDE_DIR ${ARCH_PREBUILT_DIRS}/include/ndofdev)
     set(NDOF_FOUND 1)
-  endif (STANDALONE)
+  endif (USESYSTEMLIBS)
 endif (NDOF)
 
 if (NDOF_FOUND)

@@ -112,20 +112,20 @@ namespace
 		{
 		}
 
-		virtual void error(U32 status, const std::string& reason)
+	protected:
+		virtual void httpFailure()
 		{
 			// don't spam when agent communication disconnected already
-			if (status != 410)
+			if (HTTP_GONE != getStatus())
 			{
-				LL_WARNS("Messaging") << "error status " << status
-						<< " for message " << mMessageName
-						<< " reason " << reason << LL_ENDL;
+				LL_WARNS("Messaging") << "error for message " << mMessageName
+									  << " " << dumpResponse() << LL_ENDL;
 			}
 			// TODO: Map status in to useful error code.
 			if(NULL != mCallback) mCallback(mCallbackData, LL_ERR_TCP_TIMEOUT);
 		}
 		
-		virtual void result(const LLSD& content)
+		virtual void httpSuccess()
 		{
 			if(NULL != mCallback) mCallback(mCallbackData, LL_ERR_NOERR);
 		}
@@ -151,7 +151,7 @@ class LLMessageHandlerBridge : public LLHTTPNode
 void LLMessageHandlerBridge::post(LLHTTPNode::ResponsePtr response, 
 							const LLSD& context, const LLSD& input) const
 {
-	std::string name = context["request"]["wildcard"]["message-name"];
+	std::string name = context[CONTEXT_REQUEST][CONTEXT_WILDCARD]["message-name"];
 	char* namePtr = LLMessageStringTable::getInstance()->getString(name.c_str());
 	
 	LL_DEBUGS() << "Setting mLastSender " << input["sender"].asString() << LL_ENDL;
@@ -797,7 +797,7 @@ S32	LLMessageSystem::getReceiveBytes() const
 }
 
 
-void LLMessageSystem::processAcks()
+void LLMessageSystem::processAcks(F32 collect_time)
 {
 	F64Seconds mt_sec = getMessageTimeSeconds();
 	{
@@ -823,7 +823,7 @@ void LLMessageSystem::processAcks()
 		mCircuitInfo.resendUnackedPackets(mUnackedListDepth, mUnackedListSize);
 
 		//cycle through ack list for each host we need to send acks to
-		mCircuitInfo.sendAcks();
+		mCircuitInfo.sendAcks(collect_time);
 
 		if (!mDenyTrustedCircuitSet.empty())
 		{
@@ -2762,7 +2762,7 @@ void LLMessageSystem::dumpReceiveCounts()
 			if (mt->mReceiveCount > 0)
 			{
 				LL_INFOS("Messaging") << "Num: " << std::setw(3) << mt->mReceiveCount << " Bytes: " << std::setw(6) << mt->mReceiveBytes
-						<< " Invalid: " << std::setw(3) << mt->mReceiveInvalid << " " << mt->mName << " " << llround(100 * mt->mDecodeTimeThisFrame / mReceiveTime.value()) << "%" << LL_ENDL;
+						<< " Invalid: " << std::setw(3) << mt->mReceiveInvalid << " " << mt->mName << " " << ll_round(100 * mt->mDecodeTimeThisFrame / mReceiveTime.value()) << "%" << LL_ENDL;
 			}
 		}
 	}

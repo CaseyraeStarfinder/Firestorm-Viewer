@@ -52,6 +52,7 @@
 #include "llsdutil.h"
 #include "lllayoutstack.h"
 #include "lliconctrl.h"
+#include "llhttpconstants.h"
 #include "lltextbox.h"
 #include "llbutton.h"
 #include "llcheckboxctrl.h"
@@ -119,8 +120,8 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 
 	if(!getDecoupleTextureSize())
 	{
-		S32 screen_width = llround((F32)getRect().getWidth() * LLUI::getScaleFactor().mV[VX]);
-		S32 screen_height = llround((F32)getRect().getHeight() * LLUI::getScaleFactor().mV[VY]);
+		S32 screen_width = ll_round((F32)getRect().getWidth() * LLUI::getScaleFactor().mV[VX]);
+		S32 screen_height = ll_round((F32)getRect().getHeight() * LLUI::getScaleFactor().mV[VY]);
 			
 		setTextureSize(screen_width, screen_height);
 	}
@@ -407,8 +408,12 @@ BOOL LLMediaCtrl::postBuild ()
 	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registar;
 	registar.add("Open.WebInspector", boost::bind(&LLMediaCtrl::onOpenWebInspector, this));
 
+	// stinson 05/05/2014 : use this as the parent of the context menu if the static menu
+	// container has yet to be created
+	LLPanel* menuParent = (LLMenuGL::sMenuContainer != NULL) ? dynamic_cast<LLPanel*>(LLMenuGL::sMenuContainer) : dynamic_cast<LLPanel*>(this);
+	llassert(menuParent != NULL);
 	mContextMenu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>(
-		"menu_media_ctrl.xml", LLMenuGL::sMenuContainer, LLViewerMenuHolderGL::child_registry_t::instance());
+		"menu_media_ctrl.xml", menuParent, LLViewerMenuHolderGL::child_registry_t::instance());
 	setVisibleCallback(boost::bind(&LLMediaCtrl::onVisibilityChanged, this, _2));
 
 	return TRUE;
@@ -486,8 +491,8 @@ void LLMediaCtrl::reshape( S32 width, S32 height, BOOL called_from_parent )
 {
 	if(!getDecoupleTextureSize())
 	{
-		S32 screen_width = llround((F32)width * LLUI::getScaleFactor().mV[VX]);
-		S32 screen_height = llround((F32)height * LLUI::getScaleFactor().mV[VY]);
+		S32 screen_width = ll_round((F32)width * LLUI::getScaleFactor().mV[VX]);
+		S32 screen_height = ll_round((F32)height * LLUI::getScaleFactor().mV[VY]);
 
 		// when floater is minimized, these sizes are negative
 		if ( screen_height > 0 && screen_width > 0 )
@@ -516,6 +521,16 @@ void LLMediaCtrl::navigateForward()
 	if (mMediaSource && mMediaSource->hasMedia())
 	{
 		mMediaSource->getMediaPlugin()->browse_forward();
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+void LLMediaCtrl::navigateStop()
+{
+	if (mMediaSource && mMediaSource->hasMedia())
+	{
+		mMediaSource->getMediaPlugin()->browse_stop();
 	}
 }
 
@@ -556,7 +571,7 @@ void LLMediaCtrl::clearCache()
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-void LLMediaCtrl::navigateTo( std::string url_in, std::string mime_type)
+void LLMediaCtrl::navigateTo( std::string url_in, std::string mime_type, bool clean_browser)
 {
 // <AW>
 	// don't browse to slurls like "secondlife://" or "hop://"
@@ -575,7 +590,7 @@ void LLMediaCtrl::navigateTo( std::string url_in, std::string mime_type)
 	{
 		mCurrentNavUrl = url_in;
 		mMediaSource->setSize(mTextureWidth, mTextureHeight);
-		mMediaSource->navigateTo(url_in, mime_type, mime_type.empty());
+		mMediaSource->navigateTo(url_in, mime_type, mime_type.empty(), false, clean_browser);
 	}
 }
 
@@ -595,7 +610,7 @@ void LLMediaCtrl::navigateToLocalPage( const std::string& subdir, const std::str
 	{
 		mCurrentNavUrl = expanded_filename;
 		mMediaSource->setSize(mTextureWidth, mTextureHeight);
-		mMediaSource->navigateTo(expanded_filename, "text/html", false);
+		mMediaSource->navigateTo(expanded_filename, HTTP_CONTENT_TEXT_HTML, false);
 	}
 }
 
@@ -793,13 +808,13 @@ void LLMediaCtrl::draw()
 					{
 						// max width, adjusted height
 						width = r.getWidth();
-						height = llmin(llmax(llround(width / media_aspect), 0), r.getHeight());
+						height = llmin(llmax(ll_round(width / media_aspect), 0), r.getHeight());
 					}
 					else
 					{
 						// max height, adjusted width
 						height = r.getHeight();
-						width = llmin(llmax(llround(height * media_aspect), 0), r.getWidth());
+						width = llmin(llmax(ll_round(height * media_aspect), 0), r.getWidth());
 					}
 				}
 				else
@@ -883,14 +898,14 @@ void LLMediaCtrl::convertInputCoords(S32& x, S32& y)
 		coords_opengl = mMediaSource->getMediaPlugin()->getTextureCoordsOpenGL();
 	}
 	
-	x = llround((F32)x * LLUI::getScaleFactor().mV[VX]);
+	x = ll_round((F32)x * LLUI::getScaleFactor().mV[VX]);
 	if ( ! coords_opengl )
 	{
-		y = llround((F32)(y) * LLUI::getScaleFactor().mV[VY]);
+		y = ll_round((F32)(y) * LLUI::getScaleFactor().mV[VY]);
 	}
 	else
 	{
-		y = llround((F32)(getRect().getHeight() - y) * LLUI::getScaleFactor().mV[VY]);
+		y = ll_round((F32)(getRect().getHeight() - y) * LLUI::getScaleFactor().mV[VY]);
 	};
 }
 
@@ -967,7 +982,7 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAVIGATE_ERROR_PAGE" << LL_ENDL;
 			if ( mErrorPageURL.length() > 0 )
 			{
-				navigateTo(mErrorPageURL, "text/html");
+				navigateTo(mErrorPageURL, HTTP_CONTENT_TEXT_HTML);
 			};
 		};
 		break;
@@ -1135,4 +1150,9 @@ void LLMediaCtrl::setTrustedContent(bool trusted)
 	{
 		mMediaSource->setTrustedBrowser(trusted);
 	}
+}
+
+void LLMediaCtrl::updateContextMenuParent(LLView* pNewParent)
+{
+	mContextMenu->updateParent(pNewParent);
 }

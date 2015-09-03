@@ -78,6 +78,8 @@ public:
 	// Certain grabs should not highlight the "Build" toolbar button
 	BOOL getHideBuildHighlight() { return mHideBuildHighlight; }
 
+	void setClickedInMouselook(BOOL is_clickedInMouselook) {mClickedInMouselook = is_clickedInMouselook;}
+
 	static void		pickCallback(const LLPickInfo& pick_info);
 private:
 	LLVector3d		getGrabPointGlobal();
@@ -119,6 +121,7 @@ private:
 	BOOL			mHasMoved;		// has mouse moved off center at all?
 	BOOL			mOutsideSlop;	// has mouse moved outside center 5 pixels?
 	BOOL			mDeselectedThisClick;
+	BOOL			mValidSelection;
 
 	S32             mLastFace;
 	LLVector2       mLastUVCoords;
@@ -133,6 +136,8 @@ private:
 	LLQuaternion	mSpinRotation;
 
 	BOOL			mHideBuildHighlight;
+
+	BOOL			mClickedInMouselook;
 };
 
 extern BOOL gGrabBtnVertical;

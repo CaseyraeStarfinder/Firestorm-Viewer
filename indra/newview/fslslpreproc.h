@@ -18,7 +18,7 @@
  *      may be used to endorse or promote products derived from this
  *      software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY MODULAR SYSTEMS AND CONTRIBUTORS “AS IS”
+ * THIS SOFTWARE IS PROVIDED BY MODULAR SYSTEMS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
  * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL MODULAR SYSTEMS OR CONTRIBUTORS
@@ -46,12 +46,12 @@ class FSLSLPreprocessor
 public:
 
 	FSLSLPreprocessor(LLScriptEdCore* corep)
-		: mCore(corep), mWaving(FALSE), mClose(FALSE)
+		: mCore(corep), mWaving(false), mClose(FALSE), mSync(false)
 	{}
 
 	static bool mono_directive(std::string const& text, bool agent_inv = true);
-	std::string encode(std::string script);
-	std::string decode(std::string script);
+	std::string encode(const std::string& script);
+	std::string decode(const std::string& script);
 
 	std::string lslopt(std::string script);
 	std::string lslcomp(std::string script);
@@ -59,9 +59,10 @@ public:
 	static LLUUID findInventoryByName(std::string name);
 	static void FSProcCacheCallback(LLVFS *vfs, const LLUUID& uuid, LLAssetType::EType type,
 									void *userdata, S32 result, LLExtStat extstat);
-	void preprocess_script(BOOL close = FALSE, BOOL defcache = FALSE);
+	void preprocess_script(BOOL close = FALSE, bool sync = false, bool defcache = false);
 	void start_process();
-	void display_error(std::string err);
+	void display_message(const std::string& err);
+	void display_error(const std::string& err);
 
 	std::string uncollide_string_literals(std::string script);
 
@@ -75,18 +76,18 @@ public:
 	//as this isn't the case I'm not going to preserve this structure across logins.
 
 	//(it seems rather dumb that readable scripts don't show the asset id without a DL, but thats beside the point.)
-	static std::map<std::string,LLUUID> cached_assetids;
+	static std::map<std::string, LLUUID> cached_assetids;
 
-	static std::map<std::string,std::string> decollided_literals;
+	static std::map<std::string, std::string> decollided_literals;
 
 	std::set<std::string> caching_files;
 	std::set<std::string> defcached_files;
 	bool mDefinitionCaching;
 
 	LLScriptEdCore* mCore;
-	BOOL mWaving;
+	bool mWaving;
 	BOOL mClose;
-	BOOL mHDDInclude;
+	bool mSync;
 	std::string mMainScriptName;
 };
 

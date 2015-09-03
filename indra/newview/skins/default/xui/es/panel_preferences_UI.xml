@@ -30,8 +30,53 @@
 			<check_box name="FSAdvancedTooltips" label="Mostrar información extendida en las bulas (estilo clásico de Phoenix)"/>
 			<check_box name="FSShowGroupTitleInTooltip" label="Mostrar títulos de grupo del avatar en las bulas"/>			
 			<check_box label="Usar menús circulares" name="UsePieMenu" tool_tip="Usar los clásicos menús circulares V1.x (tipo 'tarta') en vez de los menús contextuales rectangulares cuando hagas clic con el botón derecho sobre el terreno, avatares, objetos o accesorios"/>
-			<check_box name="ShowNetStats" label="Mostrar medidor de lag" width="150" tool_tip="Muestra el medidor de lag en la barra de estado" left="5"/>
+			<text name="ScriptDialogsPerObjectLabel" width="180">
+				Diálogos de script por objeto:
+			</text>
+			<combo_box name="ScriptDialogPerObjectDropdown">
+				<combo_box.item name="ScriptDialogOption_0" label="Uno por objeto"/>
+				<combo_box.item name="ScriptDialogOption_1" label="Uno por objeto y canal"/>
+				<combo_box.item name="ScriptDialogOption_2" label="Sin restricciones"/>
+			</combo_box>
+			<check_box label="Quitar el &quot;Bloquear&quot;" name="FSRemoveScriptBlockButton"/>
+			<text name="ScriptDialogsPositionLabel" width="180">
+				Posición de los diálogos de script:
+			</text>
+			<combo_box name="ScriptDialogsPositionDropdown" tool_tip="Selecciona dónde deben aparecer los diálogos de script en tu pantalla.">
+				<combo_box.item label="Valor anterior" name="ScriptDialogPositionOption_0"/>
+				<combo_box.item label="Acoplado a los chiclets" name="ScriptDialogPositionOption_1"/>
+				<combo_box.item label="Arriba a la izquerda" name="ScriptDialogPositionOption_2"/>
+				<combo_box.item label="Arriba a la derecha" name="ScriptDialogPositionOption_3"/>
+				<combo_box.item label="Abajo a la izquerda" name="ScriptDialogPositionOption_4"/>
+				<combo_box.item label="Abajo a la derecha" name="ScriptDialogPositionOption_5"/>
+			</combo_box>
+			<check_box label="Animados" name="FSAnimatedScriptDialogs" tool_tip="Actívalo para que los diálogos de script se abran con animación (comportamiento clásico de v1.x). Sólo funciona si los diálogos se abren desde arriba hacia abajo." width="256"/>
+			<check_box label="Avisos de grupo en esquina superior derecha" name="ShowGroupNoticesTopRight" tool_tip="Activa para mover los avisos de grupo a la esquina superior derecha de la pantalla (comportamiento clásico V1.x)" width="256"/>
+			<text name="GroupTopRightRequiresRestart" left_delta="267" top_pad="-17">
+				(requiere reiniciar)
+			</text>
+			<check_box label="Ocultar los iconos de notificación de chat de grupo y MI" name="FSDisableIMChiclets" tool_tip="Si se activa, Firestorm no mostrará ningún icono de notificación de chat de grupo / MI (el sobre de los avisos de grupo y la suma de MIs permanecerán en pantalla)."/>
+			<slider label_width="230" label="Número de parpadeos de los botones:" tool_tip="Número de veces que los botones parpadean para llamar tu atención" name="ButtonsFlashCount"/>
+			<slider label_width="230" name="ButtonFlashRate"/>
+<!--
+			<slider label="Frecuencia de parpadeo:" tool_tip="Frecuencia (en Hz) a la que parpadean los botones para notificar un MI" name="ButtonFlashRate"/>
+			<text name="ButtonFlashRateText">
+				Hz
+			</text>
+-->
+		</panel>
+		<panel name="UI-interface-top-bars">
+			<check_box name="ShowNetStats" label="Mostrar medidor de lag" tool_tip="Muestra el medidor de lag en la barra de estado"/>
 			<check_box label="Mostrar controles de medios en esquina superior derecha" name="FSEnableVolumeControls" tool_tip="Si lo activas, Firestorm mostrará los controles de sonido, flujos de medios y audio, etc.) en la esquina superior derecha de la pantalla. Puede ser útil desactivarlo si la skin seleccionada ya dispone de sus propios controles." />
+			<check_box label="Mostrar canal del simulador en la barra de estado" name="FSStatusbarShowSimulatorVersion" tool_tip="Muestra el canal del simulador actual (RC Magnum, RC Le Tigre, RC BlueSteel etc.) en la barra de estado estilo V1."/>
+			<check_box label="Mostrar localización en la barra de menú" name="ShowMenuBarLocation" />
+			<check_box label="Mostrar la barra de favoritos" name="ShowNavbarFavoritesPanel" />
+			<check_box label="Mostrar la barra de navegación y búsqueda" name="ShowNavbarNavigationPanel" />
+			<check_box label="Mostrar la barra de búsqueda" name="ShowSearchTopBar" />
+		</panel>
+		<panel name="UI-interface-windows-tab">
+			<check_box name="FSUseWebProfiles" label="Usar perfiles web por defecto" tool_tip="Muestra los perfiles como una página web en vez de usar los paneles de estilo V1"/>
+			<check_box label="Desactivar la apertura automática de la lista de bloqueados" name="FSDisableBlockListAutoOpen" tool_tip="Desactiva la apertura automática de la lista de bloqueados cuando se bloquean avatares u objetos."/>
 			<text name="standalone_textbox">
 				Usar ventanas independientes para:
 			</text>
@@ -44,38 +89,9 @@
 			</text>
 			<check_box name="FSTeleportHistoryShowPosition" label="Posición" tool_tip="Si lo activas, se mostrarán las coordenadas de la región en el historial de teleportes."/>
 			<check_box name="FSTeleportHistoryShowDate" label="Fecha" tool_tip="Si lo activas, se mostrará la fecha y la hora del teleporte en el historial de teleportes."/>
-			<text name="ScriptDialogsPerObjectLabel" width="160">
-				Diálogos de script por objeto:
-			</text>
-			<combo_box name="ScriptDialogPerObjectDropdown">
-				<combo_box.item name="ScriptDialogOption_0" label="Uno por objeto"/>
-				<combo_box.item name="ScriptDialogOption_1" label="Uno por objeto y canal"/>
-				<combo_box.item name="ScriptDialogOption_2" label="Sin restricciones"/>
-			</combo_box>
-			<text name="ScriptDialogsPositionLabel" width="180">
-				Posición de los diálogos de script:
-			</text>
-			<combo_box name="ScriptDialogsPositionDropdown" tool_tip="Selecciona dónde deben aparecer los diálogos de script en tu pantalla.">
-				<combo_box.item label="Valor anterior" name="ScriptDialogPositionOption_0"/>
-				<combo_box.item label="Acoplado a los chiclets" name="ScriptDialogPositionOption_1"/>
-				<combo_box.item label="Arriba a la izquerda" name="ScriptDialogPositionOption_2"/>
-				<combo_box.item label="Arriba a la derecha" name="ScriptDialogPositionOption_3"/>
-				<combo_box.item label="Abajo a la izquerda" name="ScriptDialogPositionOption_4"/>
-				<combo_box.item label="Abajo a la derecha" name="ScriptDialogPositionOption_5"/>
-			</combo_box>
-			<check_box label="Diálogos de script animados" name="FSAnimatedScriptDialogs" tool_tip="Actívalo para que los diálogos de script se abran con animación (comportamiento clásico de v1.x). Sólo funciona si los diálogos se abren desde arriba hacia abajo." width="256"/>
-			<check_box label="Avisos de grupo en esquina superior derecha" name="ShowGroupNoticesTopRight" tool_tip="Activa para mover los avisos de grupo a la esquina superior derecha de la pantalla (comportamiento clásico V1.x)" width="256"/>
-			<text name="GroupTopRightRequiresRestart" left_delta="267" top_pad="-17">
-				(requiere reiniciar)
-			</text>
-			<check_box label="Ocultar los iconos de notificación de chat de grupo y MI" name="FSDisableIMChiclets" tool_tip="Si se activa, Firestorm no mostrará ningún icono de notificación de chat de grupo / MI (el sobre de los avisos de grupo y la suma de MIs permanecerán en pantalla)."/>
-			<slider label="Número de parpadeos de los botones:" tool_tip="Número de veces que los botones parpadean para llamar tu atención" name="ButtonsFlashCount"/>
-<!--
-			<slider label="Frecuencia de parpadeo:" tool_tip="Frecuencia (en Hz) a la que parpadean los botones para notificar un MI" name="ButtonFlashRate"/>
-			<text name="ButtonFlashRateText">
-				Hz
-			</text>
--->
+			<check_box label="Ocultar carpetas de sistema vacías en el inventario" name="DebugHideEmptySystemFolders" tool_tip="Si lo activas, las ventanas de inventario no mostrará ninguna carpeta de sistema que esté vacía, como las de Favoritos, Hitos, etc."/>
+			<check_box label="Mostrar la carpeta Items Recibidos en el inventario" name="FSShowInboxFolder" tool_tip="Si lo activas, las ventanas de invantario también mostrarán la carpeta Items Recibidos"/>
+			<check_box label="Permitir diferentes términos de búsqueda en cada pestana del inventario" name="FSSplitInventorySearchOverTabs" tool_tip="Si lo activas se pueden usar diferentes términos de búsqueda en cada pestana del inventario."/>
 		</panel>
 		<panel label="Tostadas" name="UI-toasts-tab">		
 			<text name="ToastSettings">
@@ -149,14 +165,14 @@ no funcionar bien.
 			</text>
 			<text name="tooltip_textbox4" line_spacing.pixels="5">
 				pixels (requiere reiniciar)
-0 por defecto en V2/3 y 2 en V1.
+0 por defecto en V3 y 2 en V1.
 			</text>
 			<text name="Label_FolderItemViewHeight" width="165">
 				Altura de carpeta:
 			</text>
 			<text name="Label_FolderItemViewHeight_Scale" line_spacing.pixels="5">
 				pixels (requiere reiniciar)
-20 por defecto en V2/3 y 18 en V1.
+20 por defecto en V3 y 18 en V1.
 			</text>
 		</panel>
 	</tab_container>

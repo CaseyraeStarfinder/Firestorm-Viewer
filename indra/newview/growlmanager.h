@@ -46,23 +46,25 @@ struct GrowlNotification
 	bool useDefaultTextForBody;
 };
 
-const U64 GROWL_THROTTLE_TIME = 1000000; // Maximum spam rate (in microseconds).
-const F32 GROWL_THROTTLE_CLEANUP_PERIOD = 300; // How often we clean up the list (in seconds).
+const U64 GROWL_THROTTLE_TIME = 1000000u; // Maximum spam rate (in microseconds).
+const F32 GROWL_THROTTLE_CLEANUP_PERIOD = 300.f; // How often we clean up the list (in seconds).
 const int GROWL_MAX_BODY_LENGTH = 255; // Arbitrary.
 const std::string GROWL_IM_MESSAGE_TYPE = "Instant Message received";
+const std::string GROWL_KEYWORD_ALERT_TYPE = "Keyword Alert";
 
 class GrowlManager : public LLEventTimer
 {
 	LOG_CLASS(GrowlManager);
+
 public:
-	
 	GrowlManager();
 	~GrowlManager();
-	void notify(const std::string& notification_title, const std::string& notification_message, const std::string& notification_type);
 	BOOL tick();
 
-	static void InitiateManager();
+	static void initiateManager();
+	static void destroyManager();
 	static bool isUsable();
+	static void notify(const std::string& title, const std::string& message, const std::string& type);
 
 private:
 	GrowlNotifier*								mNotifier;
@@ -71,15 +73,18 @@ private:
 	LLNotificationChannelPtr					mGrowlNotificationsChannel;
 	
 	void loadConfig();
+	void performNotification(const std::string& title, const std::string& message, const std::string& type);
 	static bool onLLNotification(const LLSD& notice);
 	static bool filterOldNotifications(LLNotificationPtr pNotification);
 	static void onInstantMessage(const LLSD& im);
 	static void onScriptDialog(const LLSD& data);
+	static void onNearbyChatMessage(const LLSD& chat);
 	static inline bool shouldNotify();
 
 	LLBoundListener				mNotificationConnection;
 	boost::signals2::connection	mInstantMessageConnection;
 	boost::signals2::connection	mScriptDialogConnection;
+	boost::signals2::connection	mChatMessageConnection;
 };
 
 extern GrowlManager *gGrowlManager;

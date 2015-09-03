@@ -46,7 +46,7 @@ namespace LLAvatarNameCache
 	void cleanupClass();
 
 	// Import/export the name cache to file.
-	void importFile(std::istream& istr);
+	bool importFile(std::istream& istr);
 	void exportFile(std::ostream& ostr);
 
 	// On the viewer, usually a simulator capabilitity.
@@ -89,11 +89,6 @@ namespace LLAvatarNameCache
 	void setForceDisplayNames(bool force);
 // [/RLVa:KB]
 
-// [RLVa:KB] - Checked: 2010-12-08 (RLVa-1.4.0a) | Added: RLVa-1.2.2c
-	bool getForceDisplayNames();
-	void setForceDisplayNames(bool force);
-// [/RLVa:KB]
-
 	void erase(const LLUUID& agent_id);
 
     /// Provide some fallback for agents that return errors.
@@ -105,7 +100,7 @@ namespace LLAvatarNameCache
 
 	// Compute name expiration time from HTTP Cache-Control header,
 	// or return default value, in seconds from epoch.
-	F64 nameExpirationFromHeaders(LLSD headers);
+	F64 nameExpirationFromHeaders(const LLSD& headers);
 
 	void addUseDisplayNamesCallback(const use_display_name_signal_t::slot_type& cb);
 }

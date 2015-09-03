@@ -89,6 +89,7 @@ BOOL enable_god_full(void* user_data);
 BOOL enable_god_liaison(void* user_data);
 BOOL enable_god_basic(void* user_data);
 void set_underclothes_menu_options();
+void check_merchant_status();
 
 void exchange_callingcard(const LLUUID& dest_id);
 
@@ -163,6 +164,10 @@ U32 info_display_from_string(std::string info_display);
 bool enable_object_export();
 // </FS:Techwolf Lupindo>
 
+// <FS:Ansariel> Force HTTP features on SL
+bool use_http_inventory();
+bool use_http_textures();
+// <FS:Ansariel>
 
 class LLViewerMenuHolderGL : public LLMenuHolderGL
 {
@@ -219,6 +224,7 @@ extern PieMenu			*gPieMenuObject;
 extern PieMenu			*gPieMenuAttachmentSelf;
 extern PieMenu			*gPieMenuAttachmentOther;
 extern PieMenu			*gPieMenuLand;
+extern PieMenu			*gPieMenuMuteParticle;
 
 // Needed to build pie menus when attachment site list available
 extern PieMenu* gPieAttachScreenMenu;

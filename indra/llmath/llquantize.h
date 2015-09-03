@@ -43,6 +43,8 @@ LL_ALIGN_16( const F32 F_OOU8MAX_4A[4] ) = { OOU8MAX, OOU8MAX, OOU8MAX, OOU8MAX 
 const U8 FIRSTVALIDCHAR = 54;
 const U8 MAXSTRINGVAL = U8MAX - FIRSTVALIDCHAR; //we don't allow newline or null 
 
+// <FS:Ansariel> FIRE-15667: 24bit depth maps
+const U32 U24MAX = 16777215;
 
 inline U16 F32_to_U16_ROUND(F32 val, F32 lower, F32 upper)
 {
@@ -52,7 +54,7 @@ inline U16 F32_to_U16_ROUND(F32 val, F32 lower, F32 upper)
 	val /= (upper - lower);
 
 	// round the value.   Sreturn the U16
-	return (U16)(llround(val*U16MAX));
+	return (U16)(ll_round(val*U16MAX));
 }
 
 
@@ -92,7 +94,7 @@ inline U8 F32_to_U8_ROUND(F32 val, F32 lower, F32 upper)
 	val /= (upper - lower);
 
 	// return the rounded U8
-	return (U8)(llround(val*U8MAX));
+	return (U8)(ll_round(val*U8MAX));
 }
 
 
@@ -106,6 +108,18 @@ inline U8 F32_to_U8(F32 val, F32 lower, F32 upper)
 	// return the U8
 	return (U8)(llfloor(val*U8MAX));
 }
+
+// <FS:Ansariel> FIRE-15667: 24bit depth maps
+inline U32 F32_to_U32(F32 val, F32 lower, F32 upper)
+{
+	val = llclamp(val, lower, upper);
+	// make sure that the value is positive and normalized to <0, 1>
+	val -= lower;
+	val /= (upper - lower);
+
+	return (U32)(ll_round(val*U24MAX));
+}
+// </FS:Ansariel>
 
 inline F32 U8_to_F32(U8 ival, F32 lower, F32 upper)
 {

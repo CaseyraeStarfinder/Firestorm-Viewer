@@ -34,8 +34,10 @@
 
 //#include "llfirstuse.h"
 // tools and manipulators
+#include "llfloaterinspect.h"
 #include "lltool.h"
 #include "llmanipscale.h"
+#include "llmarketplacefunctions.h"
 #include "llselectmgr.h"
 #include "lltoolbrush.h"
 #include "lltoolcomp.h"
@@ -88,6 +90,8 @@ LLToolMgr::LLToolMgr()
 	LLUICtrl::EnableCallbackRegistry::currentRegistrar().add("Build.Enabled", boost::bind(&RlvUIEnabler::isBuildEnabled));
 // [/RLVa:KB]
 	LLUICtrl::CommitCallbackRegistry::currentRegistrar().add("Build.Toggle", boost::bind(&LLToolMgr::toggleBuildMode, this, _2));
+	LLUICtrl::EnableCallbackRegistry::currentRegistrar().add("Marketplace.Enabled", boost::bind(&LLToolMgr::canAccessMarketplace, this));
+	LLUICtrl::CommitCallbackRegistry::currentRegistrar().add("Marketplace.Toggle", boost::bind(&LLToolMgr::toggleMarketplace, this, _2));
 	
 	gToolNull = new LLTool(LLStringUtil::null);  // Does nothing
 	setCurrentTool(gToolNull);
@@ -224,7 +228,20 @@ LLTool* LLToolMgr::getCurrentTool()
 		}
 		if (cur_tool)
 		{
-			cur_tool->handleSelect();
+			if (	LLToolCompInspect::getInstance()->isToolCameraActive()
+				&&	prev_tool == LLToolCamera::getInstance()
+				&&	cur_tool == LLToolPie::getInstance() )
+			{
+				LLFloaterInspect * inspect_instance = LLFloaterReg::getTypedInstance<LLFloaterInspect>("inspect");
+				if(inspect_instance && inspect_instance->getVisible())
+				{
+					setTransientTool(LLToolCompInspect::getInstance());
+				}
+			}
+			else
+			{
+				cur_tool->handleSelect();
+			}
 		}
 	}
 
@@ -265,7 +282,17 @@ void LLToolMgr::toggleBuildMode(const LLSD& sdname)
 		return;
 	}
 
-	LLFloaterReg::toggleInstanceOrBringToFront("build");
+	// <FS:Ansariel> FIRE-15653: Prevent cheating around @editobj restriction
+	//LLFloaterReg::toggleInstanceOrBringToFront("build");
+	if (param == "toggleonly")
+	{
+		LLFloaterReg::toggleInstance("build");
+	}
+	else
+	{
+		LLFloaterReg::toggleInstanceOrBringToFront("build");
+	}
+	// </FS:Ansariel>
 
 	bool build_visible = LLFloaterReg::instanceVisible("build");
 	if (build_visible)
@@ -338,6 +365,23 @@ bool LLToolMgr::inBuildMode()
 			&& mCurrentToolset != gFaceEditToolset);
 	
 	return b;
+}
+
+bool LLToolMgr::canAccessMarketplace()
+{
+	return (LLMarketplaceData::instance().getSLMStatus() != MarketplaceStatusCodes::MARKET_PLACE_NOT_MIGRATED_MERCHANT) || gSavedSettings.getBOOL("InventoryOutboxDisplayBoth");
+}
+
+void LLToolMgr::toggleMarketplace(const LLSD& sdname)
+{
+	const std::string& param = sdname.asString();
+    
+	if ((param != "marketplace") || !canAccessMarketplace())
+	{
+		return;
+	}
+    
+	LLFloaterReg::toggleInstanceOrBringToFront("marketplace_listings");
 }
 
 void LLToolMgr::setTransientTool(LLTool* tool)

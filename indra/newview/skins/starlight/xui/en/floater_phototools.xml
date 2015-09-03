@@ -710,7 +710,7 @@
 			 top_pad="0"
 			 left="4"
 			 width="275"
-			 height="89"
+			 height="74"
 			 border_visible="true"
 			 bevel_style="none"
 			 bg_alpha_color="DkGray_66"
@@ -726,18 +726,6 @@
 				 name="RenderDeferred"
 				 top_pad="10"
 				 tool_tip="This will enable shadows from the Sun and Moon and in-world light sources. It will also allow you to turn on Depth of Field and other graphic features. Basically you need to turn this on to see most of the 'eye candy' in-world. If you cannot enable this feature or see its effect, first ensure both Atmospheric Shaders and Basic Shaders are enabled in tab 'WL'."
-				 width="240">
-				</check_box>
-				<check_box
-				 control_name="FSRenderSSR"
-				 height="16"
-				 initial_value="true"
-				 label="Enable Screen Space Reflections"
-				 layout="topleft"
-				 left="5"
-				 name="FSRenderSSR"
-				 top_pad="4"
-				 tool_tip="This will enable Screen Space Reflections which brings an essential level of realism to textures."
 				 width="240">
 				</check_box>
 				<check_box
@@ -775,7 +763,7 @@
 			 top_pad="0"
 			 left="4"
 			 width="275"
-			 height="35"
+			 height="65"
 			 border_visible="true"
 			 bevel_style="none"
 			 bg_alpha_color="DkGray_66"
@@ -815,7 +803,45 @@
 					 name="2"
 					 value="2"/>
 				</combo_box>
-			</panel>		
+				<text
+				 type="string"
+				 length="1"
+				 top_pad="7"
+				 follows="top|left"
+				 height="16"
+				 width="50"
+				 word_wrap="true"
+				 layout="topleft"
+				 left="5"
+				 name="avatar_shadows_label">
+					Avatar Shadows:
+				</text>
+				<combo_box
+				 control_name="FSSimpleAvatarShadows"
+				 height="20"
+				 layout="topleft"
+				 left_pad="10"
+				 top_delta="3"
+				 name="AvatarShadowDetail"
+				 width="200">
+					<combo_box.item
+					 label="None"
+					 name="0"
+					 value="0"/>
+					<combo_box.item
+					 label="Simplified"
+					 name="1"
+					 value="1"/>
+					<combo_box.item
+					 label="Optimized"
+					 name="2"
+					 value="2"/>
+					<combo_box.item
+					 label="Complex"
+					 name="3"
+					 value="3"/>
+				</combo_box>
+			</panel>
 
 			<panel
 			 name="P_Shadow_Res"
@@ -1517,7 +1543,7 @@
 			 top_pad="0"
 			 left="4"
 			 width="275"
-			 height="50"
+			 height="69"
 			 border_visible="true"
 			 bevel_style="none"
 			 bg_alpha_color="DkGray_66"
@@ -1533,6 +1559,18 @@
 				 tool_tip="This will enable Depth of Field which will 'determine distance between the nearest and farthest objects in a scene that appear acceptably sharp in an image' (Wikipedia). If you are not using it turn it off and it will speed up your frame rate. If you cannot enable this feature or do not see its effect, please turn on 'Advanced Lighting Model' in tab 'Light'."
 				 top_pad="10"
 				 width="230"/>
+				<check_box
+				 control_name="FSRenderDoFUnderwater"
+				 enabled_control="RenderDepthOfField"
+				 follows="top|left"
+				 layout="topleft"
+				 left="5"
+				 top_pad="3"
+				 height="16"
+				 label="Enable DoF when underwater"
+				 tool_tip="Normally, Depth of Field is disabled when underwater, even with the above box checked. This setting will remove that restriction. Note that you may have to manually refocus your camera on desired objects by alt-clicking on them when you're underwater."
+				 name="UseDoFUnderwater">
+				</check_box>
 				<check_box
 				 follows="top|left"
 				 layout="topleft"

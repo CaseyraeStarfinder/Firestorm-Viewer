@@ -510,32 +510,10 @@ void LLAvatarAppearance::computeBodySize()
 
 	mAvatarOffset.mV[VX] = 0.0f;
 	mAvatarOffset.mV[VY] = 0.0f;
-
-	// Certain configurations of avatars can force the overall height (with offset) to go negative.
-	// Enforce a constraint to make sure we don't go below 0.1 meters.
-	// Camera positioning and other things start to break down when your avatar is "walking" while being fully underground
-// [FS:CR] This is a bad check and will force your head in the ground if the following is true.
-#if 0
-	if (new_body_size.mV[VZ] + mAvatarOffset.mV[VZ] < 0.1f)
-	{
-		mAvatarOffset.mV[VZ] = -(new_body_size.mV[VZ] - 0.11f); // avoid floating point rounding making the above check continue to fail.
-
-		llassert(new_body_size.mV[VZ] + mAvatarOffset.mV[VZ] >= 0.1f);
-
-		if (mWearableData && isSelf()) 
-		{
-			LLWearable* shape = mWearableData->getWearable(LLWearableType::WT_SHAPE, 0);
-			if (shape) 
-			{
-				shape->setVisualParamWeight(AVATAR_HOVER, mAvatarOffset.mV[VZ], false);
-			}
-		}
-	}
-#endif // [/FS:CR]
-
 	if (new_body_size != mBodySize || old_offset != mAvatarOffset.mV[VZ])
 	{
 		mBodySize = new_body_size;
+		// <FS:Ansariel> [Legacy Bake]
 		bodySizeChanged();
 	}
 }
@@ -627,8 +605,6 @@ BOOL LLAvatarAppearance::setupBone(const LLAvatarBoneInfo* info, LLJoint* parent
 							 info->mRot.mV[VZ], LLQuaternion::XYZ));
 	joint->setScale(info->mScale);
 
-	joint->setDefaultFromCurrentXform();
-	
 	if (info->mIsJoint)
 	{
 		joint->setSkinOffset( info->mPivot );
@@ -720,6 +696,42 @@ void LLAvatarAppearance::clearSkeleton()
 	mSkeleton.clear();
 }
 
+//------------------------------------------------------------------------
+// addPelvisFixup
+//------------------------------------------------------------------------
+void LLAvatarAppearance::addPelvisFixup( F32 fixup, const LLUUID& mesh_id ) 
+{
+	LLVector3 pos(0.0,0.0,fixup);
+	mPelvisFixups.add(mesh_id,pos);
+}
+
+//------------------------------------------------------------------------
+// addPelvisFixup
+//------------------------------------------------------------------------
+void LLAvatarAppearance::removePelvisFixup( const LLUUID& mesh_id )
+{
+	mPelvisFixups.remove(mesh_id);
+}
+
+//------------------------------------------------------------------------
+// hasPelvisFixup
+//------------------------------------------------------------------------
+bool LLAvatarAppearance::hasPelvisFixup( F32& fixup, LLUUID& mesh_id ) const
+{
+	LLVector3 pos;
+	if (mPelvisFixups.findActiveOverride(mesh_id,pos))
+	{
+		fixup = pos[2];
+		return true;
+	}
+	return false;
+}
+
+bool LLAvatarAppearance::hasPelvisFixup( F32& fixup ) const
+{
+	LLUUID mesh_id;
+	return hasPelvisFixup( fixup, mesh_id );
+}
 //-----------------------------------------------------------------------------
 // LLAvatarAppearance::buildCharacter()
 // Deferred initialization and rebuild of the avatar.
@@ -1413,14 +1425,22 @@ BOOL LLAvatarAppearance::teToColorParams( ETextureIndex te, U32 *param_name )
 	return TRUE;
 }
 
-void LLAvatarAppearance::setClothesColor( ETextureIndex te, const LLColor4& new_color, BOOL upload_bake )
+// <FS:Ansariel> [Legacy Bake]
+//void LLAvatarAppearance::setClothesColor( ETextureIndex te, const LLColor4& new_color)
+void LLAvatarAppearance::setClothesColor( ETextureIndex te, const LLColor4& new_color, BOOL upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
 	U32 param_name[3];
 	if( teToColorParams( te, param_name ) )
 	{
-		setVisualParamWeight( param_name[0], new_color.mV[VX], upload_bake );
-		setVisualParamWeight( param_name[1], new_color.mV[VY], upload_bake );
-		setVisualParamWeight( param_name[2], new_color.mV[VZ], upload_bake );
+		// <FS:Ansariel> [Legacy Bake]
+		//setVisualParamWeight( param_name[0], new_color.mV[VX]);
+		//setVisualParamWeight( param_name[1], new_color.mV[VY]);
+		//setVisualParamWeight( param_name[2], new_color.mV[VZ]);
+		setVisualParamWeight( param_name[0], new_color.mV[VX], upload_bake);
+		setVisualParamWeight( param_name[1], new_color.mV[VY], upload_bake);
+		setVisualParamWeight( param_name[2], new_color.mV[VZ], upload_bake);
+		// </FS:Ansariel> [Legacy Bake]
 	}
 }
 

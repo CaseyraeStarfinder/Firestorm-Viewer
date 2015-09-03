@@ -60,7 +60,10 @@ LLNameListCtrl::Params::Params()
 }
 
 LLNameListCtrl::LLNameListCtrl(const LLNameListCtrl::Params& p)
-:	LLScrollListCtrl(p),
+// <FS:Ansariel> Inherit from FSScrollListCtrl for additional features
+//:	LLScrollListCtrl(p),
+:	FSScrollListCtrl(p),
+// </FS:Ansariel>
 	mNameColumnIndex(p.name_column.column_index),
 	mNameColumn(p.name_column.column_name),
 	mAllowCallingCardDrop(p.allow_calling_card_drop),
@@ -71,7 +74,7 @@ LLNameListCtrl::LLNameListCtrl(const LLNameListCtrl::Params& p)
 
 // public
 LLScrollListItem* LLNameListCtrl::addNameItem(const LLUUID& agent_id, EAddPosition pos,
-								 BOOL enabled, const std::string& suffix)
+								 BOOL enabled, const std::string& suffix, const std::string& prefix)
 {
 	//LL_INFOS() << "LLNameListCtrl::addNameItem " << agent_id << LL_ENDL;
 
@@ -80,7 +83,7 @@ LLScrollListItem* LLNameListCtrl::addNameItem(const LLUUID& agent_id, EAddPositi
 	item.enabled = enabled;
 	item.target = INDIVIDUAL;
 
-	return addNameItemRow(item, pos, suffix);
+	return addNameItemRow(item, pos, suffix, prefix);
 }
 
 // virtual, public
@@ -298,7 +301,8 @@ LLScrollListItem* LLNameListCtrl::addElement(const LLSD& element, EAddPosition p
 LLScrollListItem* LLNameListCtrl::addNameItemRow(
 	const LLNameListCtrl::NameItem& name_item,
 	EAddPosition pos,
-	const std::string& suffix)
+	const std::string& suffix,
+	const std::string& prefix)
 {
 	LLUUID id = name_item.value().asUUID();
 	LLNameListItem* item = new LLNameListItem(name_item,name_item.target() == GROUP);
@@ -335,15 +339,6 @@ LLScrollListItem* LLNameListCtrl::addNameItemRow(
 			else
 			{
 				// ...schedule a callback
-				// This is not correct and will likely lead to partially populated lists in cases where avatar names are not cached.
-				// *TODO : Change this to have 2 callbacks : one callback per list item and one for the whole list.
-				// <FS:Ansariel> FIRE-12347 / MAINT-3187: Name list not loading
-				//if (mAvatarNameCacheConnection.connected())
-				//{
-				//	mAvatarNameCacheConnection.disconnect();
-				//}
-				//mAvatarNameCacheConnection = LLAvatarNameCache::get(id,boost::bind(&LLNameListCtrl::onAvatarNameCache,this, _1, _2, item->getHandle()));
-
 				avatar_name_cache_connection_map_t::iterator it = mAvatarNameCacheConnections.find(id);
 				if (it != mAvatarNameCacheConnections.end())
 				{
@@ -354,7 +349,6 @@ LLScrollListItem* LLNameListCtrl::addNameItemRow(
 					mAvatarNameCacheConnections.erase(it);
 				}
 				mAvatarNameCacheConnections[id] = LLAvatarNameCache::get(id,boost::bind(&LLNameListCtrl::onAvatarNameCache,this, _1, _2, suffix, item->getHandle()));
-				// </FS:Ansariel>
 
 				// <FS:Ansariel> Fix Baker's NameListCtrl un-fix
 				//if(mPendingLookupsRemaining <= 0)
@@ -384,7 +378,7 @@ LLScrollListItem* LLNameListCtrl::addNameItemRow(
 	LLScrollListCell* cell = item->getColumn(mNameColumnIndex);
 	if (cell)
 	{
-		cell->setValue(fullname);
+		cell->setValue(prefix + fullname);
 	}
 
 	dirtyColumns();
@@ -427,13 +421,9 @@ void LLNameListCtrl::removeNameItem(const LLUUID& agent_id)
 
 void LLNameListCtrl::onAvatarNameCache(const LLUUID& agent_id,
 									   const LLAvatarName& av_name,
-									   // <FS:Ansariel> FIRE-12347 / MAINT-3187: Name list not loading
 									   std::string suffix,
-									   // </FS:Ansariel>
 									   LLHandle<LLNameListItem> item)
 {
-	// <FS:Ansariel> FIRE-12347 / MAINT-3187: Name list not loading
-	//mAvatarNameCacheConnection.disconnect();
 	avatar_name_cache_connection_map_t::iterator it = mAvatarNameCacheConnections.find(agent_id);
 	if (it != mAvatarNameCacheConnections.end())
 	{
@@ -443,7 +433,6 @@ void LLNameListCtrl::onAvatarNameCache(const LLUUID& agent_id,
 		}
 		mAvatarNameCacheConnections.erase(it);
 	}
-	// </FS:Ansariel>
 
 	std::string name;
 	if (mShortNames)
@@ -451,13 +440,11 @@ void LLNameListCtrl::onAvatarNameCache(const LLUUID& agent_id,
 	else
 		name = av_name.getCompleteName();
 
-	// <FS:Ansariel> FIRE-12347 / MAINT-3187: Name list not loading
 	// Append optional suffix.
 	if (!suffix.empty())
 	{
 		name.append(suffix);
 	}
-	// </FS:Ansariel>
 
 	LLNameListItem* list_item = item.get();
 	if (list_item && list_item->getUUID() == agent_id)

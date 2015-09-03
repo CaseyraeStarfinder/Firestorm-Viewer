@@ -47,7 +47,7 @@ viewer_dir = os.path.dirname(__file__)
 # Put it FIRST because some of our build hosts have an ancient install of
 # indra.util.llmanifest under their system Python!
 sys.path.insert(0, os.path.join(viewer_dir, os.pardir, "lib", "python"))
-from indra.util.llmanifest import LLManifest, main, proper_windows_path, path_ancestors, CHANNEL_VENDOR_BASE, RELEASE_CHANNEL, ManifestError
+from indra.util.llmanifest import LLManifest, main, path_ancestors, CHANNEL_VENDOR_BASE, RELEASE_CHANNEL, ManifestError
 try:
     from llbase import llsd
 except ImportError:
@@ -67,7 +67,6 @@ class ViewerManifest(LLManifest,FSViewerManifest):
 
     def construct(self):
         super(ViewerManifest, self).construct()
-        self.exclude("*.svn*")
         self.path(src="../../scripts/messages/message_template.msg", dst="app_settings/message_template.msg")
         self.path(src="../../etc/message.xml", dst="app_settings/message.xml")
         
@@ -96,30 +95,13 @@ class ViewerManifest(LLManifest,FSViewerManifest):
                 contributions_path = "../../doc/contributions.txt"
                 contributor_names = self.extract_names(contributions_path)
                 self.put_in_file(contributor_names, "contributors.txt", src=contributions_path)
-                # include the extracted list of translators
-                translations_path = "../../doc/translations.txt"
-                translator_names = self.extract_names(translations_path)
-                self.put_in_file(translator_names, "translators.txt", src=translations_path)
-                # include the list of Lindens (if any)
-                #   see https://wiki.lindenlab.com/wiki/Generated_Linden_Credits
-                linden_names_path = os.getenv("LINDEN_CREDITS")
-                if not linden_names_path :
-                    print "No 'LINDEN_CREDITS' specified in environment, using built-in list"
-                else:
-                    try:
-                        linden_file = open(linden_names_path,'r')
-                    except IOError:
-                        print "No Linden names found at '%s', using built-in list" % linden_names_path
-                    else:
-                         # all names should be one line, but the join below also converts to a string
-                        linden_names = ', '.join(linden_file.readlines())
-                        self.put_in_file(linden_names, "lindens.txt", src=linden_names_path)
-                        linden_file.close()
-                        print "Linden names extracted from '%s'" % linden_names_path
 
                 # ... and the entire windlight directory
                 self.path("windlight")
 
+                # ... and the entire image filters directory
+                self.path("filters")
+            
                 # <FS:LO> Copy dictionaries to a place where the viewer can find them if ran from visual studio
                 # ... and the included spell checking dictionaries
 #                pkgdir = os.path.join(self.args['build'], os.pardir, 'packages')
@@ -131,6 +113,8 @@ class ViewerManifest(LLManifest,FSViewerManifest):
                 self.path("beams")
                 self.path("beamsColors")
 
+                # include the extracted packages information (see BuildPackagesInfo.cmake)
+                self.path(src=os.path.join(self.args['build'],"packages-info.txt"), dst="packages-info.txt")
 
                 # CHOP-955: If we have "sourceid" or "viewer_channel" in the
                 # build process environment, generate it into
@@ -194,32 +178,32 @@ class ViewerManifest(LLManifest,FSViewerManifest):
 
             # skins
             if self.prefix(src="skins"):
-		    self.path("skins.xml")
-                    # include the entire textures directory recursively
-                    if self.prefix(src="*/textures"):
-                            self.path("*/*.tga")
-                            self.path("*/*.j2c")
-                            self.path("*/*.jpg")
-                            self.path("*/*.png")
-                            self.path("*.tga")
-                            self.path("*.j2c")
-                            self.path("*.jpg")
-                            self.path("*.png")
-                            self.path("textures.xml")
-                            self.end_prefix("*/textures")
-                    self.path("*/xui/*/*.xml")
-                    self.path("*/xui/*/widgets/*.xml")
-		    self.path("*/themes/*/colors.xml")
-		    if self.prefix(src="*/themes/*/textures"):
-                            self.path("*/*.tga")
-                            self.path("*/*.j2c")
-                            self.path("*/*.jpg")
-                            self.path("*/*.png")
-                            self.path("*.tga")
-                            self.path("*.j2c")
-                            self.path("*.jpg")
-                            self.path("*.png")
-                            self.end_prefix("*/themes/*/textures")
+                self.path("skins.xml")
+                # include the entire textures directory recursively
+                if self.prefix(src="*/textures"):
+                    self.path("*/*.tga")
+                    self.path("*/*.j2c")
+                    self.path("*/*.jpg")
+                    self.path("*/*.png")
+                    self.path("*.tga")
+                    self.path("*.j2c")
+                    self.path("*.jpg")
+                    self.path("*.png")
+                    self.path("textures.xml")
+                    self.end_prefix("*/textures")
+                self.path("*/xui/*/*.xml")
+                self.path("*/xui/*/widgets/*.xml")
+                self.path("*/themes/*/colors.xml")
+                if self.prefix(src="*/themes/*/textures"):
+                    self.path("*/*.tga")
+                    self.path("*/*.j2c")
+                    self.path("*/*.jpg")
+                    self.path("*/*.png")
+                    self.path("*.tga")
+                    self.path("*.j2c")
+                    self.path("*.jpg")
+                    self.path("*.png")
+                    self.end_prefix("*/themes/*/textures")
 
             # <FS:AO> - We intentionally do not package xui for themes, the reasoning is: 
             #         Themes are defined as color/texture mods, not structual mods. Structural changes are done as "skins".
@@ -424,14 +408,18 @@ class Windows_i686_Manifest(ViewerManifest):
     def construct(self):
         super(Windows_i686_Manifest, self).construct()
 
+        pkgdir = os.path.join(self.args['build'], os.pardir, 'packages')
+        relpkgdir = os.path.join(pkgdir, "lib", "release")
+        debpkgdir = os.path.join(pkgdir, "lib", "debug")
+
         if self.is_packaging_viewer():
             # Find secondlife-bin.exe in the 'configuration' dir, then rename it to the result of final_exe.
             self.path(src='%s/firestorm-bin.exe' % self.args['configuration'], dst=self.final_exe())
 
         # Plugin host application
-        self.path2basename(os.path.join(os.pardir,
-                                        'llplugin', 'slplugin', self.args['configuration']),
-                           "slplugin.exe")
+        # The current slplugin package places slplugin.exe right into the
+        # packages base directory.
+        self.path2basename(pkgdir, "slplugin.exe")
         
         self.path2basename("../viewer_components/updater/scripts/windows", "update_install.bat")
 
@@ -452,15 +440,10 @@ class Windows_i686_Manifest(ViewerManifest):
 
             # Mesh 3rd party libs needed for auto LOD and collada reading
             try:
-                if self.args['configuration'].lower() == 'debug':
-                    self.path("libcollada14dom22-d.dll")
-                else:
-                    self.path("libcollada14dom22.dll")
-                    
                 self.path("glod.dll")
             except RuntimeError, err:
                 print err.message
-                print "Skipping COLLADA and GLOD libraries (assumming linked statically)"
+                print "Skipping GLOD library (assumming linked statically)"
 
             # Get fmodex dll, continue if missing
             try:
@@ -491,9 +474,13 @@ class Windows_i686_Manifest(ViewerManifest):
             # These need to be installed as a SxS assembly, currently a 'private' assembly.
             # See http://msdn.microsoft.com/en-us/library/ms235291(VS.80).aspx
             if self.args['configuration'].lower() == 'debug':
+                 self.path("msvcr120d.dll")
+                 self.path("msvcp120d.dll")
                  self.path("msvcr100d.dll")
                  self.path("msvcp100d.dll")
             else:
+                 self.path("msvcr120.dll")
+                 self.path("msvcp120.dll")
                  self.path("msvcr100.dll")
                  self.path("msvcp100.dll")
 
@@ -521,8 +508,8 @@ class Windows_i686_Manifest(ViewerManifest):
             # <FS:ND> Copy symbols for breakpad
             self.path("ssleay32.pdb")
             self.path("libeay32.pdb")
-            self.path("growl.pdb")
-            self.path("growl++.pdb")
+            #self.path("growl.pdb")
+            #self.path("growl++.pdb")
             self.path('apr-1.pdb', 'libarp.pdb')
             self.path('aprutil-1.pdb', 'libaprutil.pdb')
             # </FS:ND>
@@ -544,14 +531,41 @@ class Windows_i686_Manifest(ViewerManifest):
         self.path("VivoxAUP.txt")
 
         # Media plugins - QuickTime
-        if self.prefix(src='../media_plugins/quicktime/%s' % self.args['configuration'], dst="llplugin"):
-            self.path("media_plugin_quicktime.dll")
-            self.end_prefix()
-
         # Media plugins - WebKit/Qt
-        if self.prefix(src='../media_plugins/webkit/%s' % self.args['configuration'], dst="llplugin"):
+        if self.prefix(src=os.path.join(pkgdir, "llplugin"), dst="llplugin"):
+            self.path("media_plugin_quicktime.dll")
             self.path("media_plugin_webkit.dll")
-            self.end_prefix()
+            self.path("qtcore4.dll")
+            self.path("qtgui4.dll")
+            self.path("qtnetwork4.dll")
+            self.path("qtopengl4.dll")
+            self.path("qtwebkit4.dll")
+            self.path("qtxmlpatterns4.dll")
+
+            # <FS:ND> we need 32 bit openssl from the pre build plugins
+            self.path("ssleay32.dll")
+            self.path("libeay32.dll")
+            # </FS:ND>
+
+            # For WebKit/Qt plugin runtimes (image format plugins)
+            if self.prefix(src="imageformats", dst="imageformats"):
+                self.path("qgif4.dll")
+                self.path("qico4.dll")
+                self.path("qjpeg4.dll")
+                self.path("qmng4.dll")
+                self.path("qsvg4.dll")
+                self.path("qtiff4.dll")
+                self.end_prefix()
+
+            # For WebKit/Qt plugin runtimes (codec/character encoding plugins)
+            if self.prefix(src="codecs", dst="codecs"):
+                self.path("qcncodecs4.dll")
+                self.path("qjpcodecs4.dll")
+                self.path("qkrcodecs4.dll")
+                self.path("qtwcodecs4.dll")
+                self.end_prefix()
+
+        self.end_prefix()
 
         # winmm.dll shim
         if self.prefix(src='../media_plugins/winmmshim/%s' % self.args['configuration'], dst=""):
@@ -559,86 +573,22 @@ class Windows_i686_Manifest(ViewerManifest):
             self.end_prefix()
 
 
-        if self.args['configuration'].lower() == 'debug' and not self.fs_is_64bit_build():
-            if self.prefix(src=os.path.join(os.pardir, 'packages', 'lib', 'debug'),
-                           dst="llplugin"):
+        """
+        <FS:ND> This would clobber the 32 bit openssl dlls with 64 bit ones from a 64 bit viewer, skip this step.
+
+        if self.args['configuration'].lower() == 'debug':
+            if self.prefix(src=debpkgdir, dst="llplugin"):
                 self.path("libeay32.dll")
-                self.path("qtcored4.dll")
-                self.path("qtguid4.dll")
-                self.path("qtnetworkd4.dll")
-                self.path("qtopengld4.dll")
-                self.path("qtwebkitd4.dll")
-                self.path("qtxmlpatternsd4.dll")
                 self.path("ssleay32.dll")
-
-                # For WebKit/Qt plugin runtimes (image format plugins)
-                if self.prefix(src="imageformats", dst="imageformats"):
-                    self.path("qgifd4.dll")
-                    self.path("qicod4.dll")
-                    self.path("qjpegd4.dll")
-                    self.path("qmngd4.dll")
-                    self.path("qsvgd4.dll")
-                    self.path("qtiffd4.dll")
-                    self.end_prefix()
-
-                # For WebKit/Qt plugin runtimes (codec/character encoding plugins)
-                if self.prefix(src="codecs", dst="codecs"):
-                    self.path("qcncodecsd4.dll")
-                    self.path("qjpcodecsd4.dll")
-                    self.path("qkrcodecsd4.dll")
-                    self.path("qtwcodecsd4.dll")
-                    self.end_prefix()
-
                 self.end_prefix()
-        elif not self.fs_is_64bit_build():
-            if self.prefix(src=os.path.join(os.pardir, 'packages', 'lib', 'release'),
-                           dst="llplugin"):
+
+        else:
+            if self.prefix(src=relpkgdir, dst="llplugin"):
                 self.path("libeay32.dll")
-                self.path("qtcore4.dll")
-                self.path("qtgui4.dll")
-                self.path("qtnetwork4.dll")
-                self.path("qtopengl4.dll")
-                self.path("qtwebkit4.dll")
-                self.path("qtxmlpatterns4.dll")
                 self.path("ssleay32.dll")
-
-                # For WebKit/Qt plugin runtimes (image format plugins)
-                if self.prefix(src="imageformats", dst="imageformats"):
-                    self.path("qgif4.dll")
-                    self.path("qico4.dll")
-                    self.path("qjpeg4.dll")
-                    self.path("qmng4.dll")
-                    self.path("qsvg4.dll")
-                    self.path("qtiff4.dll")
-                    self.end_prefix()
-
-                # For WebKit/Qt plugin runtimes (codec/character encoding plugins)
-                if self.prefix(src="codecs", dst="codecs"):
-                    self.path("qcncodecs4.dll")
-                    self.path("qjpcodecs4.dll")
-                    self.path("qkrcodecs4.dll")
-                    self.path("qtwcodecs4.dll")
-                    self.end_prefix()
-
                 self.end_prefix()
-        elif self.fs_is_64bit_build() and self.prefix( src = "../packages/bin_x86/slplugin", dst="" ):
-            self.path( "slplugin.exe" )
-
-            if self.prefix( src = "llplugin", dst="llplugin" ):
-              self.path( "*.dll" )
-
-              if self.prefix( src = "imageformats", dst="imageformats" ):
-                self.path( "*.dll" )
-                self.end_prefix()
-              if self.prefix( src = "codecs", dst="codecs" ):
-                self.path( "*.dll" )
-                self.end_prefix()
-
-              self.end_prefix()
-
-            self.end_prefix()
-
-
+        """
+            
         # pull in the crash logger and updater from other projects
         # tag:"crash-logger" here as a cue to the exporter
         self.path(src='../win_crash_logger/%s/windows-crash-logger.exe' % self.args['configuration'],
@@ -760,7 +710,7 @@ class Windows_i686_Manifest(ViewerManifest):
           while (not installer_created) and (nsis_attempts > 0):
             try:
                 nsis_attempts-=1;
-                self.run_command('"' + proper_windows_path(NSIS_path) + '" /V2 ' + self.dst_path_of(tempfile))
+                self.run_command('"' + NSIS_path + '" /V2 ' + self.dst_path_of(tempfile))
                 installer_created=True # if no exception was raised, the codesign worked
             except ManifestError, err:
                 if nsis_attempts:
@@ -819,12 +769,16 @@ class DarwinManifest(ViewerManifest):
         # copy over the build result (this is a no-op if run within the xcode script)
         self.path(self.args['configuration'] + "/Firestorm.app", dst="")
 
+        pkgdir = os.path.join(self.args['build'], os.pardir, 'packages')
+        relpkgdir = os.path.join(pkgdir, "lib", "release")
+        debpkgdir = os.path.join(pkgdir, "lib", "debug")
+
         if self.prefix(src="", dst="Contents"):  # everything goes in Contents
             self.path("Info.plist", dst="Info.plist")
 
             # copy additional libs in <bundle>/Contents/MacOS/
-            self.path("../packages/lib/release/libndofdev.dylib", dst="Resources/libndofdev.dylib")
-            self.path("../packages/lib/release/libhunspell-1.3.0.dylib", dst="Resources/libhunspell-1.3.0.dylib")
+            self.path(os.path.join(relpkgdir, "libndofdev.dylib"), dst="Resources/libndofdev.dylib")
+            self.path(os.path.join(relpkgdir, "libhunspell-1.3.0.dylib"), dst="Resources/libhunspell-1.3.0.dylib")
 
             if self.prefix(dst="MacOS"):
                 self.path2basename("../viewer_components/updater/scripts/darwin", "*.py")
@@ -887,7 +841,6 @@ class DarwinManifest(ViewerManifest):
                     print "Skipping %s" % dst
                     return []
 
-                libdir = "../packages/lib/release"
                 # dylibs is a list of all the .dylib files we expect to need
                 # in our bundled sub-apps. For each of these we'll create a
                 # symlink from sub-app/Contents/Resources to the real .dylib.
@@ -897,22 +850,21 @@ class DarwinManifest(ViewerManifest):
                                                                "llcommon",
                                                                self.args['configuration'],
                                                                libfile),
-                                                               os.path.join(libdir, libfile)),
+                                                               os.path.join(relpkgdir, libfile)),
                                        dst=libfile)
 
                 for libfile in (
-                                "libcollada14dom.dylib",
                                 "libapr-1.0.dylib",
                                 "libaprutil-1.0.dylib",
+                                "libcollada14dom.dylib",
                                 "libexpat.1.5.2.dylib",
                                 "libexception_handler.dylib",
-                                "libfmodexL.dylib",
                                 "libGLOD.dylib",
                                 "libgrowl.dylib",
                                 "libgrowl++.dylib",
                                 "libLeap.dylib",
                                 ):
-                    dylibs += path_optional(os.path.join(libdir, libfile), libfile)
+                    dylibs += path_optional(os.path.join(relpkgdir, libfile), libfile)
 
                 # SLVoice and vivox lols, no symlinks needed
                 for libfile in (
@@ -926,39 +878,41 @@ class DarwinManifest(ViewerManifest):
                                 'ca-bundle.crt',
                                 'SLVoice',
                                 ):
-                     self.path2basename(libdir, libfile)
+                     self.path2basename(relpkgdir, libfile)
 
                 # dylibs that vary based on configuration
                 if self.args['configuration'].lower() == 'debug':
                     for libfile in (
                                 "libfmodexL.dylib",
                                 ):
-                        dylibs += path_optional(os.path.join("../packages/lib/debug",
-                                                             libfile), libfile)
+                        dylibs += path_optional(os.path.join(debpkgdir, libfile), libfile)
                 else:
                     for libfile in (
                                 "libfmodex.dylib",
                                 ):
-                        dylibs += path_optional(os.path.join("../packages/lib/release",
-                                                             libfile), libfile)
+                        dylibs += path_optional(os.path.join(relpkgdir, libfile), libfile)
                 
                 # our apps
-                for app_bld_dir, app in (("mac_crash_logger", "mac-crash-logger.app"),
+                for app_bld_dir, app in ((os.path.join(os.pardir,
+                                                       "mac_crash_logger",
+                                                       self.args['configuration']),
+                                          "mac-crash-logger.app"),
                                          # plugin launcher
-                                         (os.path.join("llplugin", "slplugin"), "SLPlugin.app"),
+                                         (pkgdir, "SLPlugin.app"),
                                          ):
-                    self.path2basename(os.path.join(os.pardir,
-                                                    app_bld_dir, self.args['configuration']),
-                                       app)
+                    self.path2basename(app_bld_dir, app)
 
                     # our apps dependencies on shared libs
                     # for each app, for each dylib we collected in dylibs,
                     # create a symlink to the real copy of the dylib.
                     resource_path = self.dst_path_of(os.path.join(app, "Contents", "Resources"))
                     for libfile in dylibs:
-                        symlinkf(os.path.join(os.pardir, os.pardir, os.pardir, libfile),
-                                 os.path.join(resource_path, libfile))
-
+                        src = os.path.join(os.pardir, os.pardir, os.pardir, libfile)
+                        dst = os.path.join(resource_path, libfile)
+                        try:
+                            symlinkf(src, dst)
+                        except OSError as err:
+                            print "Can't symlink %s -> %s: %s" % (src, dst, err)
                 # SLPlugin.app/Contents/Resources gets those Qt4 libraries it needs.
                 if self.prefix(src="", dst="SLPlugin.app/Contents/Resources"):
                     for libfile in ('libQtCore.4.dylib',
@@ -975,27 +929,24 @@ class DarwinManifest(ViewerManifest):
                                     'libQtWebKit.4.7.1.dylib',
                                     'libQtXml.4.dylib',
                                     'libQtXml.4.7.1.dylib'):
-                        self.path2basename("../packages/lib/release", libfile)
+                        self.path2basename(relpkgdir, libfile)
                     self.end_prefix("SLPlugin.app/Contents/Resources")
 
                 # Qt4 codecs go to llplugin.  Not certain why but this is the first
                 # location probed according to dtruss so we'll go with that.
-                if self.prefix(src="../packages/plugins/codecs/", dst="llplugin/codecs"):
+                if self.prefix(src=os.path.join(pkgdir, "llplugin/codecs/"), dst="llplugin/codecs"):
                     self.path("libq*.dylib")
                     self.end_prefix("llplugin/codecs")
 
                 # Similarly for imageformats.
-                if self.prefix(src="../packages/plugins/imageformats/", dst="llplugin/imageformats"):
+                if self.prefix(src=os.path.join(pkgdir, "llplugin/imageformats/"), dst="llplugin/imageformats"):
                     self.path("libq*.dylib")
                     self.end_prefix("llplugin/imageformats")
 
                 # SLPlugin plugins proper
-                if self.prefix(src="", dst="llplugin"):
-                    self.path2basename("../media_plugins/quicktime/" + self.args['configuration'],
-                                       "media_plugin_quicktime.dylib")
-                    self.path2basename("../media_plugins/webkit/" + self.args['configuration'],
-                                       "media_plugin_webkit.dylib")
-
+                if self.prefix(src=os.path.join(pkgdir, "llplugin"), dst="llplugin"):
+                    self.path("media_plugin_quicktime.dylib")
+                    self.path("media_plugin_webkit.dylib")
                     self.end_prefix("llplugin")
 
                 self.end_prefix("Resources")
@@ -1021,48 +972,6 @@ class DarwinManifest(ViewerManifest):
     def package_finish(self):
         global CHANNEL_VENDOR_BASE
         substitution_strings = self.fs_get_substitution_strings()         # <FS:AO> Copied from windows manifest, since we're starting to use many of the same vars
-
-#Comment out for now. FS:TM
-#Added from LL signing for OSX 10.8 
-#        # Sign the app if requested.
-#        if 'signature' in self.args:
-#            identity = self.args['signature']
-#            if identity == '':
-#                identity = 'Developer ID Application'
-#
-#            # Look for an environment variable set via build.sh when running in Team City.
-#            try:
-#                build_secrets_checkout = os.environ['build_secrets_checkout']
-#            except KeyError:
-#                pass
-#            else:
-#                # variable found so use it to unlock keyvchain followed by codesign
-#                home_path = os.environ['HOME']
-#                keychain_pwd_path = os.path.join(build_secrets_checkout,'code-signing-osx','password.txt')
-#                keychain_pwd = open(keychain_pwd_path).read().rstrip()
-#
-#                self.run_command('security unlock-keychain -p "%s" "%s/Library/Keychains/viewer.keychain"' % ( keychain_pwd, home_path ) )
-#                signed=False
-#                sign_attempts=3
-#                sign_retry_wait=15
-#                while (not signed) and (sign_attempts > 0):
-#                    try:
-#                        sign_attempts-=1;
-#                        self.run_command(
-#                           'codesign --verbose --force --keychain "%(home_path)s/Library/Keychains/viewer.keychain" --sign %(identity)r %(bundle)r' % {
-#                               'home_path' : home_path,
-#                               'identity': identity,
-#                               'bundle': self.get_dst_prefix()
-#                               })
-#                        signed=True # if no exception was raised, the codesign worked
-#                    except ManifestError, err:
-#                        if sign_attempts:
-#                            print >> sys.stderr, "codesign failed, waiting %d seconds before retrying" % sign_retry_wait
-#                            time.sleep(sign_retry_wait)
-#                            sign_retry_wait*=2
-#                        else:
-#                            print >> sys.stderr, "Maximum codesign attempts exceeded; giving up"
-#                            raise
 
         imagename = ("Phoenix-" + self.app_name() + '-' + '-'.join(self.args['version']))
 
@@ -1168,6 +1077,56 @@ class DarwinManifest(ViewerManifest):
 
             # Set the disk image root's custom icon bit
             self.run_command('SetFile -a C %r' % volpath)
+
+            # Sign the app if requested; 
+            # do this in the copy that's in the .dmg so that the extended attributes used by 
+            # the signature are preserved; moving the files using python will leave them behind
+            # and invalidate the signatures.
+            if 'signature' in self.args:
+                app_in_dmg=os.path.join(volpath,self.app_name()+".app")
+                print "Attempting to sign '%s'" % app_in_dmg
+                identity = self.args['signature']
+                if identity == '':
+                    identity = 'Developer ID Application'
+
+                # Look for an environment variable set via build.sh when running in Team City.
+                try:
+                    build_secrets_checkout = os.environ['build_secrets_checkout']
+                except KeyError:
+                    pass
+                else:
+                    # variable found so use it to unlock keychain followed by codesign
+                    home_path = os.environ['HOME']
+                    keychain_pwd_path = os.path.join(build_secrets_checkout,'code-signing-osx','password.txt')
+                    keychain_pwd = open(keychain_pwd_path).read().rstrip()
+
+                    self.run_command('security unlock-keychain -p "%s" "%s/Library/Keychains/viewer.keychain"' % ( keychain_pwd, home_path ) )
+                    signed=False
+                    sign_attempts=3
+                    sign_retry_wait=15
+                    while (not signed) and (sign_attempts > 0):
+                        try:
+                            sign_attempts-=1;
+                            self.run_command(
+                               'codesign --verbose --deep --force --keychain "%(home_path)s/Library/Keychains/viewer.keychain" --sign %(identity)r %(bundle)r' % {
+                                   'home_path' : home_path,
+                                   'identity': identity,
+                                   'bundle': app_in_dmg
+                                   })
+                            signed=True # if no exception was raised, the codesign worked
+                        except ManifestError, err:
+                            if sign_attempts:
+                                print >> sys.stderr, "codesign failed, waiting %d seconds before retrying" % sign_retry_wait
+                                time.sleep(sign_retry_wait)
+                                sign_retry_wait*=2
+                            else:
+                                print >> sys.stderr, "Maximum codesign attempts exceeded; giving up"
+                                raise
+                    self.run_command('spctl -a -texec -vv %(bundle)r' % { 'bundle': app_in_dmg })
+
+            imagename="SecondLife_" + '_'.join(self.args['version'])
+
+
         finally:
             # Unmount the image even if exceptions from any of the above 
             self.run_command('hdiutil detach -force %r' % devfile)
@@ -1230,6 +1189,11 @@ class Darwin_x86_64_Manifest(DarwinManifest):
 class LinuxManifest(ViewerManifest):
     def construct(self):
         super(LinuxManifest, self).construct()
+
+        pkgdir = os.path.join(self.args['build'], os.pardir, 'packages')
+        relpkgdir = os.path.join(pkgdir, "lib", "release")
+        debpkgdir = os.path.join(pkgdir, "lib", "debug")
+
         self.path("licenses-linux.txt","licenses.txt")
         self.path("VivoxAUP.txt")
         self.path("res/firestorm_icon.png","firestorm_icon.png")
@@ -1251,7 +1215,7 @@ class LinuxManifest(ViewerManifest):
         if self.prefix(src="", dst="bin"):
             self.path("firestorm-bin","do-not-directly-run-firestorm-bin")
             self.path("../linux_crash_logger/linux-crash-logger","linux-crash-logger.bin")
-            self.path2basename("../llplugin/slplugin", "SLPlugin")
+            self.path2basename(pkgdir, "SLPlugin")
             self.path2basename("../viewer_components/updater/scripts/linux", "update_install")
             self.end_prefix("bin")
 
@@ -1271,11 +1235,12 @@ class LinuxManifest(ViewerManifest):
             self.end_prefix(icon_path)
 
         # plugins
-        if self.prefix(src="", dst="bin/llplugin"):
-            self.path2basename("../media_plugins/webkit", "libmedia_plugin_webkit.so")
-            self.path("../media_plugins/gstreamer010/libmedia_plugin_gstreamer010.so", "libmedia_plugin_gstreamer.so")
+        if self.prefix(src=os.path.join(pkgdir, "llplugin"), dst="bin/llplugin"):
+            self.path("libmedia_plugin_webkit.so")
+            self.path("libmedia_plugin_gstreamer.so")
             self.end_prefix("bin/llplugin")
 
+        # llcommon
         if not self.path("../llcommon/libllcommon.so", "lib/libllcommon.so"):
             print "Skipping llcommon.so (assuming llcommon was linked statically)"
 
@@ -1354,7 +1319,8 @@ class LinuxManifest(ViewerManifest):
             if self.prefix(src="../packages/lib/release", dst="lib"):
                     self.path("libortp.so")
                     self.path("libsndfile.so.1")
-                    #self.path("libvivoxoal.so.1") # no - we'll re-use the viewer's own OpenAL lib
+                    # <FS:TS> Vivox wants this library even if it's present already in the viewer
+                    self.path("libvivoxoal.so.1")
                     self.path("libvivoxsdk.so")
                     self.path("libvivoxplatform.so")
                     self.end_prefix("lib")
@@ -1383,7 +1349,7 @@ class LinuxManifest(ViewerManifest):
                 find %(dst)s -type f -perm 0600 | xargs --no-run-if-empty chmod 0644;
                 find %(dst)s -type f -perm 0400 | xargs --no-run-if-empty chmod 0444;
                 true""" %  {'dst':self.get_dst_prefix() })
-        self.package_file = installer_name + '.tar.bz2'
+        self.package_file = installer_name + '.tar.xz'
 
         # temporarily move directory tree so that it has the right
         # name in the tarfile
@@ -1395,15 +1361,15 @@ class LinuxManifest(ViewerManifest):
             if self.args['buildtype'].lower() == 'release':
                 # --numeric-owner hides the username of the builder for
                 # security etc.
-                self.run_command('tar -C %(dir)s --numeric-owner %(fs_excludes)s -cjf '
-                                 '%(inst_path)s.tar.bz2 %(inst_name)s' % {
+                self.run_command('tar -C %(dir)s --numeric-owner %(fs_excludes)s -cJf '
+                                 '%(inst_path)s.tar.xz %(inst_name)s' % {
                         'dir': self.get_build_prefix(),
                         'inst_name': installer_name,
                         'inst_path':self.build_path_of(installer_name),
                         'fs_excludes':self.fs_linux_tar_excludes()
                         })
             else:
-                print "Skipping %s.tar.bz2 for non-Release build (%s)" % \
+                print "Skipping %s.tar.xz for non-Release build (%s)" % \
                       (installer_name, self.args['buildtype'])
         finally:
             self.run_command("mv %(inst)s %(dst)s" % {
@@ -1415,33 +1381,125 @@ class LinuxManifest(ViewerManifest):
             print "* Going strip-crazy on the packaged binaries, since this is a RELEASE build"
             self.run_command(r"find %(d)r/bin %(d)r/lib -type f \! -name update_install | xargs --no-run-if-empty strip -S" % {'d': self.get_dst_prefix()} ) # makes some small assumptions about our packaged dir structure
 
-
 class Linux_i686_Manifest(LinuxManifest):
     def construct(self):
         super(Linux_i686_Manifest, self).construct()
 
-        if self.is_packaging_viewer():
-          if self.prefix("../packages/lib/release", dst="lib"):
+        pkgdir = os.path.join(self.args['build'], os.pardir, 'packages')
+        relpkgdir = os.path.join(pkgdir, "lib", "release")
+        debpkgdir = os.path.join(pkgdir, "lib", "debug")
 
-            self.path("libopenal.so", "libvivoxoal.so.1") # vivox's sdk expects this soname
+        if self.prefix(relpkgdir, dst="lib"):
+            self.path("libapr-1.so")
+            self.path("libapr-1.so.0")
+            self.path("libapr-1.so.0.4.5")
+            self.path("libaprutil-1.so")
+            self.path("libaprutil-1.so.0")
+            self.path("libaprutil-1.so.0.4.1")
+            self.path("libdb*.so")
+            self.path("libexpat.so.*")
+            self.path("libGLOD.so")
+            self.path("libuuid.so*")
+            self.path("libSDL-1.2.so.*")
+            self.path("libdirectfb-1.*.so.*")
+            self.path("libfusion-1.*.so.*")
+            self.path("libdirect-1.*.so.*")
+            self.path("libopenjpeg.so*")
+            self.path("libdirectfb-1.4.so.5")
+            self.path("libfusion-1.4.so.5")
+            self.path("libdirect-1.4.so.5*")
+            self.path("libhunspell-1.3.so*")
+            self.path("libalut.so*")
+            self.path("libopenal.so*")
+
+            # <FS:ND> Linking this breaks voice as stock openal.so does not have alcGetMixedBuffer
+            #self.path("libopenal.so", "libvivoxoal.so.1") # vivox's sdk expects this soname
+            # </FS:ND>
+            
+            # KLUDGE: As of 2012-04-11, the 'fontconfig' package installs
+            # libfontconfig.so.1.4.4, along with symlinks libfontconfig.so.1
+            # and libfontconfig.so. Before we added support for library-file
+            # wildcards, though, this self.path() call specifically named
+            # libfontconfig.so.1.4.4 WITHOUT also copying the symlinks. When I
+            # (nat) changed the call to self.path("libfontconfig.so.*"), we
+            # ended up with the libfontconfig.so.1 symlink in the target
+            # directory as well. But guess what! At least on Ubuntu 10.04,
+            # certain viewer fonts look terrible with libfontconfig.so.1
+            # present in the target directory. Removing that symlink suffices
+            # to improve them. I suspect that means we actually do better when
+            # the viewer fails to find our packaged libfontconfig.so*, falling
+            # back on the system one instead -- but diagnosing and fixing that
+            # is a bit out of scope for the present project. Meanwhile, this
+            # particular wildcard specification gets us exactly what the
+            # previous call did, without having to explicitly state the
+            # version number.
+            self.path("libfontconfig.so.*.*")
+
+            # Include libfreetype.so. but have it work as libfontconfig does.
+            self.path("libfreetype.so.*.*")
 
             try:
-                    self.path("libfmodex-*.so")
-                    self.path("libfmodex.so")
-                    pass
+                self.path("libtcmalloc.so*") #formerly called google perf tools
+                pass
             except:
-                    print "Skipping libfmodex.so - not found"
-                    pass
+                print "tcmalloc files not found, skipping"
+                pass
+
+            try:
+                self.path("libfmodex-*.so")
+                self.path("libfmodex.so")
+                pass
+            except:
+                print "Skipping libfmodex.so - not found"
+                pass
 
             self.end_prefix("lib")
 
-          self.prefix(src="../packages/lib/release/x86", dst="lib")
-          try:
-              self.path("libLeap.so")
-          except:
-              print "Leap Motion library not found"
-          self.end_prefix("lib")
-          open( os.path.join(self.get_dst_prefix(), "FS_No_LD_Hacks.txt" ), "w" ).write( "1" )
+            # Vivox runtimes
+            if self.prefix(src=relpkgdir, dst="bin"):
+                self.path("SLVoice")
+                self.end_prefix()
+            if self.prefix(src=relpkgdir, dst="lib"):
+                self.path("libortp.so")
+                self.path("libsndfile.so.1")
+                #self.path("libvivoxoal.so.1") # no - we'll re-use the viewer's own OpenAL lib
+                self.path("libvivoxsdk.so")
+                self.path("libvivoxplatform.so")
+                self.end_prefix("lib")
+
+            # plugin runtime
+            if self.prefix(src=os.path.join(pkgdir, "lib"), dst="lib"):
+                self.path("libQtCore.so*")
+                self.path("libQtGui.so*")
+                self.path("libQtNetwork.so*")
+                self.path("libQtOpenGL.so*")
+                self.path("libQtSvg.so*")
+                self.path("libQtWebKit.so*")
+                self.path("libQtXml.so*")
+                self.end_prefix("lib")
+
+            # For WebKit/Qt plugin runtimes (image format plugins)
+            if self.prefix(src=os.path.join(pkgdir, "llplugin", "imageformats"),
+                           dst="bin/llplugin/imageformats"):
+                self.path("libqgif.so")
+                self.path("libqico.so")
+                self.path("libqjpeg.so")
+                self.path("libqmng.so")
+                self.path("libqsvg.so")
+                self.path("libqtiff.so")
+                self.end_prefix("bin/llplugin/imageformats")
+
+            # For WebKit/Qt plugin runtimes (codec/character encoding plugins)
+            if self.prefix(src=os.path.join(pkgdir, "llplugin", "codecs"),
+                           dst="bin/llplugin/codecs"):
+                self.path("libqcncodecs.so")
+                self.path("libqjpcodecs.so")
+                self.path("libqkrcodecs.so")
+                self.path("libqtwcodecs.so")
+                self.end_prefix("bin/llplugin/codecs")
+
+            self.fs_delete_linux_symbols() # <FS:ND/> Delete old syms
+            self.strip_binaries()
 
 
 class Linux_x86_64_Manifest(LinuxManifest):
@@ -1450,11 +1508,14 @@ class Linux_x86_64_Manifest(LinuxManifest):
 
         if self.is_packaging_viewer():
           if self.prefix("../packages/lib/release", dst="lib"):
+            self.path("libffi*.so*")
 
             # vivox 32-bit hack.
             # one has to extract libopenal.so from the 32-bit openal package, or official LL viewer, and rename it to libopenal32.so
             # and place it in the prebuilt lib/release directory
-            self.path("libopenal32.so", "libvivoxoal.so.1") # vivox's sdk expects this soname
+            # <FS:TS> No, we don't need to dink with this. A usable library
+            # is now in the slvoice package, and we need to just use it as is.
+            # self.path("libopenal32.so", "libvivoxoal.so.1") # vivox's sdk expects this soname
 
             try:
                     self.path("libfmodex64-*.so")
@@ -1473,7 +1534,17 @@ class Linux_x86_64_Manifest(LinuxManifest):
               print "Leap Motion library not found"
           self.end_prefix("lib")
 
-        # support file for valgrind debug tool
+        if self.prefix(src="", dst="bin"):
+            self.path2basename("../llplugin/slplugin", "SLPlugin")
+            self.end_prefix("bin")        # support file for valgrind debug tool
+
+        # plugins
+        if self.prefix(src="", dst="bin/llplugin"):
+            self.path2basename("../media_plugins/webkit", "libmedia_plugin_webkit.so")
+            self.path("../media_plugins/gstreamer010/libmedia_plugin_gstreamer010.so", "libmedia_plugin_gstreamer.so")
+            self.end_prefix("bin/llplugin")
+                                                        
+            
         self.path("secondlife-i686.supp")
 
 ################################################################

@@ -45,12 +45,6 @@ else (USE_AVX_OPTIMIZATION)
 endif (USE_AVX_OPTIMIZATION)
 # </FS:Ansariel> [AVX Optimization]
 
-# For the library installation process;
-# see cmake/Prebuild.cmake for the counterpart code.
-if ("${CMAKE_SOURCE_DIR}/../autobuild.xml" IS_NEWER_THAN "${CMAKE_BINARY_DIR}/temp/sentinel_installed")
-  file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/temp)
-  file(WRITE ${CMAKE_BINARY_DIR}/temp/sentinel_installed "0")
-endif ("${CMAKE_SOURCE_DIR}/../autobuild.xml" IS_NEWER_THAN "${CMAKE_BINARY_DIR}/temp/sentinel_installed")
 add_subdirectory(cmake)
 
 add_subdirectory(${LIBS_OPEN_PREFIX}llaudio)
@@ -82,30 +76,30 @@ add_subdirectory(${LIBS_OPEN_PREFIX}llplugin)
 add_subdirectory(${LIBS_OPEN_PREFIX}llui)
 add_subdirectory(${LIBS_OPEN_PREFIX}viewer_components)
 
-if (LL_TESTS OR NOT STANDALONE)
+if (LL_TESTS OR NOT USESYSTEMLIBS)
 # Legacy C++ tests. Build always, run if LL_TESTS is true.
 add_subdirectory(${VIEWER_PREFIX}test)
-endif (LL_TESTS OR NOT STANDALONE)
+endif (LL_TESTS OR NOT USESYSTEMLIBS)
 
+if (ENABLE_MEDIA_PLUGINS)
 # viewer media plugins
-if( NOT (WINDOWS OR DARWIN) OR NOT ND_BUILD64BIT_ARCH )
-  add_subdirectory(${LIBS_OPEN_PREFIX}media_plugins)
-endif( NOT (WINDOWS OR DARWIN) OR NOT ND_BUILD64BIT_ARCH )
+add_subdirectory(${LIBS_OPEN_PREFIX}media_plugins)
 
-# <FS:AW opensim currency support>
-#teapot helper library
-add_subdirectory(${LIBS_OPEN_PREFIX}teapot)
-# </FS:AW opensim currency support>
 
   # llplugin testbed code (is this the right way to include it?)
   if (LL_TESTS AND NOT LINUX)
     add_subdirectory(${VIEWER_PREFIX}test_apps/llplugintest)
     add_subdirectory(${VIEWER_PREFIX}test_apps/llfbconnecttest)
   endif (LL_TESTS AND NOT LINUX)
+endif (ENABLE_MEDIA_PLUGINS)
+
+# <FS:AW opensim currency support>
+#teapot helper library
+add_subdirectory(${LIBS_OPEN_PREFIX}teapot)
+# </FS:AW opensim currency support>
 
 if (LINUX)
   add_subdirectory(${VIEWER_PREFIX}linux_crash_logger)
-  add_subdirectory(${VIEWER_PREFIX}linux_updater)
   if (INSTALL_PROPRIETARY)
       include(LLAppearanceUtility)
       add_subdirectory(${LLAPPEARANCEUTILITY_SRC_DIR} ${LLAPPEARANCEUTILITY_BIN_DIR})
@@ -120,9 +114,8 @@ elseif (WINDOWS)
   if (EXISTS ${VIEWER_DIR}win_setup)
     add_subdirectory(${VIEWER_DIR}win_setup)
   endif (EXISTS ${VIEWER_DIR}win_setup)
-  add_subdirectory(${VIEWER_PREFIX}win_updater)
-  # add_dependencies(viewer windows-updater windows-setup windows-crash-logger)
-  add_dependencies(viewer windows-updater windows-crash-logger)
+  # add_dependencies(viewer windows-setup windows-crash-logger)
+  add_dependencies(viewer windows-crash-logger)
 elseif (SOLARIS)
   add_subdirectory(solaris_crash_logger)
   add_dependencies(viewer solaris-crash-logger)

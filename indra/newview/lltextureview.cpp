@@ -437,7 +437,8 @@ void LLAvatarTexBar::draw()
 		if (!layerset_buffer) continue;
 
 		LLColor4 text_color = LLColor4::white;
-		
+
+		// <FS:Ansariel> [Legacy Bake]
 		if (layerset_buffer->uploadNeeded())
 		{
 			text_color = LLColor4::red;
@@ -446,6 +447,8 @@ void LLAvatarTexBar::draw()
 		{
 			text_color = LLColor4::magenta;
 		}
+		// </FS:Ansariel> [Legacy Bake]
+
 		std::string text = layerset_buffer->dumpTextureInfo();
 		LLFontGL::getFontMonospace()->renderUTF8(text, 0, l_offset, v_offset + line_height*line_num,
 												 text_color, LLFontGL::LEFT, LLFontGL::TOP); //, LLFontGL::BOLD, LLFontGL::DROP_SHADOW_SOFT);
@@ -518,7 +521,7 @@ private:
 void LLGLTexMemBar::draw()
 {
 	S32Megabytes bound_mem = LLViewerTexture::sBoundTextureMemory;
- 	S32Megabytes max_bound_mem = LLViewerTexture::sMaxBoundTextureMem;
+ 	S32Megabytes max_bound_mem = LLViewerTexture::sMaxBoundTextureMemory;
 	S32Megabytes total_mem = LLViewerTexture::sTotalTextureMemory;
 	S32Megabytes max_total_mem = LLViewerTexture::sMaxTotalTextureMem;
 	F32 discard_bias = LLViewerTexture::sDesiredDiscardBias;

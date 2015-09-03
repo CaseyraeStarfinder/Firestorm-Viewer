@@ -61,7 +61,13 @@ protected:
 private:
 	void disableWinErrorReporting();
 
-    std::string mCmdLine;
+	std::string mCmdLine;
+	bool mIsConsoleAllocated;
+
+// <FS:ND> For Windows, purging the cache can take an extraordinary amount of time. Rename the cache dir and purge it using another thread.
+	virtual void startCachePurge();
+// </FS:ND>
+
 };
 
 #endif // LL_LLAPPVIEWERWIN32_H

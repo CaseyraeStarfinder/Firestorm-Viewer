@@ -5,17 +5,15 @@
 			<menu_item_call.on_click name="ManageMyAccount_url" parameter="WebLaunchJoinNow,http://secondlife.com/account/index.php?lang=de"/>
 		</menu_item_call>
 		<menu_item_call label="Händler-Outbox..." name="MerchantOutbox"/>
+		<menu_item_call label="Marktplatz-Auflistungen..." name="MarketplaceListings"/>
 		<menu_item_call label="L$ kaufen" name="Buy and Sell L$"/>
-		<menu_item_call label="Einstellungen" name="Preferences"/>
-		<menu_item_call label="Symbolleistenschaltflächen" name="Toolbar Buttons"/>
-		<menu_item_call label="Profil" name="Profile"/>
-		<menu_item_call label="Auswahlen" name="Picks"/>
-		<menu_item_call label="Auf Facebook posten" name="PostToFacebook"/>
-		<menu_item_call label="Outfit ändern" name="ChangeOutfit"/>
-		<menu_item_call label="Foto machen" name="Take Snapshot"/>
 		<menu_item_check label="Inventar" name="Inventory"/>
 		<menu_item_check label="Inventar" name="ShowSidetrayInventory"/>
-		<menu_item_check label="Steuerung" name="Movement Controls"/>
+		<menu_item_call label="Auswahlen" name="Picks"/>
+		<menu_item_call label="Erlebnisse" name="Experiences"/>
+		<menu_item_call label="Profil" name="Profile"/>
+		<menu_item_call label="Aussehen" name="ChangeOutfit"/>
+		<menu_item_call label="Avatar auswählen" name="Avatar Picker"/>
 		<menu label="Bewegung" name="Movement">
 			<menu_item_call label="Hinsetzen" name="Sit Down Here"/>
 			<menu_item_check label="Fliegen" name="Fly"/>
@@ -23,6 +21,7 @@
 			<menu_item_check label="Sitzen erzwingen" name="Force Toggle Sitting"/>
 			<menu_item_check label="Movelock" name="Move Lock"/>
 		</menu>
+		<menu_item_check label="Steuerung" name="Movement Controls"/>
 		<menu_item_check label="Kamerasteuerung" name="Camera Controls"/>
 		<menu label="Avatar-Befinden" name="avhealth">
 			<menu_item_call label="Avatar-Animationen stoppen" name="Stop Animating My Avatar"/>
@@ -32,22 +31,17 @@
 			<menu_item_call label="Auf männlichen Standard-Avatar zurücksetzen" name="ResetDefaultAvM"/>
 			<menu_item_call label="Auf weiblichen Standard-Avatar zurücksetzen" name="ResetDefaultAvF"/>
 			<menu_item_check label="Render-Weight für Avatare anzeigen (Ersatz für ARC)" name="Avatar Rendering Cost"/>
+			<menu_item_call label="Lag-Meter" name="Lag Meter"/>
 			<menu_item_call label="LSL-Brücke neu erstellen" name="Recreate LSL Bridge"/>
 		</menu>
-		<menu_item_call label="Tip-Tracker" name="money_tracker"/>
+		<menu_item_call label="Foto machen" name="Take Snapshot"/>
+		<menu_item_call label="Money-Tracker" name="money_tracker"/>
 		<menu_item_call label="Pose-Stand..." name="pose_stand"/>
-		<menu label="Hochladen" name="Upload">
-			<menu_item_call label="Bild ([COST])..." name="Upload Image"/>
-			<menu_item_call label="Sound ([COST])..." name="Upload Sound"/>
-			<menu_item_call label="Animation ([COST])..." name="Upload Animation"/>
-			<menu_item_call label="Modell..." name="Upload Model"/>
-			<menu_item_call label="Mehrfach-Upload..." name="Bulk Upload"/>
-			<menu_item_call label="Standard-Berechtigungen für Upload festlegen" name="perm prefs"/>
-			<menu_item_call label="Linkset importieren..." name="import linkset"/>
-		</menu>
+		<menu_item_call label="Einstellungen" name="Preferences"/>
+		<menu_item_call label="Symbolleistenschaltflächen" name="Toolbar Buttons"/>
+		<menu_item_check label="HUD-Anhänge anzeigen" name="Show HUD Attachments"/>
 		<menu_item_call label="Admin-Status anfordern" name="Request Admin Options"/>
 		<menu_item_call label="Admin-Status verlassen" name="Leave Admin Options"/>
-		<menu_item_check label="HUD-Anhänge anzeigen" name="Show HUD Attachments"/>
 		<menu_item_call label="[APP_NAME] beenden" name="Quit"/>
 	</menu>
 	<menu label="Unterhalten" name="Communicate">
@@ -68,6 +62,7 @@
             <menu_item_check label="Automatische Antwort" name="Set Autorespond"/>
             <menu_item_check label="Automatische Antwort an Nicht-Freunde" name="Set Autorespond to non-friends"/>
             <menu_item_check label="Teleport-Angebote und -Anforderungen abweisen" name="Automatically reject teleport offers"/>
+            <menu_item_check label="Alle Gruppeneinladungen abweisen" name="Reject all group invites"/>
         </menu>
         <menu_item_check label="Gesten" name="Gestures"/>
 		<menu label="Voice-Morphing" name="VoiceMorphing">
@@ -77,7 +72,7 @@
 		</menu>
 		<menu_item_check label="Unterhaltungsprotokoll..." name="Conversation Log..."/>
 		<menu_item_check label="Stimmen in der Nähe" name="Nearby Voice"/>
-		<menu_item_check label="Blockierliste" name="Block List"/>
+		<menu_item_call label="Blockierliste" name="Block List"/>
 	</menu>
 	<menu label="Welt" name="World">
 		<menu_item_call label="Animationen synchronisieren" name="Resync Animations"/>
@@ -85,8 +80,10 @@
 		<menu_item_check label="Radar" name="Radar"/>
 		<menu_item_call label="Teleport-Liste" name="Teleport History"/>
 		<menu_item_check label="Orte" name="Places"/>
+		<menu_item_call label="Ziele" name="Destinations"/>
 		<menu_item_check label="Minikarte" name="Mini-Map"/>
 		<menu_item_check label="Karte" name="World Map"/>
+		<menu_item_check label="Regions-Tracker" name="Region Tracker"/>
 		<menu_item_call label="Landmarke für diesen Ort setzen" name="Create Landmark Here"/>
 		<menu_item_call label="Ortsprofil" name="Place Profile"/>
 		<menu_item_call label="Land-Info" name="About Land"/>
@@ -109,7 +106,7 @@
 			<menu_item_check label="Mittag" name="Noon"/>
 			<menu_item_check label="Sonnenuntergang" name="Sunset"/>
 			<menu_item_check label="Mitternacht" name="Midnight"/>
-            <menu_item_check label="Grundbesitzzeit" name="Revert to Region Default"/>
+			<menu_item_check label="Regionseinstellungen verwenden" name="Revert to Region Default"/>
 		</menu>
 		<menu label="Umgebungs-Editor" name="Environment Editor">
 			<menu_item_call label="Umgebungseinstellungen..." name="Environment Settings"/>
@@ -191,6 +188,7 @@
 			<menu_item_check label="Erweiterte Berechtigungen anzeigen" name="DebugPermissions"/>
 			<menu_item_check label="Nur meine Objekte auswählen" name="Select Only My Objects"/>
 			<menu_item_check label="Nur bewegliche Objekte auswählen" name="Select Only Movable Objects"/>
+			<menu_item_check label="Nur kopierbare Objekte auswählen" name="Select Only Copyable Objects"/>
 			<menu_item_check label="Gruppen-Objekte einschließen" name="Include Group-Owned Objects"/>
 			<menu_item_check label="Nach Umgebung auswählen" name="Select By Surrounding"/>
 			<menu_item_check label="Auswahlumrandung anzeigen" name="Show Selection Outlines"/>
@@ -200,7 +198,8 @@
 			<menu_item_check label="An Raster ausrichten" name="Snap to Grid"/>
 			<menu_item_call label="Objekt-XY an Raster ausrichten" name="Snap Object XY to Grid"/>
 			<menu_item_call label="Auswahl für Raster verwenden" name="Use Selection for Grid"/>
-			<menu_item_call label="Rasteroptionen" name="Grid Options"/>
+			<menu_item_call label="Rasteroptionen..." name="Grid Options"/>
+			<menu_item_call label="Standard-Berechtigungen festlegen..." name="Set default permissions"/>
 		</menu>
 		<menu label="Hochladen" name="Upload">
 			<menu_item_call label="Bild ([COST])..." name="Upload Image"/>
@@ -208,7 +207,6 @@
 			<menu_item_call label="Animation ([COST])..." name="Upload Animation"/>
 			<menu_item_call label="Modell..." name="Upload Model"/>
 			<menu_item_call label="Mehrfach-Upload ([COST] pro Datei)..." name="Bulk Upload"/>
-			<menu_item_call label="Standard-Berechtigungen für Upload festlegen" name="perm prefs"/>
 			<menu_item_call label="Linkset importieren..." name="import linkset"/>
 		</menu>
 		<menu_item_call label="Rückgängig" name="Undo"/>
@@ -267,6 +265,7 @@
 		<menu_item_check label="Fotos in hoher Auflösung speichern" name="HighResSnapshot"/>
 		<menu_item_check label="Fotos leise speichern" name="QuietSnapshotsToDisk"/>
 		<menu label="Performance-Tools" name="Performance Tools">
+			<menu_item_call label="Lag-Anzeige" name="Lag Meter"/>
 			<menu_item_check label="Statistikleiste" name="Statistics Bar"/>
 			<menu_item_check label="Statistiken zum Laden von Szenen" name="Scene Load Statistics"/>
 			<menu_item_check label="Render-Weight für Avatare anzeigen (ARC-Ersatz)" name="Avatar Rendering Cost"/>
@@ -337,7 +336,6 @@
 		<menu_item_check label="Weiche Mausbewegung" name="Mouse Smoothing"/>
 		<menu_item_call label="Tasten freigeben" name="Release Keys"/>
 		<menu label="Tastaturkürzel" name="Shortcuts">
-			<menu_item_call label="Bild hochladen ([COST])..." name="Upload Image"/>
 			<menu_item_check label="Suchen" name="Search"/>
 			<menu_item_call label="Tasten freigeben" name="Release Keys"/>
 			<menu_item_call label="UI-Größe auf Standard setzen" name="Set UI Size to Default"/>
@@ -357,8 +355,8 @@
 			<menu_item_call label="Zoom-Standard" name="Zoom Default"/>
 			<menu_item_call label="Wegzoomen" name="Zoom Out"/>
 		</menu>
-        <menu_item_check label="Flugbeschränkungen aufheben" name="Fly Override"/>
-        <menu_item_check label="RestrainedLove API" name="RLV API"/>
+		<menu_item_check label="Flugbeschränkungen aufheben" name="Fly Override"/>
+		<menu_item_check label="RestrainedLove API" name="RLV API"/>
 		<menu_item_call label="Debug-Einstellungen anzeigen" name="Debug Settings"/>
 		<menu_item_check label="Menü „Entwickler“ anzeigen" name="Debug Mode"/>
 	</menu>
@@ -386,6 +384,7 @@
 			<menu_item_check label="Transaktion beim Hochladen anzeigen" name="Show Upload Transaction"/>
 			<menu_item_check label="Render-Info anzeigen" name="Show Render Info"/>
 			<menu_item_check label="Texturinfos anzeigen" name="Show Texture Info"/>
+			<menu_item_call label="VRAM-Belegung pro Objekt" name="VRAM usage per object"/>
 			<menu_item_check label="Matrizen anzeigen" name="Show Matrices"/>
 			<menu_item_check label="Farbe unter Cursor anzeigen" name="Show Color Under Cursor"/>
 			<menu_item_check label="Speicher anzeigen" name="Show Memory"/>
@@ -408,6 +407,7 @@
 			<menu_item_check label="Periodischer langsamer Frame" name="Periodic Slow Frame"/>
 			<menu_item_check label="Frame-Test" name="Frame Test"/>
 			<menu_item_check label="Rahmenprofil" name="Frame Profile"/>
+			<menu_item_call label="Benchmark" name="Benchmark"/>
 		</menu>
 		<menu label="Metadaten darstellen" name="Render Metadata">
 			<menu_item_check label="Bounding Boxes" name="Bounding Boxes"/>
@@ -426,8 +426,9 @@
 			<menu_item_check label="Detailstufeninfos" name="LOD Info"/>
 			<menu_item_check label="Konstruktionswarteschlange" name="Build Queue"/>
 			<menu_item_check label="Lichter" name="Lights"/>
+			<menu_item_check label="Partikel" name="Particles"/>
 			<menu_item_check label="Gelenkpunkte" name="Collision Skeleton"/>
-			<menu_item_check label="Joints" name="Joints"/>
+			<menu_item_check label="Gelenke" name="Joints"/>
 			<menu_item_check label="Raycast" name="Raycast"/>
 			<menu_item_check label="Wind-Vektoren" name="Wind Vectors"/>
 			<menu_item_check label="Render-Komplexität" name="rendercomplexity"/>
@@ -502,7 +503,6 @@
 			<menu_item_call label="Agent-Info drucken" name="Print Agent Info"/>
 			<menu_item_check label="Doppel-Klick-Auto-Pilot" name="Double-ClickAuto-Pilot"/>
 			<menu_item_check label="Doppel-Klick-Teleport" name="DoubleClick Teleport"/>
-			<menu_item_check label="Regions-Debug-Konsole" name="Region Debug Console"/>
 			<menu_item_check label="SelectMgr debuggen" name="Debug SelectMgr"/>
 			<menu_item_check label="Klicks debuggen" name="Debug Clicks"/>
 			<menu_item_check label="Debug-Ansichten" name="Debug Views"/>

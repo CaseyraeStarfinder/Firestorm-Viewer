@@ -1,36 +1,114 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel label="Chat écrit" name="chat">
-	<text name="font_size">
-		Taille de la police :
-	</text>
-	<radio_group name="chat_font_size">
-		<radio_item label="Petite" name="radio" value="0"/>
-		<radio_item label="Moyenne" name="radio2" value="1"/>
-		<radio_item label="Grande" name="radio3" value="2"/>
-	</radio_group>
-	<check_box initial_value="true" label="Exécuter l&apos;animation clavier quand vous écrivez" name="play_typing_animation"/>
-	<check_box label="M&apos;envoyer les IM par e-mail une fois déconnecté ([EMAIL])" name="send_im_to_email"/>
-  <check_box label="Désactiver les en-têtes dans le chat et les MI (Style v1)" name="plain_text_chat_history"/>
-  <check_box label="Afficher les miniatures lorsque les en-têtes sont activés" name="ShowChatMiniIcons"/>
-	<check_box label="Bulles de chat" name="bubble_text_chat"/>
-	<text name="show_ims_in_label">
-		Afficher les IM dans :
-	</text>
-	<text name="requires_restart_label">
-		(redémarrage requis)
-	</text>
-	<radio_group name="chat_window" tool_tip="Afficher vos messages instantanés dans plusieurs fenêtres ou dans une seule fenêtre avec plusieurs onglets (redémarrage requis)">
-		<radio_item label="Plusieurs fenêtres" name="radio" value="0"/>
-		<radio_item label="Onglets" name="radio2" value="1"/>
-	</radio_group>
-	<text name="disable_toast_label">
-		Activer les popups de chat entrant :
-	</text>
-	<check_box label="Chats de groupe" name="EnableGroupChatPopups" tool_tip="Cocher cette case pour qu&apos;un popup s&apos;affiche à réception d&apos;un message de chat de groupe."/>
-	<check_box label="Chats IM" name="EnableIMChatPopups" tool_tip="Cocher cette case pour qu&apos;un popup s&apos;affiche à réception d&apos;un message instantané."/>
-	<spinner label="Durée de vie du popup Chat près de moi :" name="nearby_toasts_lifetime"/>
-	<spinner label="Disparition progressive du popup Chat près de moi :" name="nearby_toasts_fadingtime"/>
-	<button label="Traduction..." name="ok_btn"/>
-	<button label="Rechercher/Remplacer..." name="autoreplace_showgui"/>
-	<button label="Orthographe..." name="spellcheck_showgui"/>
+	<tab_container name="tabs">
+		<panel name="ChatVisuals">
+			<radio_group name="chat_console_font_size">
+				<radio_item label="Petite" name="consradio"/>
+				<radio_item label="Moyenne" name="consradio2"/>
+				<radio_item label="Grande" name="consradio3"/>
+			</radio_group>
+			<check_box label="Bulles de chat" name="bubble_text_chat"/>
+		</panel>
+		<panel name="ChatWindows">
+			<text name="font_size">
+				Taille de la police:
+			</text>
+			<radio_group name="chat_font_size">
+				<radio_item label="Petite" name="radio"/>
+				<radio_item label="Moyenne" name="radio2"/>
+				<radio_item label="Grande" name="radio3"/>
+			</radio_group>
+			<check_box label="Désactiver les en-tetes dans le chat et les MI (Style v1)" name="plain_text_chat_history"/>
+			<check_box label="Afficher les miniatures lorsque les en-tetes sont activés" name="ShowChatMiniIcons"/>
+			<text name="show_ims_in_label">
+				Afficher les IM dans :
+			</text>
+			<radio_group name="chat_window" tool_tip="Afficher vos messages instantanés dans plusieurs fenetres ou dans une seule fenetre avec plusieurs onglets (redémarrage requis)">
+				<radio_item label="Plusieurs fenetres" name="radio"/>
+				<radio_item label="Onglets" name="radio2"/>
+			</radio_group>
+			<text name="req_restart_ims" width="150">
+				(redémarrage requis)
+			</text>
+			<text name="req_restart_chattabs" width="150">
+				(redémarrage requis)
+			</text>
+		</panel>
+		<panel name="ChatTyping">
+			<button name="autoreplace_showgui" label="Rechercher/Remplacer"/>
+			<button name="spellcheck_showgui" label="Orthographe"/>
+			<button label="Traduction..." name="translation_settings_btn"/>
+			<check_box label="Exécuter l&apos;animation clavier quand vous écrivez" name="play_typing_animation"/>
+		</panel>
+		<panel name="ChatNotices">
+			<text name="disable_toast_label">
+				Activer les popups de chat entrant:
+			</text>
+			<check_box width="125" label="Chats de groupe" name="EnableGroupChatPopups" tool_tip="Cocher cette case pour qu&apos;un popup s&apos;affiche a réception d&apos;un message de chat de groupe."/>
+			<check_box label="Chats IM" name="EnableIMChatPopups" tool_tip="Cocher cette case pour qu&apos;un popup s&apos;affiche a réception d&apos;un message instantané."/>
+			<check_box label="M&apos;envoyer les IM par e-mail une fois déconnecté ([EMAIL])" name="send_im_to_email"/>
+		</panel>
+		<panel name="tab-CmdLine" label="LigneCmd">
+			<check_box name="chat_cmd_toggle" label="Utiliser la ligne de chat comme ligne de commande"/>
+			<text name="FSCmdLineCalc_txt">
+				Express. math. (Taper cmd SIN(2+2))
+			</text>
+			<text name="FSCmdLineDrawDistance_txt">
+				Distance d'affichage (Taper cmd dist.)
+			</text>
+			<text name="FSCmdLineBandWidth_txt">
+				Bande Pass. max (Taper cmd kbps)
+			</text>
+			<text name="FSCmdLineAO_txt">
+				AO dés / activé (Taper cmd off / on)
+			</text>
+			<text name="FSCmdLineClearChat_txt">
+				Purger l'historique de chat (Taper cmd)
+			</text>
+			<line_editor name="FSCmdLineClearChat" tool_tip="Purge l'historique de chat pour vous prémunir du lag du aux spammers de chat."/>
+			<text name="FSCmdLineMedia_txt">
+				Changer l'URL média (Taper cmd url)
+			</text>
+			<line_editor name="FSCmdLineMedia" tool_tip="Entre et joue un URL dans le stream média de la parcelle. Identique a menu Monde › A propos du terrain › Média"/>
+			<text name="FSCmdLineMusic_txt">
+				Changer l'URL musique (Taper cmd url)
+			</text>
+			<line_editor name="FSCmdLineMusic" tool_tip="Entre et joue un URL dans le stream audio de la parcelle. Identique a menu Monde › A propos du terrain › Son"/>
+			<text name="FSCmdLineRezPlatform_txt">
+				Créer plateforme (Taper cmd 1 a 64)
+			</text>
+			<line_editor name="FSCmdLineRezPlatform" tool_tip="Créé une plateforme au diametre voulu juste sous vos pieds, peu importe l'altitude a laquelle vous vous trouvez."/>
+			<slider name="FSCmdLinePlatformSize" label="Dia." tool_tip="Diametre de la plateforme a créer."/>
+			<text name="FSCmdLineKeyToName_txt">
+				Nom depuis la clé UUID (Taper cmd clé)
+			</text>
+			<text name="FSCmdLinePos_txt">
+				TP interne au sim (taper cmd x y z)
+			</text>
+			<text name="FSCmdLineGround_txt">
+				TP au sol (taper cmd)
+			</text>
+			<text name="FSCmdLineHeight_txt">
+				TP en altitude (Taper cmd Z)
+			</text>
+			<text name="FSCmdTeleportToCam_txt">
+				TP a la pos. de la cam. (Taper cmd)
+			</text>
+			<text name="FSCmdLineOfferTp_txt">
+				Envoyer un TP a... (Taper cmd clé UUID)
+			</text>
+			<text name="FSCmdLineTP2_txt">
+				Vous TP vers... (Taper cmd nom)
+			</text>
+			<line_editor name="FSCmdLineTP2" tool_tip="Vous téléporter vers quelqu'un. Cette commande accepte les noms partiels et est insensible a la casse (majuscule/minuscule). Un meilleur résultat s'obtient avec le radar ouvert (Ctl-Maj-A)."/>
+			<text name="FSCmdLineTeleportHome_txt">
+				TP au domicile (Taper cmd)
+			</text>
+			<text name="FSCmdLineMapTo_txt">
+				TP vers le sim x (Taper cmd NomDuSim)
+			</text>
+			<check_box name="toggle" label="Conserver la pos. entre les régions"/>
+		</panel>
+		
+	</tab_container>
 </panel>

@@ -34,10 +34,12 @@
 #include "lliconctrl.h"
 #include "llframetimer.h"
 #include "llfloatergotoline.h"
+#include "llsyntaxid.h"
+#include <boost/signals2.hpp>
 
 class LLLiveLSLFile;
 class LLMessageSystem;
-class LLTextEditor;
+class LLScriptEditor;
 class LLButton;
 class LLCheckBoxCtrl;
 class LLScrollListCtrl;
@@ -50,6 +52,7 @@ class LLVFS;
 class LLViewerInventoryItem;
 class LLScriptEdContainer;
 class LLFloaterGotoLine;
+class LLFloaterExperienceProfile;
 // [SL:KB] - Patch: Build-ScriptRecover | Checked: 2011-11-23 (Catznip-3.2.0)
 class LLEventTimer;
 // [/SL:KB]
@@ -77,14 +80,21 @@ protected:
 		const std::string& sample,
 		const LLHandle<LLFloater>& floater_handle,
 		void (*load_callback)(void* userdata),
-		void (*save_callback)(void* userdata, BOOL close_after_save),
+		// <FS:Ansariel> FIRE-7514: Script in external editor needs to be saved twice
+		//void (*save_callback)(void* userdata, BOOL close_after_save),
+		void (*save_callback)(void* userdata, BOOL close_after_save, bool sync),
+		// </FS:Ansariel>
 		void (*search_replace_callback)(void* userdata),
 		void* userdata,
+		bool live,
 		S32 bottom_pad = 0);	// pad below bottom row of buttons
 public:
 	~LLScriptEdCore();
 	
+	void			initializeKeywords();
 	void			initMenu();
+	void			processKeywords();
+	void			processLoaded();
 
 	virtual void	draw();
 	/*virtual*/	BOOL	postBuild();
@@ -95,13 +105,16 @@ public:
 	void            setScriptText(const std::string& text, BOOL is_valid);
 	// NaCL - LSL Preprocessor
 	std::string		getScriptText();
-	void			doSaveComplete(void* userdata, BOOL close_after_save );
+	void			doSaveComplete(void* userdata, BOOL close_after_save, bool sync);
 	// NaCl End
 	bool			loadScriptText(const std::string& filename);
 	bool			writeToFile(const std::string& filename, bool unprocessed);
 	void			sync();
 	
-	void			doSave( BOOL close_after_save );
+	// <FS:Ansariel> FIRE-7514: Script in external editor needs to be saved twice
+	//void			doSave( BOOL close_after_save );
+	void			doSave(BOOL close_after_save, bool sync = true);
+	// </FS:Ansariel>
 
 	bool			handleSaveChangesDialog(const LLSD& notification, const LLSD& response);
 	bool			handleReloadFromServerDialog(const LLSD& notification, const LLSD& response);
@@ -115,17 +128,22 @@ public:
 	static void		onBtnInsertSample(void*);
 	static void		onBtnInsertFunction(LLUICtrl*, void*);
 	static void		onBtnLoadFromFile(void*);
-	static void		onBtnSaveToFile(void*);
+    static void		onBtnSaveToFile(void*);
 	static void		onBtnPrefs(void*);	// <FS:CR> Advanced Script Editor
 
 	static bool		enableSaveToFileMenu(void* userdata);
 	static bool		enableLoadFromFileMenu(void* userdata);
 
-	virtual bool	hasAccelerators() const { return true; }
+    virtual bool	hasAccelerators() const { return true; }
+	LLUUID 			getAssociatedExperience()const;
+	void            setAssociatedExperience( const LLUUID& experience_id );
+
+	void 			setScriptName(const std::string& name){mScriptName = name;};
 
 private:
 	// NaCl - LSL Preprocessor
-	static void		onToggleProc(void* userdata);
+	void		onToggleProc();
+	boost::signals2::connection	mTogglePreprocConnection;
 	// NaCl End
 	void		onBtnHelp();
 	void		onBtnDynamicHelp();
@@ -144,21 +162,31 @@ private:
 	void	updateButtonBar();
 // </FS:CR>
 
+	void	updateIndicators(bool compiling, bool success); // <FS:Kadah> Compile indicators
+
 protected:
 	void deleteBridges();
 	void setHelpPage(const std::string& help_string);
 	void updateDynamicHelp(BOOL immediate = FALSE);
+	bool isKeyword(LLKeywordToken* token);
 	void addHelpItemToHistory(const std::string& help_string);
 	static void onErrorList(LLUICtrl*, void* user_data);
 
+	bool			mLive;
+	bool			mCompiling; // <FS:Kadah> Compile indicators
+
 private:
 	std::string		mSampleText;
-	LLTextEditor*	mEditor;
+	std::string		mScriptName;
+	LLScriptEditor*	mEditor;
 	void			(*mLoadCallback)(void* userdata);
-	void			(*mSaveCallback)(void* userdata, BOOL close_after_save);
+	// <FS:Ansariel> FIRE-7514: Script in external editor needs to be saved twice
+	//void			(*mSaveCallback)(void* userdata, BOOL close_after_save);
+	void			(*mSaveCallback)(void* userdata, BOOL close_after_save, bool sync);
+	// </FS:Ansariel>
 	void			(*mSearchReplaceCallback) (void* userdata);
-	void*			mUserdata;
-	LLComboBox		*mFunctions;
+    void*			mUserdata;
+    LLComboBox		*mFunctions;
 	BOOL			mForceClose;
 	LLPanel*		mCodePanel;
 	LLScrollListCtrl* mErrorList;
@@ -170,6 +198,7 @@ private:
 	BOOL			mEnableSave;
 	BOOL			mHasScriptData;
 	LLLiveLSLFile*	mLiveFile;
+	LLUUID			mAssociatedExperience;
 	LLTextBox*		mLineCol;
 // <FS:CR> Advanced Script Editor
 	//LLView*			mSaveBtn;
@@ -186,11 +215,15 @@ private:
 // </FS:CR>
 	// NaCl - LSL Preprocessor
 	FSLSLPreprocessor* mLSLProc;
-	LLTextEditor*	mPostEditor;
+	LLScriptEditor*	mPostEditor;
 	std::string		mPostScript;
 	// NaCl End
 
 	LLScriptEdContainer* mContainer; // parent view
+
+public:
+	boost::signals2::connection mSyntaxIDConnection;
+
 };
 
 class LLScriptEdContainer : public LLPreview
@@ -199,6 +232,7 @@ class LLScriptEdContainer : public LLPreview
 
 public:
 	LLScriptEdContainer(const LLSD& key);
+	LLScriptEdContainer(const LLSD& key, const bool live);
 // [SL:KB] - Patch: Build-ScriptRecover | Checked: 2011-11-23 (Catznip-3.2.0) | Added: Catznip-3.2.0
 	/*virtual*/ ~LLScriptEdContainer();
 
@@ -222,7 +256,7 @@ protected:
 // [/SL:KB]
 };
 
-// Used to view and edit a LSL from your inventory.
+// Used to view and edit an LSL script from your inventory.
 class LLPreviewLSL : public LLScriptEdContainer
 {
 public:
@@ -233,7 +267,7 @@ public:
 	/*virtual*/ BOOL postBuild();
 
 // [SL:KB] - Patch: UI-FloaterSearchReplace | Checked: 2010-11-05 (Catznip-2.3.0a) | Added: Catznip-2.3.0a
-	LLTextEditor* getEditor() { return (mScriptEd) ? mScriptEd->mEditor : NULL; }
+	LLScriptEditor* getEditor() { return (mScriptEd) ? mScriptEd->mEditor : NULL; }
 // [/SL:KB]
 
 protected:
@@ -254,7 +288,10 @@ protected:
 
 	static void onSearchReplace(void* userdata);
 	static void onLoad(void* userdata);
-	static void onSave(void* userdata, BOOL close_after_save);
+	// <FS:Ansariel> FIRE-7514: Script in external editor needs to be saved twice
+	//static void onSave(void* userdata, BOOL close_after_save);
+	static void onSave(void* userdata, BOOL close_after_save, bool sync);
+	// </FS:Ansariel>
 	
 	static void onLoadComplete(LLVFS *vfs, const LLUUID& uuid,
 							   LLAssetType::EType type,
@@ -274,7 +311,7 @@ protected:
 };
 
 
-// Used to view and edit an LSL that is attached to an object.
+// Used to view and edit an LSL script that is attached to an object.
 class LLLiveLSLEditor : public LLScriptEdContainer
 {
 	friend class LLLiveLSLFile;
@@ -291,7 +328,7 @@ public:
 
 	/*virtual*/ BOOL postBuild();
 	
-	void setIsNew() { mIsNew = TRUE; }
+    void setIsNew() { mIsNew = TRUE; }
 // <FS:TT> Client LSL Bridge
 	static void uploadAssetViaCapsStatic(const std::string& url,
 							const std::string& filename, 
@@ -302,9 +339,20 @@ public:
 // </FS:TT>
 
 // [SL:KB] - Patch: UI-FloaterSearchReplace | Checked: 2010-11-05 (Catznip-2.3.0a) | Added: Catznip-2.3.0a
-	LLTextEditor* getEditor() { return (mScriptEd) ? mScriptEd->mEditor : NULL; }
+	LLScriptEditor* getEditor() { return (mScriptEd) ? mScriptEd->mEditor : NULL; }
 // [/SL:KB]
 
+	static void setAssociatedExperience( LLHandle<LLLiveLSLEditor> editor, const LLSD& experience );
+	static void onToggleExperience(LLUICtrl *ui, void* userdata);
+	static void onViewProfile(LLUICtrl *ui, void* userdata);
+
+	void setExperienceIds(const LLSD& experience_ids);
+	void buildExperienceList();
+	void updateExperiencePanel();
+	void requestExperiences();
+	void experienceChanged();
+	void addAssociatedExperience(const LLSD& experience);
+	
 private:
 	virtual BOOL canClose();
 	void closeIfNeeded();
@@ -314,10 +362,11 @@ private:
 	void loadAsset(BOOL is_new);
 	/*virtual*/ void saveIfNeeded(bool sync = true);
 	void uploadAssetViaCaps(const std::string& url,
-							const std::string& filename, 
+							const std::string& filename,
 							const LLUUID& task_id,
 							const LLUUID& item_id,
-							BOOL is_running);
+							BOOL is_running,
+							const LLUUID& experience_public_id);
 	void uploadAssetLegacy(const std::string& filename,
 						   LLViewerObject* object,
 						   const LLTransactionID& tid,
@@ -327,7 +376,10 @@ private:
 
 	static void onSearchReplace(void* userdata);
 	static void onLoad(void* userdata);
-	static void onSave(void* userdata, BOOL close_after_save);
+	// <FS:Ansariel> FIRE-7514: Script in external editor needs to be saved twice
+	//static void onSave(void* userdata, BOOL close_after_save);
+	static void onSave(void* userdata, BOOL close_after_save, bool sync);
+	// </FS:Ansariel>
 
 	static void onLoadComplete(LLVFS *vfs, const LLUUID& asset_uuid,
 							   LLAssetType::EType type,
@@ -358,9 +410,16 @@ private:
 	S32					mPendingUploads;
 
 	BOOL getIsModifiable() const { return mIsModifiable; } // Evaluated on load assert
-	
+
 	LLCheckBoxCtrl*	mMonoCheckbox;
 	BOOL mIsModifiable;
+
+
+	LLComboBox*		mExperiences;
+	LLCheckBoxCtrl*	mExperienceEnabled;
+	LLSD			mExperienceIds;
+
+	LLHandle<LLFloater> mExperienceProfile;
 };
 
 #endif  // LL_LLPREVIEWSCRIPT_H

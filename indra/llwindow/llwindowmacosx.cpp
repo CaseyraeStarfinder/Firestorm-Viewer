@@ -39,18 +39,13 @@
 #include "indra_constants.h"
 
 #include <OpenGL/OpenGL.h>
+#include <Carbon/Carbon.h>
 #include <CoreServices/CoreServices.h>
 
 extern BOOL gDebugWindowProc;
 
-// culled from winuser.h
-//const S32	WHEEL_DELTA = 120;     /* Value for rolling one detent */
-// On the Mac, the scroll wheel reports a delta of 1 for each detent.
-// There's also acceleration for faster scrolling, based on a slider in the system preferences.
-const S32	WHEEL_DELTA = 1;     /* Value for rolling one detent */
 const S32	BITS_PER_PIXEL = 32;
 const S32	MAX_NUM_RESOLUTIONS = 32;
-
 // <FS:CR> Various missing prototypes
 BOOL check_for_card(const char* RENDERER, const char* bad_card);
 const char* cursorIDToName(int id);
@@ -252,8 +247,8 @@ void callRightMouseDown(float *pos, MASK mask)
     }
     
 	LLCoordGL		outCoords;
-	outCoords.mX = llround(pos[0]);
-	outCoords.mY = llround(pos[1]);
+	outCoords.mX = ll_round(pos[0]);
+	outCoords.mY = ll_round(pos[1]);
 	gWindowImplementation->getCallbacks()->handleRightMouseDown(gWindowImplementation, outCoords, gKeyboard->currentMask(TRUE));
 }
 
@@ -265,8 +260,8 @@ void callRightMouseUp(float *pos, MASK mask)
     }
     
 	LLCoordGL		outCoords;
-	outCoords.mX = llround(pos[0]);
-	outCoords.mY = llround(pos[1]);
+	outCoords.mX = ll_round(pos[0]);
+	outCoords.mY = ll_round(pos[1]);
 	gWindowImplementation->getCallbacks()->handleRightMouseUp(gWindowImplementation, outCoords, gKeyboard->currentMask(TRUE));
 }
 
@@ -278,8 +273,8 @@ void callLeftMouseDown(float *pos, MASK mask)
     }
     
 	LLCoordGL		outCoords;
-	outCoords.mX = llround(pos[0]);
-	outCoords.mY = llround(pos[1]);
+	outCoords.mX = ll_round(pos[0]);
+	outCoords.mY = ll_round(pos[1]);
 	gWindowImplementation->getCallbacks()->handleMouseDown(gWindowImplementation, outCoords, gKeyboard->currentMask(TRUE));
 }
 
@@ -291,8 +286,8 @@ void callLeftMouseUp(float *pos, MASK mask)
     }
     
 	LLCoordGL		outCoords;
-	outCoords.mX = llround(pos[0]);
-	outCoords.mY = llround(pos[1]);
+	outCoords.mX = ll_round(pos[0]);
+	outCoords.mY = ll_round(pos[1]);
 	gWindowImplementation->getCallbacks()->handleMouseUp(gWindowImplementation, outCoords, gKeyboard->currentMask(TRUE));
 	
 }
@@ -305,8 +300,8 @@ void callDoubleClick(float *pos, MASK mask)
     }
     
 	LLCoordGL	outCoords;
-	outCoords.mX = llround(pos[0]);
-	outCoords.mY = llround(pos[1]);
+	outCoords.mX = ll_round(pos[0]);
+	outCoords.mY = ll_round(pos[1]);
 	gWindowImplementation->getCallbacks()->handleDoubleClick(gWindowImplementation, outCoords, gKeyboard->currentMask(TRUE));
 }
 
@@ -321,8 +316,8 @@ void callResize(unsigned int width, unsigned int height)
 void callMouseMoved(float *pos, MASK mask)
 {
 	LLCoordGL		outCoords;
-	outCoords.mX = llround(pos[0]);
-	outCoords.mY = llround(pos[1]);
+	outCoords.mX = ll_round(pos[0]);
+	outCoords.mY = ll_round(pos[1]);
 	float deltas[2];
 	gWindowImplementation->getMouseDeltas(deltas);
 	outCoords.mX += deltas[0];
@@ -360,6 +355,22 @@ void callWindowUnfocus()
 	gWindowImplementation->getCallbacks()->handleFocusLost(gWindowImplementation);
 }
 
+void callWindowHide()
+{	
+	if ( gWindowImplementation && gWindowImplementation->getCallbacks() )
+	{
+		gWindowImplementation->getCallbacks()->handleActivate(gWindowImplementation, false);
+	}
+}
+
+void callWindowUnhide()
+{	
+	if ( gWindowImplementation && gWindowImplementation->getCallbacks() )
+	{
+		gWindowImplementation->getCallbacks()->handleActivate(gWindowImplementation, true);
+	}
+}
+
 void callDeltaUpdate(float *delta, MASK mask)
 {
 	gWindowImplementation->updateMouseDeltas(delta);
@@ -368,8 +379,8 @@ void callDeltaUpdate(float *delta, MASK mask)
 void callMiddleMouseDown(float *pos, MASK mask)
 {
 	LLCoordGL		outCoords;
-	outCoords.mX = llround(pos[0]);
-	outCoords.mY = llround(pos[1]);
+	outCoords.mX = ll_round(pos[0]);
+	outCoords.mY = ll_round(pos[1]);
 	float deltas[2];
 	gWindowImplementation->getMouseDeltas(deltas);
 	outCoords.mX += deltas[0];
@@ -380,8 +391,8 @@ void callMiddleMouseDown(float *pos, MASK mask)
 void callMiddleMouseUp(float *pos, MASK mask)
 {
 	LLCoordGL outCoords;
-	outCoords.mX = llround(pos[0]);
-	outCoords.mY = llround(pos[1]);
+	outCoords.mX = ll_round(pos[0]);
+	outCoords.mY = ll_round(pos[1]);
 	float deltas[2];
 	gWindowImplementation->getMouseDeltas(deltas);
 	outCoords.mX += deltas[0];
@@ -517,8 +528,8 @@ void LLWindowMacOSX::updateMouseDeltas(float* deltas)
 {
 	if (mCursorDecoupled)
 	{
-		mCursorLastEventDeltaX = llround(deltas[0]);
-		mCursorLastEventDeltaY = llround(-deltas[1]);
+		mCursorLastEventDeltaX = ll_round(deltas[0]);
+		mCursorLastEventDeltaY = ll_round(-deltas[1]);
 		
 		if (mCursorIgnoreNextDelta)
 		{
@@ -897,6 +908,11 @@ void LLWindowMacOSX::swapBuffers()
 	CGLFlushDrawable(mContext);
 }
 
+void LLWindowMacOSX::restoreGLContext()
+{
+    CGLSetCurrentContext(mContext);
+}
+
 F32 LLWindowMacOSX::getGamma()
 {
 	F32 result = 2.2;	// Default to something sane
@@ -1151,6 +1167,8 @@ void LLWindowMacOSX::beforeDialog()
 
 void LLWindowMacOSX::afterDialog()
 {
+    //For fix problem with Core Flow view on OSX
+    restoreGLContext();
 }
 
 
@@ -1799,15 +1817,33 @@ LLSD LLWindowMacOSX::getNativeKeyData()
 	return result;
 }
 
-
 BOOL LLWindowMacOSX::dialogColorPicker( F32 *r, F32 *g, F32 *b)
 {
-	// Is this even used anywhere?  Do we really need an OS color picker?
 	BOOL	retval = FALSE;
-	//S32		error = 0;
+	OSErr	error = noErr;
+	NColorPickerInfo	info;
+	
+	memset(&info, 0, sizeof(info));
+	info.theColor.color.rgb.red = (UInt16)(*r * 65535.f);
+	info.theColor.color.rgb.green = (UInt16)(*g * 65535.f);
+	info.theColor.color.rgb.blue = (UInt16)(*b * 65535.f);
+	info.placeWhere = kCenterOnMainScreen;
+
+	error = NPickColor(&info);
+	
+	if (error == noErr)
+	{
+		retval = info.newColorChosen;
+		if (info.newColorChosen)
+		{
+			*r = ((float) info.theColor.color.rgb.red) / 65535.0;
+			*g = ((float) info.theColor.color.rgb.green) / 65535.0;
+			*b = ((float) info.theColor.color.rgb.blue) / 65535.0;
+		}
+	}
+
 	return (retval);
 }
-
 
 void *LLWindowMacOSX::getPlatformWindow()
 {
@@ -1842,8 +1878,6 @@ static long getDictLong (CFDictionaryRef refDict, CFStringRef key)
 
 void LLWindowMacOSX::allowLanguageTextInput(LLPreeditor *preeditor, BOOL b)
 {
-    allowDirectMarkedTextInput(b, mGLView);
-	
 	if (preeditor != mPreeditor && !b)
 	{
 		// This condition may occur by a call to
@@ -1873,6 +1907,7 @@ void LLWindowMacOSX::allowLanguageTextInput(LLPreeditor *preeditor, BOOL b)
 		return;
 	}
 	mLanguageTextInputAllowed = b;
+    allowDirectMarkedTextInput(b, mGLView); // mLanguageTextInputAllowed and mMarkedTextAllowed should be updated at once (by Pell Smit
 }
 
 void LLWindowMacOSX::interruptLanguageTextInput()

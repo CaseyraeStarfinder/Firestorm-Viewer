@@ -52,6 +52,8 @@ public:
 	/*virtual*/ LLViewerVisualParam* cloneParam(LLWearable* wearable) const = 0;
 
 protected:
+	LLTexLayerParam(const LLTexLayerParam& pOther);
+
 	LLTexLayerInterface*	mTexLayer;
 	LLAvatarAppearance*		mAvatarAppearance;
 };
@@ -83,17 +85,28 @@ public:
 	// LLVisualParam Virtual functions
 	///*virtual*/ BOOL		parseData(LLXmlTreeNode* node);
 	/*virtual*/ void		apply( ESex avatar_sex ) {}
+	// <FS:Ansariel> [Legacy Bake]
+	///*virtual*/ void		setWeight(F32 weight);
+	///*virtual*/ void		setAnimationTarget(F32 target_value); 
+	///*virtual*/ void		animate(F32 delta);
 	/*virtual*/ void		setWeight(F32 weight, BOOL upload_bake);
 	/*virtual*/ void		setAnimationTarget(F32 target_value, BOOL upload_bake); 
 	/*virtual*/ void		animate(F32 delta, BOOL upload_bake);
+	// </FS:Ansariel> [Legacy Bake]
 
 	// LLViewerVisualParam Virtual functions
 	/*virtual*/ F32					getTotalDistortion()									{ return 1.f; }
 	/*virtual*/ const LLVector4a&	getAvgDistortion()										{ return mAvgDistortionVec; }
 	/*virtual*/ F32					getMaxDistortion()										{ return 3.f; }
 	/*virtual*/ LLVector4a			getVertexDistortion(S32 index, LLPolyMesh *poly_mesh)	{ return LLVector4a(1.f, 1.f, 1.f);}
-	/*virtual*/ const LLVector4a*	getFirstDistortion(U32 *index, LLPolyMesh **poly_mesh)	{ index = 0; poly_mesh = NULL; return &mAvgDistortionVec;};
-	/*virtual*/ const LLVector4a*	getNextDistortion(U32 *index, LLPolyMesh **poly_mesh)	{ index = 0; poly_mesh = NULL; return NULL;};
+
+	// <FS:ND> This functions probably do not want to clear the argument, but the arguments content.
+	// /*virtual*/ const LLVector4a*	getFirstDistortion(U32 *index, LLPolyMesh **poly_mesh)	{ index = 0; poly_mesh = NULL; return &mAvgDistortionVec;};
+	// /*virtual*/ const LLVector4a*	getNextDistortion(U32 *index, LLPolyMesh **poly_mesh)	{ index = 0; poly_mesh = NULL; return NULL;};
+
+	/*virtual*/ const LLVector4a*	getFirstDistortion(U32 *index, LLPolyMesh **poly_mesh) { if( index ){ *index = 0;} if( poly_mesh ){ *poly_mesh = NULL; } return &mAvgDistortionVec; };
+	/*virtual*/ const LLVector4a*	getNextDistortion(U32 *index, LLPolyMesh **poly_mesh)	{ if( index ){ *index = 0;} if( poly_mesh ){ *poly_mesh = NULL; } return NULL; };
+	// </FS:ND>
 
 	// New functions
 	BOOL					render( S32 x, S32 y, S32 width, S32 height );
@@ -102,6 +115,8 @@ public:
 	BOOL					getMultiplyBlend() const;
 
 private:
+	LLTexLayerParamAlpha(const LLTexLayerParamAlpha& pOther);
+
 	LLPointer<LLGLTexture>	mCachedProcessedTexture;
 	LLPointer<LLImageTGA>	mStaticImageTGA;
 	LLPointer<LLImageRaw>	mStaticImageRaw;
@@ -174,9 +189,14 @@ public:
 	// LLVisualParam Virtual functions
 	///*virtual*/ BOOL			parseData(LLXmlTreeNode* node);
 	/*virtual*/ void			apply( ESex avatar_sex ) {}
+	// <FS:Ansariel> [Legacy Bake]
+	///*virtual*/ void			setWeight(F32 weight);
+	///*virtual*/ void			setAnimationTarget(F32 target_value);
+	///*virtual*/ void			animate(F32 delta);
 	/*virtual*/ void			setWeight(F32 weight, BOOL upload_bake);
 	/*virtual*/ void			setAnimationTarget(F32 target_value, BOOL upload_bake);
 	/*virtual*/ void			animate(F32 delta, BOOL upload_bake);
+	// </FS:Ansariel> [Legacy Bake]
 
 
 	// LLViewerVisualParam Virtual functions
@@ -190,6 +210,10 @@ public:
 	// New functions
 	LLColor4				getNetColor() const;
 protected:
+	LLTexLayerParamColor(const LLTexLayerParamColor& pOther);
+
+	// <FS:Ansariel> [Legacy Bake]
+	//virtual void onGlobalColorChanged() {}
 	virtual void onGlobalColorChanged(bool upload_bake) {}
 private:
 	LL_ALIGN_16(LLVector4a				mAvgDistortionVec);

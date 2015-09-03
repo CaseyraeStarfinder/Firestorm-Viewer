@@ -16,51 +16,18 @@
 
 <tab_container label="Firestorm Prefs" name="tabs">
 
-	<!--General-->
-	<panel label="Allgemein" name="tab-general" >
+	<!--Extras-->
+	<panel label="Extras" name="tab-extras" >
 		<check_box name="checkMiscRLVa" label="Skripten Kontrolle über Viewer erlauben (RLVa)"/>
 		<text name="textMiscRLVaRestart">
 			(Erfordert Neustart)
 		</text>
-		<check_box label="Aktiviere Teleport via Doppelklick auf der Weltkarte" name="FSWorldMapDoubleclickTeleport" tool_tip="Aktiviert das Teleportieren zu einem Ziel auf der Weltkarte mittels Doppelklick."/>
-		<check_box label="Deaktiviere Teleport-Leitstrahl" name="tp_beam_toggle" tool_tip="Deaktiviert den Leitstrahl zum Teleportziel nach Teleports."/>
-		<check_box label="Deaktiviere Teleport-Anzeige" name="tp_screen_toggle" tool_tip="Deaktiviert den schwarzen Teleport-Bildschirm während eines Teleports."/>
+		<check_box label="Objekte immer mit der Landgruppe rezzen, falls möglich" name="grouplandrez" tool_tip="Versucht Objekte mit der Landgruppe zu rezzen, sofern du ein Mitglied der Gruppe bist, unabhängig davon, welche Gruppe gerade aktiv ist."/>
+		<check_box label="Partikeleffekte erzeugen, wenn Skripte kommunizieren" name="EffectScriptChatParticles" tool_tip="Falls aktiviert, werden Partikeleffekte um kommunizierende Objekte erzeugt."/>
+		<check_box label="Deaktiviere Leitstrahl, wenn Zielavatar erreicht wird (&lt;= 3m)" name="FSDisableAvatarTrackerAtCloseIn" tool_tip="Falls aktiviert, wird der Leitstrahl zum Zielavatar deaktiviert, wenn die Distanz weniger als 3m beträgt. (Standard)"/>
 		<check_box label="Deaktiviere Fortschrittsanzeige während des Logins" name="login_screen_toggle" tool_tip="Deaktiviert die schwarze Fortschrittsanzeige während des Logins."/>
 		<check_box label="Deaktiviere Fortschrittsanzeige während des Logouts" name="logout_screen_toggle" tool_tip="Deaktiviert die schwarze Fortschrittsanzeige während des Logouts."/>
-		<check_box label="Deaktiviere automatisches Öffnen der Blockierliste" name="FSDisableBlockListAutoOpen" tool_tip="Deaktiviert das automatische Öffnen der Blockierliste, wenn Avatare oder Objekte geblockt werden."/>
-		<check_box label="Objekte immer mit der Landgruppe rezzen, falls möglich" name="grouplandrez" tool_tip="Versucht Objekte mit der Landgruppe zu rezzen, sofern du ein Mitglied der Gruppe bist, unabhängig davon, welche Gruppe gerade aktiv ist."/>
-		<text name="textFriendlistOptions">
-			Einstellungen für Kontaktliste:
-		</text>
-		<text name="textFriendlistColumns" width="145">
-			Sichtbare Namensspalten:
-		</text>
-		<check_box label="Benutzername" name="FSFriendListColumnShowUserName" tool_tip="Die Kontaktliste zeigt eine Spalte mit dem Benutzernamen des Freundes an." width="95"/>
-		<check_box label="Anzeigename" name="FSFriendListColumnShowDisplayName" tool_tip="Die Kontaktliste zeigt eine Spalte mit dem Anzeigenamen des Freundes an."/>
-		<check_box label="Vollständiger Name" name="FSFriendListColumnShowFullName" tool_tip="Die Kontaktliste zeigt eine Spalte mit dem vollständigen Namen des Freundes an."/>
-		<text name="textFriendListSortOrder" width="85">
-			Sortieren nach:
-		</text>
-		<radio_group name="FSFriendListSortOrder">
-			<radio_item label="Benutzername" name="username" width="95"/>
-			<radio_item label="Anzeigename" name="displayname" width="95"/>
-		</radio_group>
-		<text name="textFriendListFullNameFormat" width="155">
-			Format vollständiger Name:
-		</text>
-		<radio_group name="FSFriendListFullNameFormat">
-			<radio_item label="Benutzern. (Anzeigen.)" name="username_displayname" width="140"/>
-			<radio_item label="Anzeigen. (Benutzern.)" name="displayname_username" width="140"/>
-		</radio_group>
-		<check_box label="Berechtigungsspalte anzeigen" name="FSFriendListColumnShowPermissions" tool_tip="Die Kontaktliste zeigt eine Spalte mit Berechtigungen an, die diesem Avatar gegeben wurden - und umgekehrt."/>
-		<check_box label="Blockierte Avatare als Partikelwolke darstellen" name="ShowMutedAvatarsAsCloud" tool_tip="Blockierte Avatare werden als Partikelwolke in einer speziellen Farbe dargestellt."/>
-		<check_box label="Leere Systemordner im Inventar verstecken" name="DebugHideEmptySystemFolders" tool_tip="Versteckt leere Systemordner wie z.B. Favoriten oder Landmarken usw. in den Inventarfenstern."/>
-		<check_box label="Ordner &quot;Erhaltene Artikel&quot; im Inventar anzeigen" name="FSShowInboxFolder" tool_tip="Falls aktiviert, wird der Ordner &quot;Erhaltene Artikel&quot; als normaler Ordner im Inventar angezeigt."/>
-		<check_box label="Deaktiviere Leitstrahl, wenn Zielavatar erreicht wird (&lt;= 3m)" name="FSDisableAvatarTrackerAtCloseIn" tool_tip="Falls aktiviert, wird der Leitstrahl zum Zielavatar deaktiviert, wenn die Distanz weniger als 3m beträgt. (Standard)"/>
-		<check_box label="Unterschiedliche Suchbegriffe pro Registerkarte im Inventar erlauben" name="FSSplitInventorySearchOverTabs" tool_tip="Falls aktiviert, können im Inventarfenster für jede Registerkarte unterschiedliche Suchbegriffe eingegeben werden."/>
-		<check_box label="Partikeleffekte erzeugen, wenn Skripte kommunizieren" name="EffectScriptChatParticles" tool_tip="Falls aktiviert, werden Partikeleffekte um kommunizierende Objekte erzeugt."/>
-		<check_box label="Beim Klicken auf Avatarnamen direkt Profil öffnen" name="FSInspectAvatarSlurlOpensProfile" tool_tip="Falls aktiviert, wird bei einem Klick auf den Namenslink eines Avatars direkt dessen komplettes Profil geöffnet."/>
-		<check_box label="Aktiviere progressives Draw-Distance-Stepping" name="FSRenderFarClipStepping" tool_tip="Falls aktiviert wird Firestorm nach einem Teleport die Draw Distance progressiv erhöhen." width="270"/>
+		<check_box label="Aktiviere progressives Draw-Distance-Stepping" name="FSRenderFarClipStepping" tool_tip="Falls aktiviert wird Firestorm nach einem Teleport die Draw Distance progressiv erhöhen."/>
 		<slider name="progressive_draw_distance_interval" tool_tip="Intervall in Sekunden zwischen den jeweiligen Erhöhungen der Draw Distance."/>
 		<check_box name="UseLSLBridge" label="LSL-Client-Brücke aktivieren" tool_tip="Erlaub dem Viewer die Nutzung eines geskripteten Objektes (Brücke), um weitergehende Funktionen anzubieten."/>
 		<combo_box name="UseLSLFlightAssist" tool_tip="Aktiviert ein Skript, dass Fliegen und Schweben in größeren Höhen ermöglicht.">
@@ -107,12 +74,9 @@
 		</text>
 		<spinner name="_NACL_AntiSpamSoundPreloadMulti" tool_tip="Ereignis-Multplikator für Sound-Preload-Anfragen [Standard: 4]"/>
 		<button name="AntiSpamUnblock" label="Alle blockierten Spam-Quellen freigeben" width="250"/>
-
-		<check_box label="„Blockieren“-Button von Skript-Dialogen entfernen" name="FSRemoveScriptBlockButton"/>
 		<check_box label="„Beitreten“-Button von Gruppeneinladungen entfernen, falls Beitritt nicht kostenlos" name="FSAllowGroupInvitationOnlyWithoutFee"/>
-		<check_box label="Benachrichtigen, falls Objekte zu schnell eintreffen" name="FSNotifyIncomingObjectSpam"/>
-		<check_box label="Benachrichtigen, falls Objekte von anderen Einwohnern zu schnell eintreffen" name="FSNotifyIncomingObjectSpamFrom"/>
-		<slider name="FSOfferThrottleMaxCount" label="Schwellwert für zu schnell eintreffende Objekte:" label_width="260" width="385" tool_tip="Setzt den Schwellwert für die Anzahl an eintreffenden Objekten innerhalb von 10 Sekunden, ab dem eine Drosselung einsetzt. Standardwert: 5"/>
+		<check_box label="Vor Zahlungen bestätigen. Schwellwert:" name="FSConfirmPayments" width="235" tool_tip="Zeigt einen Bestätigungsdialog, bevor Summen größer als der definierte Schwellwert gezahlt werden. Schwellwert auf 0 setzen, um Zahlungen immer zu bestätigen."/>
+		<spinner name="FSPaymentConfirmationThreshold" tool_tip="Zeigt einen Bestätigungsdialog, bevor Summen größer als der definierte Schwellwert gezahlt werden. Schwellwert auf 0 setzen, um Zahlungen immer zu bestätigen."/>
 	</panel>
 
 
@@ -155,81 +119,6 @@
 		</text>
 		<check_box label="OpenCollar-Protokoll erlauben den integrierten AO zu aktiviere/deaktivieren" name="BridgeIntegrationOC"/>
 		<check_box label="LockMeister-Protokoll erlauben den integrierten AO zu aktiviere/deaktivieren" name="BridgeIntegrationLM"/>
-	</panel>
-
-	<!--CmdLine-->
-	<panel label="CmdLine 1" name="tab-CmdLine1">
-		<check_box label="Chat-Eingabezeile zur Kommandoeingabe verwenden" name="chat_cmd_toggle"/>
-		<text name="FSCmdLineCalc_txt">
-			Berechnen (Befehl: cmd SIN(2+2))
-		</text>
-		<text name="FSCmdLineAutocorrect_txt">
-			Zur Autokorrekt. hinz. (cmd list|bad|good)
-		</text>
-		<text name="FSCmdLineDrawDistance_txt">
-			Draw Distance ändern (Befehl: cmd Meter)
-		</text>
-		<text name="FSCmdLineBandWidth_txt">
-			Max. Bandbreite (Befehl: cmd kbps)
-		</text>
-		<text name="FSCmdLineCopyCam_txt">
-			Kamerapos. in Zwischenablage kopieren
-		</text>
-		<text name="FSCmdLineRezPlatform_txt">
-			Plattform rezzen (Befehl: cmd 0 - 64)
-		</text>
-		<slider name="FSCmdLinePlatformSize" label="Breite" label_width="37" tool_tip="Legt die Größe der zu rezzenden Plattform fest."/>
-		<text name="FSCmdLineKeyToName_txt">
-			Av.-Name via UUID bestimmen (Befehl: cmd key)
-		</text>
-		<text name="FSCmdLineAO_txt">
-			AO ein-/ausschalten (Befehl: cmd on/off)
-		</text>
-		<text name="FSCmdLineClearChat_txt">
-			Chatverlauf löschen (Befehl: cmd)
-		</text>
-		<line_editor tool_tip="Löscht den Chatverlauf um Lag durch Spammer vorzubeugen." name="FSCmdLineClearChat"/>
-		<text name="FSCmdLineMedia_txt">
-			Medien-URL setzen (Befehl: cmd URL Typ)
-		</text>
-		<line_editor tool_tip="Setzt den Medienstream auf die angegebene URL und spielt ihn ab." name="FSCmdLineMedia"/>
-		<text name="FSCmdLineMusic_txt">
-			Musikstream-URL setzen (Befehl: cmd URL)
-		</text>
-		<line_editor tool_tip="Setzt die Musikstream auf die angegebene URL und spielt ihn ab." name="FSCmdLineMusic"/>
-		<text name="FSCmdLineRollDice_txt">
-			Würfeln (Befehl: cmd Würfel Seiten mt mw)
-		</text>
-		<line_editor tool_tip="Würfelt - cmd [Anzahl Würfel] [Seiten pro Würfel] [Modifizierer-Typ (optional)] [Modifizierer-Wert (optional). Beispiel: cmd 1 20, cmd 1 20 + 5. Auslassen der Parameter entspricht cmd 1 6 (Standardwürfel)" name="FSCmdLineRollDice"/>
-	</panel>
-	<panel label="CmdLine 2" name="tab-CmdLine2">
-		<check_box label="Chat-Eingabezeile zur Kommandoeingabe verwenden" name="chat_cmd_toggle2"/>
-		<text name="FSCmdLinePos_txt">
-			Teleport in Region (Befehl: cmd x z y)
-		</text>
-		<text name="FSCmdLineGround_txt">
-			Teleport zur Oberfläche (Befehl: cmd)
-		</text>
-		<text name="FSCmdLineHeight_txt">
-			Teleport auf Höhe (Befehl: cmd z)
-		</text>
-		<text name="FSCmdLineMapTo_txt">
-			Teleport zu Region x (cmd regionname)
-		</text>
-		<check_box label="Selbe Position auf neuer Region" name="toggle"/>
-		<text name="FSCmdTeleportToCam_txt">
-			Teleport zur Kameraposition (Befehl: cmd)
-		</text>
-		<text name="FSCmdLineOfferTp_txt">
-			Avatar Teleport anbieten (Befehl: cmd key)
-		</text>
-		<text name="FSCmdLineTP2_txt">
-			Teleport zu Avatar (Befehl: cmd name)
-		</text>
-		<line_editor tool_tip="Die Syntax dieses Befehls erlaubt partielle Avatarnamen und unterscheidet nicht zwischen Groß- und Kleinschreibung." name="FSCmdLineTP2"/>		
-		<text name="FSCmdLineTeleportHome_txt">
-			Teleport nach Hause (Befehl: cmd)
-		</text>
 	</panel>
 
 
@@ -300,21 +189,6 @@
 		</fs_embedded_item_drop_target>
 		<text name="build_item_add_disp_rect_txt">
 			Aktuell gesetzt: [ITEM]
-        </text>
-		<text name="text_box_permissions">
-			Berechtigungen
-		</text>
-		<text name="text_box_permnextowner">
-			Nächster Besitzer:
-		</text>
-		<check_box label="Kopieren" tool_tip="Berechtigung zum Kopieren" name="next_owner_copy"/>
-		<check_box label="Bearbeiten" tool_tip="Berechtigung zum Bearbeeiten" name="next_owner_modify"/>
-		<check_box label="Transferieren" tool_tip="Berechtigung zum Transferieren" name="next_owner_transfer"/>
-		<text name="text_box_permnote1">
-			Werden auch für neue
-		</text>
-		<text name="text_box_permnote2">
-			Uploads verwendet.
 		</text>
 		<text name="text_box_pivotpoint">
 			Drehpunkt
@@ -325,8 +199,9 @@
 		<spinner label="Y-Position" name="Y pos" label_width="60" width="135"/>
 		<spinner label="Z-Position" name="Z pos" label_width="60" width="135"/>
 		<check_box label="Werte sind in Prozent" tool_tip="Standardwerte sind Prozentangaben mit einem Wert von 50 für jede Achse" name="FSPivotPercToggle"/>
+		<button label="Standard-Erstellungsberechtigungen" name="fs_default_creation_permissions"/>
 		<check_box label="LSL-Präprozessor aktivieren" tool_tip="Aktiviert die Präprozessorunterstützung für LSL-Skripte" name="preproc_checkbox"/>
-		<check_box label="Skript-Optimierer" tool_tip="Optimiert den von Skripten benötigten Platz auf Kosten der Lesbarkeit." name="preprocoptimizer_checkbox"/>
+		<check_box label="Skript-Optimierer" tool_tip="Optimiert den von Skripten benötigten Platz." name="preprocoptimizer_checkbox"/>
 		<check_box label="switch()-Befehl" tool_tip="Stellt den switch()-Befehl zur Ablaufsteuerung bereit." name="preprocswitch_checkbox"/>
 		<check_box label="Lazy Lists" tool_tip="Aktiviert eine erweiterte Syntax für Listen-Operationen." name="preproclazy_checkbox"/>
 		<check_box label="#includes von der Festplatte" tool_tip="Aktiviert #include-Befehle zum Einbinden von Dateien auf der lokalen Festplatte." name="preprocinclude_checkbox"/>

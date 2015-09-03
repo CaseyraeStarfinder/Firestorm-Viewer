@@ -97,6 +97,9 @@ public:
 	// translate user's do not disturb response message according to current locale if message is default, otherwise do nothing
 	static void initDoNotDisturbResponse();
 
+	// update Show Favorites checkbox
+	static void updateShowFavoritesCheckbox(bool val);
+
 	void processProperties( void* pData, EAvatarProcessorType type );
 	void processProfileProperties(const LLAvatarData* pAvatarData );
 	void storeAvatarProperties( const LLAvatarData* pAvatarData );
@@ -230,6 +233,7 @@ public:
 	void onClickBlockList();
 	void onClickProxySettings();
 	void onClickTranslationSettings();
+	void onClickPermsDefault();
 	void onClickAutoReplace();
 	void onClickSpellChecker();
 	void applyUIColor(LLUICtrl* ctrl, const LLSD& param);

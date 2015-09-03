@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<floater name="floater_report_abuse" title="ПОЖАЛОВАТЬСЯ">
+<floater name="floater_report_abuse" title="Пожаловаться">
 	<floater.string name="Screenshot">
 		Снимок
 	</floater.string>
@@ -89,6 +89,6 @@
 	<text name="incomplete_title">
 		* Неполные заявления не будут рассматриваться
 	</text>
-	<button label="Жалоба" label_selected="Жалоба" name="send_btn"/>
+	<button label="Отправить" label_selected="Отправить" name="send_btn"/>
 	<button label="Отмена" label_selected="Отмена" name="cancel_btn"/>
 </floater>

@@ -2,7 +2,7 @@
 include(Linking)
 include(Prebuilt)
 
-if (STANDALONE)
+if (USESYSTEMLIBS)
   # The minimal version, 4.4.3, is rather arbitrary: it's the version in Debian/Lenny.
   find_package(Qt4 4.4.3 COMPONENTS QtCore QtGui QtNetwork QtOpenGL QtWebKit REQUIRED)
   include(${QT_USE_FILE})
@@ -28,28 +28,28 @@ if (STANDALONE)
   list(APPEND QT_PLUGIN_LIBRARIES jpeg)
     set(WEBKITLIBPLUGIN OFF CACHE BOOL
         "WEBKITLIBPLUGIN support for the llplugin/llmedia test apps.")
-else (STANDALONE)
+else (USESYSTEMLIBS)
     use_prebuilt_binary(llqtwebkit)
     set(WEBKITLIBPLUGIN ON CACHE BOOL
         "WEBKITLIBPLUGIN support for the llplugin/llmedia test apps.")
-endif (STANDALONE)
+endif (USESYSTEMLIBS)
 
 if (WINDOWS)
     set(WEBKIT_PLUGIN_LIBRARIES 
-    debug llqtwebkitd
-    debug QtWebKitd4
-    debug QtOpenGLd4
-    debug QtNetworkd4
-    debug QtGuid4
-    debug QtCored4
-    debug qtmaind
-    optimized llqtwebkit
-    optimized QtWebKit4
-    optimized QtOpenGL4
-    optimized QtNetwork4
-    optimized QtGui4
-    optimized QtCore4
-    optimized qtmain
+        debug llqtwebkitd
+        debug QtWebKitd4
+        debug QtOpenGLd4
+        debug QtNetworkd4
+        debug QtGuid4
+        debug QtCored4
+        debug qtmaind
+        optimized llqtwebkit
+        optimized QtWebKit4
+        optimized QtOpenGL4
+        optimized QtNetwork4
+        optimized QtGui4
+        optimized QtCore4
+        optimized qtmain
     )
 elseif (DARWIN)
     set(WEBKIT_PLUGIN_LIBRARIES
@@ -62,31 +62,37 @@ elseif (DARWIN)
         )
 elseif (LINUX)
     # FIRE-6108, add missing if clause for standalone builds - TL
-    if (STANDALONE)
+    if (USESYSTEMLIBS)
       set(WEBKIT_PLUGIN_LIBRARIES ${LLQTWEBKIT_LIBRARY} ${QT_LIBRARIES} ${QT_PLUGIN_LIBRARIES})
-    else (STANDALONE)
+    else (USESYSTEMLIBS)
       set(WEBKIT_PLUGIN_LIBRARIES
-          llqtwebkit
-#          qico
-#          qpng
-#          qtiff
-#          qsvg
-#          QtSvg
-          QtWebKit
-          QtOpenGL
-          QtNetwork
-          QtGui
-          QtCore
+        llqtwebkit
+#        qico
+#        qpng
+#        qtiff
+#        qsvg
+#        QtSvg
+        QtWebKit
+        QtOpenGL
+        QtNetwork
+        QtGui
+        QtCore
           jpeg
-#          jscore
-          fontconfig
-          X11
-          Xrender
-          GL
-
-#          sqlite3
-#          Xi
-#          SM
-          )
-    endif (STANDALONE)
+        jscore
+#        qgif
+#        qjpeg
+#        jpeg
+        fontconfig
+        X11
+        Xrender
+        GL
+#        sqlite3
+#        Xi
+#        SM
+# <FS:ND> Link against ssl and crypto (in this order) to avoid webkit fail
+        ssl
+        crypto
+# </FS:ND>
+        )
+    endif (USESYSTEMLIBS)	
 endif (WINDOWS)

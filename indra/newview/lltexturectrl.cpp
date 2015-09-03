@@ -72,12 +72,6 @@
 #include "llfloaterreg.h"
 #include "lllocalbitmaps.h"
 
-static const S32 HPAD = 4;
-static const S32 VPAD = 4;
-static const S32 LINE = 16;
-static const S32 FOOTER_HEIGHT = 100;
-static const S32 BORDER_PAD = HPAD;
-static const S32 TEXTURE_INVENTORY_PADDING = 30;
 static const F32 CONTEXT_CONE_IN_ALPHA = 0.0f;
 static const F32 CONTEXT_CONE_OUT_ALPHA = 1.f;
 static const F32 CONTEXT_FADE_TIME = 0.08f;
@@ -118,7 +112,7 @@ public:
 	/*virtual*/ void	onClose(bool app_settings);
 	
 	// New functions
-	void setImageID( const LLUUID& image_asset_id);
+	void setImageID( const LLUUID& image_asset_id, bool set_selection = true);
 	void updateImageStats();
 	const LLUUID& getAssetID() { return mImageAssetID; }
 	const LLUUID& findItemID(const LLUUID& asset_id, BOOL copyable_only);
@@ -196,6 +190,7 @@ protected:
 private:
 	bool mCanApply;
 	bool mCanPreview;
+	bool mPreviewSettingChanged;
 	texture_selected_callback mTextureSelectedCallback;
 };
 
@@ -224,7 +219,8 @@ LLFloaterTexturePicker::LLFloaterTexturePicker(
 	mContextConeOpacity(0.f),
 	mSelectedItemPinned( FALSE ),
 	mCanApply(true),
-	mCanPreview(true)
+	mCanPreview(true),
+	mPreviewSettingChanged(false)
 {
 	buildFromFile("floater_texture_ctrl.xml");
 	mCanApplyImmediately = can_apply_immediately;
@@ -235,7 +231,7 @@ LLFloaterTexturePicker::~LLFloaterTexturePicker()
 {
 }
 
-void LLFloaterTexturePicker::setImageID(const LLUUID& image_id)
+void LLFloaterTexturePicker::setImageID(const LLUUID& image_id, bool set_selection /*=true*/)
 {
 	if( mImageAssetID != image_id && mActive)
 	{
@@ -256,6 +252,10 @@ void LLFloaterTexturePicker::setImageID(const LLUUID& image_id)
 				getChild<LLUICtrl>("apply_immediate_check")->setValue(FALSE);
 				mNoCopyTextureSelected = TRUE;
 			}
+		}
+
+		if (set_selection)
+		{
 			mInventoryPanel->setSelection(item_id, TAKE_FOCUS_NO);
 		}
 	}
@@ -468,7 +468,10 @@ BOOL LLFloaterTexturePicker::postBuild()
 
 		// don't put keyboard focus on selected item, because the selection callback
 		// will assume that this was user input
-		mInventoryPanel->setSelection(findItemID(mImageAssetID, FALSE), TAKE_FOCUS_NO);
+		if(!mImageAssetID.isNull())
+		{
+			mInventoryPanel->setSelection(findItemID(mImageAssetID, FALSE), TAKE_FOCUS_NO);
+		}
 	}
 
 	mModeSelector = getChild<LLRadioGroup>("mode_selection");
@@ -586,10 +589,10 @@ void LLFloaterTexturePicker::draw()
 			mTentativeLabel->setVisible( FALSE  );
 		}
 
-		getChildView("Default")->setEnabled(mImageAssetID != mOwner->getDefaultImageAssetID());
-		getChildView("Blank")->setEnabled(mImageAssetID != mOwner->getBlankImageAssetID());
-		getChildView("Transparent")->setEnabled(mImageAssetID != mTransparentImageAssetID ); // <FS:PP> FIRE-5082: "Transparent" button in Texture Panel
-		getChildView("None")->setEnabled(mOwner->getAllowNoTexture() && !mImageAssetID.isNull() );
+		getChildView("Default")->setEnabled(mImageAssetID != mOwner->getDefaultImageAssetID() || mOwner->getTentative());
+		getChildView("Blank")->setEnabled(mImageAssetID != mOwner->getBlankImageAssetID() || mOwner->getTentative());
+		getChildView("Transparent")->setEnabled(mImageAssetID != mTransparentImageAssetID || mOwner->getTentative()); // <FS:PP> FIRE-5082: "Transparent" button in Texture Panel
+		getChildView("None")->setEnabled(mOwner->getAllowNoTexture() && (!mImageAssetID.isNull() || mOwner->getTentative()));
 
 		LLFloater::draw();
 
@@ -844,8 +847,18 @@ void LLFloaterTexturePicker::onSelectionChange(const std::deque<LLFolderViewItem
 			// <FS:Ansariel> FIRE-8298: Apply now checkbox has no effect
 			setCanApply(true, true);
 			// </FS:Ansariel>
-			setImageID(itemp->getAssetUUID());
+			setImageID(itemp->getAssetUUID(),false);
 			mViewModel->setDirty(); // *TODO: shouldn't we be using setValue() here?
+
+			if(!mPreviewSettingChanged)
+			{
+				mCanPreview = gSavedSettings.getBOOL("TextureLivePreview");
+			}
+			else
+			{
+				mPreviewSettingChanged = false;
+			}
+
 			if (user_action && mCanPreview)
 			{
 				// only commit intentional selections, not implicit ones
@@ -1008,6 +1021,7 @@ void LLFloaterTexturePicker::setCanApply(bool can_preview, bool can_apply)
 
 	mCanApply = can_apply;
 	mCanPreview = can_preview ? gSavedSettings.getBOOL("TextureLivePreview") : false;
+	mPreviewSettingChanged = true;
 }
 
 void LLFloaterTexturePicker::onFilterEdit(const std::string& search_string )
@@ -1574,8 +1588,8 @@ void LLTextureCtrl::draw()
 		gl_draw_x( interior, LLColor4::black );
 	}
 
-	mTentativeLabel->setVisible( !mTexturep.isNull() && getTentative() );
-	
+	mTentativeLabel->setVisible( getTentative() );
+
 	// Show "Loading..." string on the top left corner while this texture is loading.
 	// Using the discard level, do not show the string if the texture is almost but not 
 	// fully loaded.

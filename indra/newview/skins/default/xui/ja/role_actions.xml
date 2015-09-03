@@ -3,6 +3,7 @@
 	<action_set description="これらの能力には、グループメンバーを追加、排除し、招待状なしに新メンバーの参加を認める権限が含まれます。" name="Membership">
 		<action description="このグループに人を招待" longdescription="「役割」セクションの「メンバー」タブ内にある「招待」ボタンを押して、このグループにメンバーを招待します。" name="member invite" value="1"/>
 		<action description="メンバーをこのグループから追放" longdescription="「役割」セクションの「メンバー」タブ内にある「追放」ボタンを押して、このグループからメンバーを追放します。 「オーナー」は、他の「オーナー」以外は誰でも追放できます。 「オーナー」ではない人が「全員（Everyone）」にしか役割がない場合、メンバーはグループから追放されることがあります。 「役割」からメンバーを削除するには、「役割からメンバーを削除」の能力が与えられている必要があります。" name="member eject" value="2"/>
+		<action description="立入禁止リストの管理" longdescription="グループのメンバーに、このグループから住人を立入禁止/立入禁止解除できるようにします。" name="allow ban" value="51"/>
 		<action description="「自由参加」と「入会費」の切り替え" longdescription="「自由参加」に切り替えると、招待されなくても新しいメンバーが入会できます。「入会費」は「一般」セクションで変更します。" name="member options" value="3"/>
 	</action_set>
 	<action_set description="これらの能力には、グループ内の役割を追加、削除、変更し、役割にメンバーを追加、削除し、さらに役割へ能力を割り当てる権限が含まれます。" name="Roles">
@@ -69,5 +70,9 @@
 		<action description="グループチャットに参加する" longdescription=" この能力を持つ役割のメンバーは、グループチャットセッションにテキストおよびボイスで参加できます。 " name="join group chat" value="16"/>
 		<action description="グループボイスチャットに参加する" longdescription=" この能力を持つ役割のメンバーは、グループボイスチャットセッションに参加できます。  注： ボイスチャットセッションにアクセスするには、グループチャットに参加する能力が必要です。 " name="join voice chat" value="27"/>
 		<action description="グループチャットを管理する" longdescription=" この能力を持つ役割のメンバーは、グループボイスチャットセッションおよびグループテキストチャットセッションへのアクセスや参加をコントロールすることができます。 " name="moderate group chat" value="37"/>
+	</action_set>
+	<action_set description="これらの機能には、このグループにより所有される体験を変更する機能が含まれます。" name="experience_tools_experience">
+		<action description="体験管理者" longdescription="この機能を持つ役割のメンバーは、体験のメタデータを編集できます。" name="experience admin" value="49"/>
+		<action description="体験貢献者" longdescription="この機能を持つ役割のメンバーは、体験のスクリプトを提供できます。" name="experience contributor" value="50"/>
 	</action_set>
 </role_actions>

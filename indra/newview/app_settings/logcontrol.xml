@@ -44,6 +44,8 @@
 						<array>
 						     
 						<!-- sample entry for debugging specific items
+						     <string>Avatar</string>
+						     <string>Inventory</string>
 						     <string>SceneLoadTiming</string>
 							 <string>Voice</string>
 							 <string>Avatar</string>							
@@ -52,6 +54,7 @@
 						     <string>export</string>
 						     <string>fsdata</string>
 							 <string>SLURL</string>
+							 <string>Outfit</string>
 						</array>
 				</map>
       </array>

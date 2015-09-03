@@ -3,11 +3,11 @@
 <Wix RequiredVersion="3.6.2830.0" xmlns="http://schemas.microsoft.com/wix/2006/wi"  xmlns:bal="http://schemas.microsoft.com/wix/BalExtension"> 
   <Bundle Name="Firestorm$(var.CHANNEL_SUFFIX) x64"
 		  Version="$(var.MAJOR).$(var.MINOR).$(var.HGCHANGE)"
-		  Manufacturer="Phoenix Firestorm Project Inc"
+		  Manufacturer="The Phoenix Firestorm Project, Inc."
 		  UpgradeCode="$(var.UPGRADECODE)"
-		  HelpUrl="http://www.firestormviewer.org" 
+		  HelpUrl="http://www.firestormviewer.org/support" 
 		  AboutUrl="http://www.firestormviewer.org" 
-		  Copyright="Copyright© 2014, Phoenix Firestorm Project Inc" 
+		  Copyright="Copyright© 2015, The Phoenix Firestorm Project, Inc." 
 		  Condition="(VersionNT = v6.0 AND ServicePackLevel = 2) OR (VersionNT >= v6.1)"
 		  IconSourceFile="$(var.WIX_SOURCEDIR)\..\windows\firestorm_icon.ico"
 		  >
@@ -27,21 +27,39 @@
 
     <Variable Name="InstallFolder" Type="string" Value="[ProgramFiles64Folder]Firestorm$(var.CHANNEL_SUFFIX)\" /> 
 
-    <Chain> 
+    <Chain>
+	  <!-- Redist 2010, needed for plugins -->
 	  <ExePackage
 		  Id="vcredist_x86"
-		  SourceFile="$(var.WIX_SOURCEDIR)/vcredist_x86.exe"
+		  SourceFile="$(var.WIX_SOURCEDIR)/vcredist2010_x86.exe"
 		  InstallCommand="/q"
 		  PerMachine="yes"
 		  Vital="no"
 		  />
 	  <ExePackage
 		  Id="vcredist_x64"
-		  SourceFile="$(var.WIX_SOURCEDIR)/vcredist_x64.exe"
+		  SourceFile="$(var.WIX_SOURCEDIR)/vcredist2010_x64.exe"
 		  InstallCommand="/q"
 		  PerMachine="yes"
 		  Vital="no"
 		  />
+
+	  <!-- Redist 2013, needed for viewer -->
+	  <ExePackage
+		  Id="vcredist2013_x86"
+		  SourceFile="$(var.WIX_SOURCEDIR)/vcredist2013_x86.exe"
+		  InstallCommand="/q"
+		  PerMachine="yes"
+		  Vital="no"
+		  />
+	  <ExePackage
+		  Id="vcredist2013_x64"
+		  SourceFile="$(var.WIX_SOURCEDIR)/vcredist2013_x64.exe"
+		  InstallCommand="/q"
+		  PerMachine="yes"
+		  Vital="no"
+		  />
+
       <MsiPackage 
           Id="Setup" 
           Compressed="yes" 

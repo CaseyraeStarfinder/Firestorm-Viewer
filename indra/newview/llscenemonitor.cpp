@@ -39,6 +39,7 @@
 #include "llspatialpartition.h"
 #include "llagent.h"
 #include "pipeline.h"
+#include "llviewerparcelmgr.h"
 #include "llviewerpartsim.h"
 
 LLSceneMonitorView* gSceneMonitorView = NULL;
@@ -702,6 +703,13 @@ LLSceneMonitorView::LLSceneMonitorView(const LLRect& rect)
 	
 	setCanMinimize(false);
 	setCanClose(true);
+
+	sTeleportFinishConnection = LLViewerParcelMgr::getInstance()->setTeleportFinishedCallback(boost::bind(&LLSceneMonitorView::onTeleportFinished, this));
+}
+
+LLSceneMonitorView::~LLSceneMonitorView()
+{
+	sTeleportFinishConnection.disconnect();
 }
 
 // <FS:Ansariel> FIRE-14144 / MAINT-4256 / BUG-6664: Crash when opening stats after closing via X
@@ -712,9 +720,30 @@ void LLSceneMonitorView::closeFloater(bool app_quitting)
 	setVisible(false);	
 }
 
+// <FS:Ansariel> FIRE-14144 / MAINT-4256 / BUG-6664: Crash when opening stats after closing via X
+//void LLSceneMonitorView::onClickCloseBtn(bool app_quitting)
+//{
+//	setVisible(false);
+//}
+// </FS:Ansariel>
+
+void LLSceneMonitorView::onTeleportFinished()
+{
+	if(isInVisibleChain())
+	{
+		LLSceneMonitor::getInstance()->reset();
+	}
+}
+
 void LLSceneMonitorView::onVisibilityChange(BOOL visible)
 {
-	visible = visible && LLGLSLShader::sNoFixedFunction;
+	if (!LLGLSLShader::sNoFixedFunction && visible)
+	{
+		visible = false;
+		// keep Scene monitor and its view in sycn
+		setVisible(false);
+		LL_WARNS("SceneMonitor") << "Incompatible graphical settings, Scene Monitor can't be turned on" << LL_ENDL; 
+	}
 	LLSceneMonitor::getInstance()->setDebugViewerVisible(visible);
 
 	// <FS:Ansariel> FIRE-14144 / MAINT-4256 / BUG-6664: Crash when opening stats after closing via X

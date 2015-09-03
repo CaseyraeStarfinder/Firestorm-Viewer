@@ -63,6 +63,7 @@
 #include "llviewerregion.h"
 #include "llviewerstats.h"
 #include "llviewertexture.h"
+#include "llviewerwindow.h"
 #include "llworldmap.h"
 #include "llworldmapmessage.h"
 #include "llworldmapview.h"
@@ -80,6 +81,7 @@
 // [/RLVa:KB]
 #include "llsdutil.h"
 #include "llsdutil_math.h"
+#include "alfloaterregiontracker.h"
 
 //---------------------------------------------------------------------------
 // Constants
@@ -266,7 +268,7 @@ void FSWorldMapParcelInfoObserver::setParcelID(const LLUUID& parcel_id)
 }
 
 // virtual
-void FSWorldMapParcelInfoObserver::setErrorStatus(U32 status, const std::string& reason)
+void FSWorldMapParcelInfoObserver::setErrorStatus(S32 status, const std::string& reason)
 {
 	LL_WARNS("FSWorldMapParcelInfoObserver") << "Can't handle remote parcel request." << " Http Status: " << status << ". Reason : " << reason << LL_ENDL;
 }
@@ -316,7 +318,9 @@ LLFloaterWorldMap::LLFloaterWorldMap(const LLSD& key)
 	mCommitCallbackRegistrar.add("WMap.ShowAgent",		boost::bind(&LLFloaterWorldMap::onShowAgentBtn, this));		
 	mCommitCallbackRegistrar.add("WMap.Clear",			boost::bind(&LLFloaterWorldMap::onClearBtn, this));		
 	mCommitCallbackRegistrar.add("WMap.CopySLURL",		boost::bind(&LLFloaterWorldMap::onCopySLURL, this));
-	
+	// <FS:Ansariel> Alchemy region tracker
+	mCommitCallbackRegistrar.add("WMap.TrackRegion",	boost::bind(&LLFloaterWorldMap::onTrackRegion, this));
+
 	gSavedSettings.getControl("PreferredMaturity")->getSignal()->connect(boost::bind(&LLFloaterWorldMap::onChangeMaturity, this));
 }
 
@@ -602,6 +606,8 @@ void LLFloaterWorldMap::draw()
 	copy_slurl_btn->setEnabled((mSLURL.isValid()) );
 	go_home_btn->setEnabled((!rlv_handler_t::isEnabled()) || !(gRlvHandler.hasBehaviour(RLV_BHVR_TPLM) && gRlvHandler.hasBehaviour(RLV_BHVR_TPLOC)));
 	// </FS:Ansariel> Performance improvement
+	// <FS:Ansariel> Alchemy region tracker
+	getChild<LLButton>("track_region")->setEnabled((BOOL) tracking_status || LLWorldMap::getInstance()->isTracking());
 
 	setMouseOpaque(TRUE);
 	getDragHandle()->setMouseOpaque(TRUE);
@@ -680,9 +686,9 @@ void LLFloaterWorldMap::processParcelInfo(const LLParcelData& parcel_data, const
 	F32 region_y = pos_global.mdV[VY] - locY;
 	std::string full_name = llformat("%s (%d, %d, %d)", 
 									 sim_name.c_str(), 
-									 llround(region_x), 
-									 llround(region_y),
-									 llround((F32)pos_global.mdV[VZ]));
+									 ll_round(region_x), 
+									 ll_round(region_y),
+									 ll_round((F32)pos_global.mdV[VZ]));
 
 	LLTracker::trackLocation(pos_global, parcel_data.name, full_name);
 }
@@ -868,9 +874,9 @@ void LLFloaterWorldMap::trackLocation(const LLVector3d& pos_global)
 // </FS:CR>
 	std::string full_name = llformat("%s (%d, %d, %d)", 
 									 sim_name.c_str(), 
-									 llround(region_x), 
-									 llround(region_y),
-									 llround((F32)pos_global.mdV[VZ]));
+									 ll_round(region_x), 
+									 ll_round(region_y),
+									 ll_round((F32)pos_global.mdV[VZ]));
 	
 	std::string tooltip("");
 	mTrackedStatus = LLTracker::TRACKING_LOCATION;
@@ -1178,7 +1184,7 @@ void LLFloaterWorldMap::buildAvatarIDList()
 	end = collector.mMappable.end();
 	for( ; it != end; ++it)
 	{
-		list->addSimpleElement((*it).first, ADD_BOTTOM, (*it).second);
+		list->addSimpleElement((*it).second, ADD_BOTTOM, (*it).first);
 	}
 	
 	list->setCurrentByID( LLAvatarTracker::instance().getAvatarID() );
@@ -1606,6 +1612,38 @@ void LLFloaterWorldMap::onCopySLURL()
 	LLNotificationsUtil::add("CopySLURL", args);
 }
 
+// <FS:Ansariel> Alchemy region tracker
+void LLFloaterWorldMap::onTrackRegion()
+{
+	ALFloaterRegionTracker* floaterp = LLFloaterReg::getTypedInstance<ALFloaterRegionTracker>("region_tracker");
+	if (floaterp)
+	{
+		if (LLTracker::getTrackingStatus() != LLTracker::TRACKING_NOTHING)
+		{
+			std::string sim_name;
+			LLWorldMap::getInstance()->simNameFromPosGlobal(LLTracker::getTrackedPositionGlobal(), sim_name);
+			if (!sim_name.empty())
+			{
+				const std::string& temp_label = floaterp->getRegionLabelIfExists(sim_name);
+				LLSD args, payload;
+				args["REGION"] = sim_name;
+				args["LABEL"] = !temp_label.empty() ? temp_label : sim_name;
+				payload["name"] = sim_name;
+				LLNotificationsUtil::add("RegionTrackerAdd", args, payload, boost::bind(&ALFloaterRegionTracker::onRegionAddedCallback, floaterp, _1, _2));
+			}
+			else
+			{
+				LL_WARNS() << "Cannot add region to region tracker because sim name is empty." << LL_ENDL;
+			}
+		}
+		else
+		{
+			LL_WARNS() << "Cannot add region to region tracker because we aren't tracking anything." << LL_ENDL;
+		}
+	}
+}
+// </FS:Ansariel>
+
 // protected
 void LLFloaterWorldMap::centerOnTarget(BOOL animate)
 {
@@ -1939,4 +1977,11 @@ void LLFloaterWorldMap::onChangeMaturity()
 	{
 		gSavedSettings.setBOOL("ShowAdultEvents", FALSE);
 	}
+}
+
+void LLFloaterWorldMap::onFocusLost()
+{
+	gViewerWindow->showCursor();
+	LLWorldMapView* map_panel = (LLWorldMapView*)gFloaterWorldMap->mPanel;
+	map_panel->mPanning = FALSE;
 }

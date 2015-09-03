@@ -31,6 +31,7 @@
 #include <vector>
 #include <list>
 #include <boost/function.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/type_traits/is_convertible.hpp>
 #include <boost/type_traits/is_enum.hpp>
 #include <boost/unordered_map.hpp>
@@ -434,8 +435,7 @@ namespace LLInitParam
 		typedef self_t type_value_t;
 
 		TypeValuesHelper(const std::string& val)
-			//		:	TypeValuesHelper(val) <FS:ND> Call base_t::ctor. Otherwise gcc can get confused.
-		:	base_t::TypeValuesHelper(val)
+		:	base_t(val)
 		{}
 
 		void operator ()(const std::string& name)
@@ -630,7 +630,7 @@ namespace LLInitParam
 		UserData*			mUserData;
 	};
 
-	typedef ParamDescriptor* ParamDescriptorPtr;
+	typedef boost::shared_ptr<ParamDescriptor> ParamDescriptorPtr;
 
 	// each derived Block class keeps a static data structure maintaining offsets to various params
 	class LL_COMMON_API BlockDescriptor
@@ -1123,7 +1123,7 @@ namespace LLInitParam
 		void set(const value_t& val, bool flag_as_provided = true)
 		{
 			named_value_t::clearValueName();
-			param_value_t::setValue(val);
+			named_value_t::setValue(val);
 			setProvided(flag_as_provided);
 		}
 
@@ -1287,7 +1287,7 @@ namespace LLInitParam
 		// assign block contents to this param-that-is-a-block
 		void set(const value_t& val, bool flag_as_provided = true)
 		{
-			param_value_t::setValue(val);
+			named_value_t::setValue(val);
 			named_value_t::clearValueName();
 			setProvided(flag_as_provided);
 		}

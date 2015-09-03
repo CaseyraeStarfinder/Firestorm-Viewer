@@ -35,7 +35,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include "llhttpstatuscodes.h"
+#include "llhttpconstants.h"
 #include "llsdutil.h"
 #include "llmediaentry.h"
 #include "lltextureentry.h"
@@ -174,16 +174,10 @@ bool LLMediaDataClient::isEmpty() const
 
 bool LLMediaDataClient::isInQueue(const LLMediaDataClientObject::ptr_t &object)
 {
-	// <FS> C++ 2011 compatibility
-	//if(find_matching_request(mQueue, object->getID()) != mQueue.end())
 	if(find_matching_request(mQueue, object->getID(), LLMediaDataClient::Request::ANY) != mQueue.end())
-	// </FS>
 		return true;
 	
-	// <FS> C++ 2011 compatibility
-	//if(find_matching_request(mUnQueuedRequests, object->getID()) != mUnQueuedRequests.end())
 	if(find_matching_request(mUnQueuedRequests, object->getID(), LLMediaDataClient::Request::ANY) != mUnQueuedRequests.end())
-	// </FS>
 		return true;
 	
 	return false;
@@ -192,12 +186,8 @@ bool LLMediaDataClient::isInQueue(const LLMediaDataClientObject::ptr_t &object)
 void LLMediaDataClient::removeFromQueue(const LLMediaDataClientObject::ptr_t &object)
 {
 	LL_DEBUGS("LLMediaDataClient") << "removing requests matching ID " << object->getID() << LL_ENDL;
-	// <FS> C++ 2011 compatibility
-	//remove_matching_requests(mQueue, object->getID());
-	//remove_matching_requests(mUnQueuedRequests, object->getID());
 	remove_matching_requests(mQueue, object->getID(), LLMediaDataClient::Request::ANY);
 	remove_matching_requests(mUnQueuedRequests, object->getID(), LLMediaDataClient::Request::ANY);
-	// </FS>
 }
 
 void LLMediaDataClient::startQueueTimer() 
@@ -577,7 +567,7 @@ LLMediaDataClient::Responder::Responder(const request_ptr_t &request)
 }
 
 /*virtual*/
-void LLMediaDataClient::Responder::errorWithContent(U32 status, const std::string& reason, const LLSD& content)
+void LLMediaDataClient::Responder::httpFailure()
 {
 	mRequest->stopTracking();
 
@@ -587,9 +577,17 @@ void LLMediaDataClient::Responder::errorWithContent(U32 status, const std::strin
 		return;
 	}
 	
-	if (status == HTTP_SERVICE_UNAVAILABLE)
+	if (getStatus() == HTTP_SERVICE_UNAVAILABLE)
 	{
-		F32 retry_timeout = mRequest->getRetryTimerDelay();
+		F32 retry_timeout;
+#if 0
+		// *TODO: Honor server Retry-After header.
+		if (!hasResponseHeader(HTTP_IN_HEADER_RETRY_AFTER)
+			|| !getSecondsUntilRetryAfter(getResponseHeader(HTTP_IN_HEADER_RETRY_AFTER), retry_timeout))
+#endif
+		{
+			retry_timeout = mRequest->getRetryTimerDelay();
+		}
 		
 		mRequest->incRetryCount();
 		
@@ -607,15 +605,16 @@ void LLMediaDataClient::Responder::errorWithContent(U32 status, const std::strin
 				<< mRequest->getRetryCount() << " exceeds " << mRequest->getMaxNumRetries() << ", not retrying" << LL_ENDL;
 		}
 	}
+	// *TODO: Redirect on 3xx status codes.
 	else 
 	{
-		LL_WARNS("LLMediaDataClient") << *mRequest << " http error [status:" 
-				<< status << "]:" << content << ")" << LL_ENDL;
+		LL_WARNS("LLMediaDataClient") << *mRequest << " http failure "
+				<< dumpResponse() << LL_ENDL;
 	}
 }
 
 /*virtual*/
-void LLMediaDataClient::Responder::result(const LLSD& content)
+void LLMediaDataClient::Responder::httpSuccess()
 {
 	mRequest->stopTracking();
 
@@ -625,7 +624,7 @@ void LLMediaDataClient::Responder::result(const LLSD& content)
 		return;
 	}
 
-	LL_DEBUGS("LLMediaDataClientResponse") << *mRequest << " result : " << ll_print_sd(content) << LL_ENDL;
+	LL_DEBUGS("LLMediaDataClientResponse") << *mRequest << " " << dumpResponse() << LL_ENDL;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -789,10 +788,7 @@ bool LLObjectMediaDataClient::isInQueue(const LLMediaDataClientObject::ptr_t &ob
 	if(LLMediaDataClient::isInQueue(object))
 		return true;
 
-	// <FS> C++ 2011 compatibility
-	//if(find_matching_request(mRoundRobinQueue, object->getID()) != mRoundRobinQueue.end())
 	if(find_matching_request(mRoundRobinQueue, object->getID(), LLMediaDataClient::Request::ANY) != mRoundRobinQueue.end())
-	// </FS>
 		return true;
 	
 	return false;
@@ -803,10 +799,7 @@ void LLObjectMediaDataClient::removeFromQueue(const LLMediaDataClientObject::ptr
 	// First, call parent impl.
 	LLMediaDataClient::removeFromQueue(object);
 	
-	// <FS> C++ 2011 compatibility
-	//remove_matching_requests(mRoundRobinQueue, object->getID());
 	remove_matching_requests(mRoundRobinQueue, object->getID(), LLMediaDataClient::Request::ANY);
-	// </FS>
 }
 
 bool LLObjectMediaDataClient::processQueueTimer()
@@ -895,7 +888,7 @@ LLMediaDataClient::Responder *LLObjectMediaDataClient::RequestUpdate::createResp
 
 
 /*virtual*/
-void LLObjectMediaDataClient::Responder::result(const LLSD& content)
+void LLObjectMediaDataClient::Responder::httpSuccess()
 {
 	getRequest()->stopTracking();
 
@@ -905,10 +898,16 @@ void LLObjectMediaDataClient::Responder::result(const LLSD& content)
 		return;
 	}
 
-	// This responder is only used for GET requests, not UPDATE.
+	const LLSD& content = getContent();
+	if (!content.isMap())
+	{
+		failureResult(HTTP_INTERNAL_ERROR, "Malformed response contents", content);
+		return;
+	}
 
-	LL_DEBUGS("LLMediaDataClientResponse") << *(getRequest()) << " GET returned: " << ll_print_sd(content) << LL_ENDL;
-	
+	// This responder is only used for GET requests, not UPDATE.
+	LL_DEBUGS("LLMediaDataClientResponse") << *(getRequest()) << " " << dumpResponse() << LL_ENDL;
+
 	// Look for an error
 	if (content.has("error"))
 	{
@@ -956,10 +955,7 @@ void LLObjectMediaNavigateClient::enqueue(Request *request)
 	}
 	
 	// If there's already a matching request in the queue, remove it.
-	// <FS> C++ 2011 compatibility
-	//request_queue_t::iterator iter = find_matching_request(mQueue, request);
 	request_queue_t::iterator iter = find_matching_request(mQueue, request, LLMediaDataClient::Request::ANY);
-	// </FS>
 	if(iter != mQueue.end())
 	{
 		LL_DEBUGS("LLMediaDataClient") << "removing matching queued request " << (**iter) << LL_ENDL;
@@ -967,10 +963,7 @@ void LLObjectMediaNavigateClient::enqueue(Request *request)
 	}
 	else
 	{
-		// <FS> C++ 2011 compatibility
-		//request_set_t::iterator set_iter = find_matching_request(mUnQueuedRequests, request);
 		request_set_t::iterator set_iter = find_matching_request(mUnQueuedRequests, request, LLMediaDataClient::Request::ANY);
-		// </FS>
 		if(set_iter != mUnQueuedRequests.end())
 		{
 			LL_DEBUGS("LLMediaDataClient") << "removing matching unqueued request " << (**set_iter) << LL_ENDL;
@@ -1045,7 +1038,7 @@ LLMediaDataClient::Responder *LLObjectMediaNavigateClient::RequestNavigate::crea
 }
 
 /*virtual*/
-void LLObjectMediaNavigateClient::Responder::errorWithContent(U32 status, const std::string& reason, const LLSD& content)
+void LLObjectMediaNavigateClient::Responder::httpFailure()
 {
 	getRequest()->stopTracking();
 
@@ -1057,14 +1050,14 @@ void LLObjectMediaNavigateClient::Responder::errorWithContent(U32 status, const 
 
 	// Bounce back (unless HTTP_SERVICE_UNAVAILABLE, in which case call base
 	// class
-	if (status == HTTP_SERVICE_UNAVAILABLE)
+	if (getStatus() == HTTP_SERVICE_UNAVAILABLE)
 	{
-		LLMediaDataClient::Responder::errorWithContent(status, reason, content);
+		LLMediaDataClient::Responder::httpFailure();
 	}
 	else
 	{
 		// bounce the face back
-		LL_WARNS("LLMediaDataClient") << *(getRequest()) << " Error navigating: http code=" << status << LL_ENDL;
+		LL_WARNS("LLMediaDataClient") << *(getRequest()) << " Error navigating: " << dumpResponse() << LL_ENDL;
 		const LLSD &payload = getRequest()->getPayload();
 		// bounce the face back
 		getRequest()->getObject()->mediaNavigateBounceBack((LLSD::Integer)payload[LLTextureEntry::TEXTURE_INDEX_KEY]);
@@ -1072,7 +1065,7 @@ void LLObjectMediaNavigateClient::Responder::errorWithContent(U32 status, const 
 }
 
 /*virtual*/
-void LLObjectMediaNavigateClient::Responder::result(const LLSD& content)
+void LLObjectMediaNavigateClient::Responder::httpSuccess()
 {
 	getRequest()->stopTracking();
 
@@ -1082,8 +1075,9 @@ void LLObjectMediaNavigateClient::Responder::result(const LLSD& content)
 		return;
 	}
 
-	LL_INFOS("LLMediaDataClient") << *(getRequest()) << " NAVIGATE returned " << ll_print_sd(content) << LL_ENDL;
+	LL_INFOS("LLMediaDataClient") << *(getRequest()) << " NAVIGATE returned " << dumpResponse() << LL_ENDL;
 	
+	const LLSD& content = getContent();
 	if (content.has("error"))
 	{
 		const LLSD &error = content["error"];
@@ -1107,6 +1101,6 @@ void LLObjectMediaNavigateClient::Responder::result(const LLSD& content)
 	else 
 	{
 		// No action required.
-		LL_DEBUGS("LLMediaDataClientResponse") << *(getRequest()) << " result : " << ll_print_sd(content) << LL_ENDL;
+		LL_DEBUGS("LLMediaDataClientResponse") << *(getRequest()) << " " << dumpResponse() << LL_ENDL;
 	}
 }

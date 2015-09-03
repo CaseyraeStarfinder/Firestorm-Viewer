@@ -190,9 +190,14 @@ public:
 	void addVisualParam(LLVisualParam *param);
 	void addSharedVisualParam(LLVisualParam *param);
 
+	// <FS:Ansariel> [Legacy Bake]
+	//virtual BOOL setVisualParamWeight(const LLVisualParam *which_param, F32 weight);
+	//virtual BOOL setVisualParamWeight(const char* param_name, F32 weight);
+	//virtual BOOL setVisualParamWeight(S32 index, F32 weight);
 	virtual BOOL setVisualParamWeight(const LLVisualParam *which_param, F32 weight, BOOL upload_bake = FALSE );
 	virtual BOOL setVisualParamWeight(const char* param_name, F32 weight, BOOL upload_bake = FALSE );
 	virtual BOOL setVisualParamWeight(S32 index, F32 weight, BOOL upload_bake = FALSE );
+	// </FS:Ansariel> [Legacy Bake]
 
 	// get visual param weight by param or name
 	F32 getVisualParamWeight(LLVisualParam *distortion);
@@ -261,6 +266,9 @@ public:
 	static std::vector< LLCharacter* > sInstances;
 	static BOOL sAllowInstancesChange ; //debug use
 
+	virtual void	setHoverOffset(const LLVector3& hover_offset, bool send_update=true) { mHoverOffset = hover_offset; }
+	const LLVector3& getHoverOffset() const { return mHoverOffset; }
+
 protected:
 	LLMotionController	mMotionController;
 
@@ -273,7 +281,6 @@ protected:
 	U32					mSkeletonSerialNum;
 	LLAnimPauseRequest	mPauseRequest;
 
-
 private:
 	// visual parameter stuff
 	typedef std::map<S32, LLVisualParam *> 		visual_param_index_map_t;
@@ -284,6 +291,8 @@ private:
 	visual_param_name_map_t  					mVisualParamNameMap;
 
 	static LLStringTable sVisualParamNames;	
+
+	LLVector3 mHoverOffset;
 };
 
 #endif // LL_LLCHARACTER_H

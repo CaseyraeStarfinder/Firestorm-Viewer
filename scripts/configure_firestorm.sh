@@ -43,6 +43,7 @@ BTYPE="Release"
 CHANNEL="" # will be overwritten later with platform-specific values unless manually specified.
 LL_ARGS_PASSTHRU=""
 JOBS="0"
+WANTS_NINJA=$FALSE
 
 ###
 ### Helper Functions
@@ -79,7 +80,7 @@ getArgs()
 # $* = the options passed in from main
 {
     if [ $# -gt 0 ]; then
-      while getoptex "clean build config version package no-package fmodex jobs: platform: kdu leapmotion opensim no-opensim avx help chan: btype:" "$@" ; do
+      while getoptex "clean build config version package no-package fmodex ninja jobs: platform: kdu leapmotion opensim no-opensim avx help chan: btype:" "$@" ; do
 
           #insure options are valid
           if [  -z "$OPTOPT"  ] ; then
@@ -107,6 +108,7 @@ getArgs()
           build)      WANTS_BUILD=$TRUE;;
           platform)   PLATFORM="$OPTARG";;
           jobs)       JOBS="$OPTARG";;
+          ninja)      WANTS_NINJA=$TRUE;;
 
           help)       showUsage && exit 0;;
 
@@ -125,7 +127,7 @@ getArgs()
            [ $WANTS_PACKAGE -ne $TRUE ] ; then
         # the user didn't say what to do, so assume he wants to do a basic rebuild
               WANTS_CONFIG=$TRUE
-          WANTS_BUILD=$TRUE
+              WANTS_BUILD=$TRUE
               WANTS_VERSION=$TRUE
         fi
 
@@ -261,7 +263,6 @@ function getopt()
   return $?
 }
 
-
 ###
 ###  Main Logic
 ###
@@ -282,6 +283,7 @@ echo -e "     PACKAGE: `b2a $WANTS_PACKAGE`" | tee -a $LOG
 echo -e "       CLEAN: `b2a $WANTS_CLEAN`"   | tee -a $LOG
 echo -e "       BUILD: `b2a $WANTS_BUILD`"   | tee -a $LOG
 echo -e "      CONFIG: `b2a $WANTS_CONFIG`"  | tee -a $LOG
+echo -e "       NINJA: `b2a $WANTS_NINJA`"   | tee -a $LOG
 echo -e "    PASSTHRU: $LL_ARGS_PASSTHRU"    | tee -a $LOG
 echo -e "       BTYPE: $BTYPE"               | tee -a $LOG
 if [ $PLATFORM == "linux32" -o $PLATFORM == "linux64" -o $PLATFORM == "darwin" ] ; then
@@ -318,18 +320,22 @@ if [ \( $WANTS_CLEAN -eq $TRUE \) -a \( $WANTS_BUILD -eq $FALSE \) ] ; then
         mkdir -p build-darwin-i386/logs
 
     elif [ $PLATFORM == "win32" ] ; then
-        if [ "${AUTOBUILD_ARCH}" == "x64" ]
+        if [ "${ND_AUTOBUILD_ARCH}" == "x64" ]
         then
-           rm -rf build-vc100_x64/*
-           mkdir -p build-vc100_x64/logs
+           rm -rf build-vc120_x64/ipch
+           rm -rf build-vc120_x64/llcommon
+           rm -rf build-vc120_x64/newview/firestorm-bin.dir 
+           rm -rf build-vc120_x64/packages/include
+           rm -rf build-vc120_x64/*
+           mkdir -p build-vc120_x64/logs
          else
-           rm -rf build-vc100/* 
-           mkdir -p build-vc100/logs
+           rm -rf build-vc120/* 
+           mkdir -p build-vc120/logs
         fi
  
 
     elif [ $PLATFORM == "linux32" ] ; then
-        if [ "${AUTOBUILD_ARCH}" == "x64" ]
+        if [ "${ND_AUTOBUILD_ARCH}" == "x64" ]
         then
            rm -rf build-linux-x86_64/*
            mkdir -p build-linux-x86_64/logs
@@ -410,35 +416,39 @@ if [ $WANTS_CONFIG -eq $TRUE ] ; then
 
     if [ $PLATFORM == "darwin" ] ; then
         TARGET="Xcode"
-        if [ "${AUTOBUILD_ARCH}" == "x64" ]
+        if [ "${ND_AUTOBUILD_ARCH}" == "x64" ]
         then
           TARGET_ARCH="x64"
           WORD_SIZE=64
         fi
     elif [ \( $PLATFORM == "linux32" \) -o \( $PLATFORM == "linux64" \) ] ; then
-        TARGET="Unix Makefiles"
-        if [ "${AUTOBUILD_ARCH}" == "x64" ]
+		if [ $WANTS_NINJA -eq $TRUE ] ; then
+			TARGET="Ninja"
+		else
+			TARGET="Unix Makefiles"
+		fi
+        if [ "${ND_AUTOBUILD_ARCH}" == "x64" ]
         then
           TARGET_ARCH="x64"
           WORD_SIZE=64
         fi
     elif [ \( $PLATFORM == "win32" \) ] ; then
-        if [ "${AUTOBUILD_ARCH}" == "x64" ]
+        if [ "${ND_AUTOBUILD_ARCH}" == "x64" ]
         then
-          TARGET="Visual Studio 10 Win64"
+          TARGET="Visual Studio 12 Win64"
           TARGET_ARCH="x64"
           WORD_SIZE=64
         else
-          TARGET="Visual Studio 10"
+          TARGET="Visual Studio 12"
         fi
         UNATTENDED="-DUNATTENDED=ON"
     fi
 
     cmake -G "$TARGET" ../indra $CHANNEL $FMODEX $KDU $LEAPMOTION $OPENSIM $AVX_OPTIMIZATION $PACKAGE $UNATTENDED -DLL_TESTS:BOOL=OFF -DWORD_SIZE:STRING=$WORD_SIZE -DCMAKE_BUILD_TYPE:STRING=$BTYPE \
-          -DNDTARGET_ARCH="${TARGET_ARCH}" -DROOT_PROJECT_NAME:STRING=Firestorm $LL_ARGS_PASSTHRU | tee $LOG
+          -DNDTARGET_ARCH:STRING="${TARGET_ARCH}" -DROOT_PROJECT_NAME:STRING=Firestorm $LL_ARGS_PASSTHRU | tee $LOG
 
     if [ $PLATFORM == "win32" ] ; then
-    ../indra/tools/vstool/VSTool.exe --solution Firestorm.sln --startup firestorm-bin --workingdir firestorm-bin "..\\..\\indra\\newview" --config $BTYPE
+		../indra/tools/vstool/VSTool.exe --solution Firestorm.sln --startup firestorm-bin --workingdir firestorm-bin "..\\..\\indra\\newview" --config $BTYPE
     fi
 
 fi
@@ -456,10 +466,14 @@ if [ $WANTS_BUILD -eq $TRUE ] ; then
         if [ $JOBS == "0" ] ; then
             JOBS=`cat /proc/cpuinfo | grep processor | wc -l`
         fi
-        make -j $JOBS | tee -a $LOG
+		if [ $WANTS_NINJA -eq $TRUE ] ; then
+			ninja -j $JOBS | tee -a $LOG
+		else
+			make -j $JOBS | tee -a $LOG
+		fi
     elif [ $PLATFORM == "win32" ] ; then
         SLN_PLATFORM="Win32"
-        if [ "${AUTOBUILD_ARCH}" == "x64" ]
+        if [ "${ND_AUTOBUILD_ARCH}" == "x64" ]
         then
           SLN_PLATFORM="x64"
         fi

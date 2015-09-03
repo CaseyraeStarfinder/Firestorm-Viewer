@@ -73,9 +73,14 @@ class LLTexParamGlobalColor : public LLTexLayerParamColor
 {
 public:
 	LLTexParamGlobalColor(LLTexGlobalColor *tex_color);
+	virtual ~LLTexParamGlobalColor();
 	/*virtual*/ LLViewerVisualParam* cloneParam(LLWearable* wearable) const;
 protected:
+	LLTexParamGlobalColor(const LLTexParamGlobalColor& pOther);
+	// <FS:Ansariel> [Legacy Bake]
+	///*virtual*/ void onGlobalColorChanged();
 	/*virtual*/ void onGlobalColorChanged(bool upload_bake);
+	// </FS:Ansariel> [Legacy Bake]
 private:
 	LLTexGlobalColor*		mTexGlobalColor;
 };

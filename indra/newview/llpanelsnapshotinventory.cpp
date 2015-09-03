@@ -51,18 +51,18 @@ class LLPanelSnapshotInventory
 
 public:
 	LLPanelSnapshotInventory();
+	/*virtual*/ ~LLPanelSnapshotInventory(); // <FS:Ansariel> Store settings at logout
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void onOpen(const LLSD& key);
 
+	void onResolutionCommit(LLUICtrl* ctrl);
+
 private:
-	// /*virtual*/ void updateCustomResControls(); ///< Show/hide custom resolution controls (spinners and checkbox)	// <FS:Zi> Save all settings
 	/*virtual*/ std::string getWidthSpinnerName() const		{ return "inventory_snapshot_width"; }
 	/*virtual*/ std::string getHeightSpinnerName() const	{ return "inventory_snapshot_height"; }
 	/*virtual*/ std::string getAspectRatioCBName() const	{ return "inventory_keep_aspect_check"; }
-	/*virtual*/ std::string getTempUploadCBName() const		{ return "inventory_temp_upload"; } //FS:LO Fire-6268 [Regression] Temp upload for snapshots missing after FUI merge.
 	/*virtual*/ std::string getImageSizeComboName() const	{ return "texture_size_combo"; }
 	/*virtual*/ std::string getImageSizePanelName() const	{ return LLStringUtil::null; }
-	/*virtual*/ std::string getImageSizeControlName() const	{ return "LastSnapshotToInventoryResolution"; }	// <FS:Zi> Save all settings
 	/*virtual*/ void updateControls(const LLSD& info);
 
 	void onSend();
@@ -81,10 +81,16 @@ BOOL LLPanelSnapshotInventory::postBuild()
 {
 	getChild<LLSpinCtrl>(getWidthSpinnerName())->setAllowEdit(FALSE);
 	getChild<LLSpinCtrl>(getHeightSpinnerName())->setAllowEdit(FALSE);
-	// <FS:Zi> Save all settings
-	// getChild<LLUICtrl>(getAspectRatioCBName())->setVisible(FALSE); // we don't keep aspect ratio for inventory textures
-	getChild<LLUICtrl>(getAspectRatioCBName())->setEnabled(FALSE); // we don't keep aspect ratio for inventory textures
-	// </FS:Zi>
+
+	// <FS:Ansariel> Don't hide resolution spinners - they get disabled if needed
+	//getChild<LLUICtrl>(getImageSizeComboName())->setCommitCallback(boost::bind(&LLPanelSnapshotInventory::onResolutionCommit, this, _1));
+
+	// <FS:Ansariel> Store settings at logout
+	getImageSizeComboBox()->setCurrentByIndex(gSavedSettings.getS32("LastSnapshotToInventoryResolution"));
+	getWidthSpinner()->setValue(gSavedSettings.getS32("LastSnapshotToInventoryWidth"));
+	getHeightSpinner()->setValue(gSavedSettings.getS32("LastSnapshotToInventoryHeight"));
+	// </FS:Ansariel>
+
 	return LLPanelSnapshot::postBuild();
 }
 
@@ -97,24 +103,11 @@ void LLPanelSnapshotInventory::onOpen(const LLSD& key)
 		|| gAgent.getRegion()->getCentralBakeVersion() > 0)
 	{
 		gSavedSettings.setBOOL("TemporaryUpload", FALSE);
-		getChild<LLCheckBoxCtrl>("inventory_temp_upload")->setVisible(FALSE);
 	}
+	getChild<LLCheckBoxCtrl>("inventory_temp_upload")->setVisible(LLGlobalEconomy::Singleton::getInstance()->getPriceUpload() > 0 && gAgent.getRegion()->getCentralBakeVersion() == 0);
 	// </FS:CR>
 	LLPanelSnapshot::onOpen(key);
 }
-
-// <FS:Zi> Save all settings
-// virtual
-// void LLPanelSnapshotInventory::updateCustomResControls()
-// {
-// 	LLComboBox* combo = getChild<LLComboBox>(getImageSizeComboName());
-// 	S32 selected_idx = combo->getFirstSelectedIndex();
-// 	const bool show = selected_idx == (combo->getItemCount() - 1); // Custom selected
-// 
-// 	getChild<LLUICtrl>(getWidthSpinnerName())->setVisible(show);
-// 	getChild<LLUICtrl>(getHeightSpinnerName())->setVisible(show);
-// }
-// </FS:Zi>
 
 // virtual
 void LLPanelSnapshotInventory::updateControls(const LLSD& info)
@@ -123,8 +116,24 @@ void LLPanelSnapshotInventory::updateControls(const LLSD& info)
 	getChild<LLUICtrl>("save_btn")->setEnabled(have_snapshot);
 }
 
+void LLPanelSnapshotInventory::onResolutionCommit(LLUICtrl* ctrl)
+{
+	BOOL current_window_selected = (getChild<LLComboBox>(getImageSizeComboName())->getCurrentIndex() == 3);
+	getChild<LLSpinCtrl>(getWidthSpinnerName())->setVisible(!current_window_selected);
+	getChild<LLSpinCtrl>(getHeightSpinnerName())->setVisible(!current_window_selected);
+}
+
 void LLPanelSnapshotInventory::onSend()
 {
 	LLFloaterSnapshot::saveTexture();
 	LLFloaterSnapshot::postSave();
 }
+
+// <FS:Ansariel> Store settings at logout
+LLPanelSnapshotInventory::~LLPanelSnapshotInventory()
+{
+	gSavedSettings.setS32("LastSnapshotToInventoryResolution", getImageSizeComboBox()->getCurrentIndex());
+	gSavedSettings.setS32("LastSnapshotToInventoryWidth", getTypedPreviewWidth());
+	gSavedSettings.setS32("LastSnapshotToInventoryHeight", getTypedPreviewHeight());
+}
+// </FS:Ansariel>

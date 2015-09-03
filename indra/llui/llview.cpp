@@ -946,7 +946,7 @@ BOOL LLView::handleKey(KEY key, MASK mask, BOOL called_from_parent)
 			handled = handleKeyHere( key, mask );
 			if (handled)
 			{
-				LL_WARNS() << "Key handled by " << getName() << LL_ENDL;
+				LL_DEBUGS() << "Key handled by " << getName() << LL_ENDL;
 			}
 		}
 	}
@@ -2224,10 +2224,6 @@ LLControlVariable *LLView::findControl(const std::string& name)
 	LLControlGroup& control_group = LLUI::getControlControlGroup(name);
 	return control_group.getControl(name);	
 }
-
-const S32 FLOATER_H_MARGIN = 15;
-const S32 MIN_WIDGET_HEIGHT = 10;
-const S32 VPAD = 4;
 
 void LLView::initFromParams(const LLView::Params& params)
 {

@@ -35,6 +35,7 @@
 #include "llerror.h"
 #include "llstring.h"
 #include "message.h"
+#include "lltrans.h"
 
 // project include
 #include "llviewertexteditor.h"
@@ -112,35 +113,73 @@ LLFloater* LLFloaterScriptDebug::addOutputWindow(const LLUUID& object_id, bool s
 	return floaterp;
 }
 
-void LLFloaterScriptDebug::addScriptLine(const std::string &utf8mesg, const std::string &user_name, const LLColor4& color, const LLUUID& source_id)
+// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow] Show llOwnerSays in the script debug window instead of local chat
+// void LLFloaterScriptDebug::addScriptLine(const std::string &utf8mesg, const std::string &user_name, const LLColor4& color, const LLUUID& source_id)
+void LLFloaterScriptDebug::addScriptLine(const LLChat& chat)
 {
-	LLViewerObject* objectp = gObjectList.findObject(source_id);
+	// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+	// LLViewerObject* objectp = gObjectList.findObject(source_id);
+	LLViewerObject* objectp = gObjectList.findObject(chat.mFromID);
 	std::string floater_label;
 
 	// Handle /me messages.
-	std::string prefix = utf8mesg.substr(0, 4);
-	std::string message = (prefix == "/me " || prefix == "/me'") ? user_name + utf8mesg.substr(3) : utf8mesg;
+	// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+	// std::string prefix = utf8mesg.substr(0, 4);
+	// std::string message = (prefix == "/me " || prefix == "/me'") ? user_name + utf8mesg.substr(3) : utf8mesg;
 
 	if (objectp)
 	{
-		objectp->setIcon(LLViewerTextureManager::getFetchedTextureFromFile("script_error.j2c", FTT_LOCAL_FILE, TRUE, LLGLTexture::BOOST_UI));
-		// <FS:Ansariel> Mark script error icons
-		objectp->getIcon()->setScriptError();
-		// </FS:Ansariel> Mark script error icons
+		// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+		if (chat.mChatType == CHAT_TYPE_DEBUG_MSG)
+		{
+			objectp->setIcon(LLViewerTextureManager::getFetchedTextureFromFile("script_error.j2c", FTT_LOCAL_FILE, TRUE, LLGLTexture::BOOST_UI));
+			// <FS:Ansariel> Mark script error icons
+			objectp->getIcon()->setScriptError();
+			// </FS:Ansariel> Mark script error icons
+		}
+		// </FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
 		floater_label = llformat("%s (%.0f, %.0f, %.0f)",
-						user_name.c_str(),
+						// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+						// user_name.c_str(),
+						chat.mFromName.c_str(),
 						objectp->getPositionRegion().mV[VX],
 						objectp->getPositionRegion().mV[VY],
 						objectp->getPositionRegion().mV[VZ]);
 	}
 	else
 	{
-		floater_label = user_name;
+		// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+		// floater_label = user_name;
+		floater_label = chat.mFromName;
 	}
 
 	addOutputWindow(LLUUID::null);
-	addOutputWindow(source_id);
+	// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+	// addOutputWindow(source_id);
+	static LLCachedControl<U32> FSllOwnerSayRouting(gSavedSettings, "FSllOwnerSayToScriptDebugWindowRouting");
 
+	// add to "All" floater
+	if ((chat.mChatType == CHAT_TYPE_DEBUG_MSG) || (FSllOwnerSayRouting != 1))
+	{
+		LLFloaterScriptDebugOutput* floaterp = LLFloaterReg::findTypedInstance<LLFloaterScriptDebugOutput>("script_debug_output", LLUUID::null);
+		if (floaterp)
+		{
+			floaterp->addLine(chat, chat.mFromName);
+		}
+	}
+
+	// add to specific script instance floater
+	if ((chat.mChatType == CHAT_TYPE_DEBUG_MSG) || (FSllOwnerSayRouting != 2))
+	{	
+		addOutputWindow(chat.mFromID);
+		LLFloaterScriptDebugOutput* floaterp = LLFloaterReg::findTypedInstance<LLFloaterScriptDebugOutput>("script_debug_output", chat.mFromID);
+		if (floaterp)
+		{
+			floaterp->addLine(chat, floater_label);
+		}
+	}
+
+#if 0
 	// add to "All" floater
 	LLFloaterScriptDebugOutput* floaterp = 	LLFloaterReg::getTypedInstance<LLFloaterScriptDebugOutput>("script_debug_output", LLUUID::null);
 	if (floaterp)
@@ -154,7 +193,25 @@ void LLFloaterScriptDebug::addScriptLine(const std::string &utf8mesg, const std:
 	{
 		floaterp->addLine(message, floater_label, color);
 	}
+#endif
+	// </FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
 }
+
+// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+// virtual
+void LLFloaterScriptDebug::onClickCloseBtn(bool app_qutting)
+{
+	if (gSavedSettings.getBOOL("FSScriptDebugWindowClearOnClose"))
+	{
+		LLFloaterScriptDebugOutput* floaterp = LLFloaterReg::findTypedInstance<LLFloaterScriptDebugOutput>("script_debug_output", LLUUID::null);
+		if (floaterp)
+		{
+			floaterp->clear();
+		}
+	}
+	LLMultiFloater::onClickCloseBtn(app_qutting);
+}
+// </FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
 
 //
 // LLFloaterScriptDebugOutput
@@ -179,6 +236,9 @@ LLFloaterScriptDebugOutput::~LLFloaterScriptDebugOutput()
 {
 }
 
+// <FS:Kadah> [FSllOwnerSayToScriptDebugWindow]
+
+#if 0
 void LLFloaterScriptDebugOutput::addLine(const std::string &utf8mesg, const std::string &user_name, const LLColor4& color)
 {
 	if (mObjectID.isNull())
@@ -195,4 +255,76 @@ void LLFloaterScriptDebugOutput::addLine(const std::string &utf8mesg, const std:
 	mHistoryEditor->appendText(utf8mesg, true, LLStyle::Params().color(color));
 	mHistoryEditor->blockUndo();
 }
+#endif
 
+void LLFloaterScriptDebugOutput::addLine(const LLChat& chat, const std::string &user_name)
+{
+	LLFontGL* fontp = LLViewerChat::getChatFont();
+	std::string font_name = LLFontGL::nameFromFont(fontp);
+	std::string font_size = LLFontGL::sizeFromFont(fontp);
+	LLStyle::Params message_params;
+	message_params.font.name(font_name);
+	message_params.font.size(font_size);
+
+	if (mObjectID.isNull())
+	{
+		setCanTearOff(FALSE);
+		setCanClose(FALSE);
+	}
+	else
+	{
+		// Print object name slurl to output on first output or name change
+		if (mHistoryEditor->getText().empty() || mUserName.compare(user_name) != 0)
+		{
+			mUserName = user_name;
+			setTitle(user_name);
+			setShortTitle(user_name);
+
+			if (gSavedSettings.getBOOL("FSllOwnerSayToScriptDebugWindow") && getKey().asUUID().isNull())
+			{
+				std::string url = chat.mURL;
+				if ((url.empty()) || (std::string::npos == url.find("objectim")))
+				{
+					url = LLViewerChat::getSenderSLURL(chat, LLSD());
+				}
+				LLStyle::Params link_params(message_params);
+				link_params.readonly_color(LLUIColorTable::instance().getColor("ChatNameObjectColor"));
+				link_params.is_link = true;
+				link_params.link_href = url;
+				mHistoryEditor->appendText(chat.mFromName, (!mHistoryEditor->getText().empty()), link_params);
+			}
+		}
+	}
+
+	time_t utc_time;
+	utc_time = time_corrected();
+	std::string timeStr ="["+ LLTrans::getString("TimeHour")+"]:["+LLTrans::getString("TimeMin")+"]";
+	LLSD substitution;
+	substitution["datetime"] = (S32) utc_time;
+	LLStringUtil::format (timeStr, substitution);
+	
+	mHistoryEditor->appendText("[" + timeStr + "] ", (!mHistoryEditor->getText().empty()), message_params.readonly_color(LLUIColorTable::instance().getColor("ChatTimestampColor")));
+
+	if (mObjectID.isNull())
+	{
+		LLStyle::Params link_params(message_params);
+		link_params.readonly_color(LLUIColorTable::instance().getColor("ChatNameObjectColor"));
+		mHistoryEditor->appendText(chat.mFromName + ": ", false, link_params);
+	}
+	
+	if (chat.mChatType == CHAT_TYPE_DEBUG_MSG)
+	{
+		mHistoryEditor->appendText(chat.mText, false, LLStyle::Params().readonly_color(LLUIColorTable::instance().getColor("ScriptErrorColor")));
+	}
+	else
+	{
+		mHistoryEditor->appendText(chat.mText, false, message_params.readonly_color(LLUIColorTable::instance().getColor("llOwnerSayChatColor")));
+	}
+	mHistoryEditor->blockUndo();
+}
+
+void LLFloaterScriptDebugOutput::clear()
+{
+	mHistoryEditor->clear();
+}
+// </FS:Kadah> [FSllOwnerSayToScriptDebugWindow]

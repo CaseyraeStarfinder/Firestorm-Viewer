@@ -142,7 +142,8 @@ public:
 // [SL:KB] - Patch: World-MinimapOverlay | Checked: 2012-06-20 (Catznip-3.3)
 	bool isAlive() const; // can become false if circuit disconnects
 
-	LLViewerTexture* getWorldMapTile() const;
+	typedef std::vector<LLPointer<LLViewerTexture> > tex_matrix_t;
+	const tex_matrix_t& getWorldMapTiles() const;
 // [/SL:KB]
 
 	void setWaterHeight(F32 water_level);
@@ -268,6 +269,7 @@ public:
 	S32 getNumSeedCapRetries();
 	void setCapability(const std::string& name, const std::string& url);
 	void setCapabilityDebug(const std::string& name, const std::string& url);
+	bool isCapabilityAvailable(const std::string& name) const;
 	// implements LLCapabilityProvider
     virtual std::string getCapability(const std::string& name) const;
 
@@ -325,11 +327,18 @@ public:
 	bool meshRezEnabled() const;
 	bool meshUploadEnabled() const;
 
+	// has region received its simulator features list? Requires an additional query after caps received.
+	void setSimulatorFeaturesReceived(bool);
+	bool simulatorFeaturesReceived() const;
+	boost::signals2::connection setSimulatorFeaturesReceivedCallback(const caps_received_signal_t::slot_type& cb);
+	
 	void getSimulatorFeatures(LLSD& info) const;	
 	void setSimulatorFeatures(const LLSD& info);
 
 	
 	bool dynamicPathfindingEnabled() const;
+
+	bool avatarHoverHeightEnabled() const;
 
 // </FS:CR>
 #ifdef OPENSIM
@@ -536,6 +545,7 @@ private:
 	BOOL                                    mCacheDirty;
 	BOOL	mAlive;					// can become false if circuit disconnects
 	BOOL	mCapabilitiesReceived;
+	BOOL	mSimulatorFeaturesReceived;
 	BOOL    mReleaseNotesRequested;
 	BOOL    mDead;  //if true, this region is in the process of deleting.
 	BOOL    mPaused; //pause processing the objects in the region
@@ -550,7 +560,7 @@ private:
 	// </FS:CR>
 
 // [SL:KB] - Patch: World-MinimapOverlay | Checked: 2012-07-26 (Catznip-3.3)
-	mutable LLPointer<LLViewerTexture>		mWorldMapTile;
+	mutable tex_matrix_t mWorldMapTiles;
 // [/SL:KB]
 
 	class CacheMissItem
@@ -566,11 +576,13 @@ private:
 	CacheMissItem::cache_miss_list_t   mCacheMissList;
 	
 	caps_received_signal_t mCapabilitiesReceivedSignal;		
+	caps_received_signal_t mSimulatorFeaturesReceivedSignal;		
+
 	LLSD mSimulatorFeatures;
 
 	// the materials capability throttle
 	LLFrameTimer mMaterialsCapThrottleTimer;
-LLFrameTimer	mRenderInfoRequestTimer;
+	LLFrameTimer mRenderInfoRequestTimer;
 };
 
 inline BOOL LLViewerRegion::getRegionProtocol(U64 protocol) const

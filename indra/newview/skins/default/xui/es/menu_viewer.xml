@@ -7,9 +7,11 @@
 		<menu_item_call label="Preferencias" name="Preferences"/>
 		<menu_item_call label="Botones de la barra de herramientas" name="Toolbar Buttons"/>
 		<menu_item_call label="Mi perfil" name="Profile"/>
-		<menu_item_call label="Destacados..." name="Picks"/>
-		<menu_item_call label="Publicar en Facebook..." name="PostToFacebook"/>
+		<menu_item_call label="Destacados" name="Picks"/>
+		<menu_item_call label="Experiencias" name="Experiences"/>
+		<menu_item_call label="Publicar en Facebook" name="PostToFacebook"/>
 		<menu_item_call label="Mi apariencia" name="ChangeOutfit"/>
+		<menu_item_call label="Elige un avatar" name="Avatar Picker"/>
 		<menu_item_call label="Tomar fotografía" name="Take Snapshot"/>
 		<menu_item_check label="Mi inventario" name="Inventory"/>
 		<menu_item_check label="Mi inventario" name="ShowSidetrayInventory"/>
@@ -30,7 +32,8 @@
 			<menu_item_call label="Recargar texturas" name="Rebake Texture"/>
 			<menu_item_call label="Volver al avatar masculino por defecto (Character Test)" name="ResetDefaultAvM"/>
 			<menu_item_call label="Volver al avatar femenino por defecto (Character Test)" name="ResetDefaultAvF"/>
-			<menu_item_check label="Mostrar coste de dibujo del avatar (ARC)" name="Avatar Rendering Cost"/>
+	        	<menu_item_check label="Mostrar coste de dibujo del avatar (ARC)" name="Avatar Rendering Cost"/>
+			<menu_item_call label="Medidor de lag" name="Lag Meter"/>
 			<menu_item_call label="Regenerar el LSL Bridge" name="Recreate LSL Bridge"/>			
 		</menu>
 		<menu_item_call label="Historial de transacciones" name="money_tracker"/>
@@ -41,7 +44,7 @@
 			<menu_item_call label="Animación ([COST])..." name="Upload Animation"/>
 			<menu_item_call label="Modelo mesh..." name="Upload Model"/>
 			<menu_item_call label="Masivo (múltiples archivos)..." name="Bulk Upload"/>
-			<menu_item_call label="Configurar permisos de subida por defecto" name="perm prefs"/>
+			<menu_item_call label="Configurar permisos por defecto..." name="perm prefs"/>
 			<menu_item_call label="Importar linkset..." name="import linkset"/>
 		</menu>
 		<menu_item_call label="Solicitar estatus de Administrador" name="Request Admin Options"/>
@@ -79,6 +82,7 @@
 		<menu_item_call label="Gente cercana" name="Active Speakers"/>
 		<menu_item_call label="Historial de teleportes" name="Teleport History"/>
 		<menu_item_check label="Lugares" name="Places"/>
+		<menu_item_call label="Destinos" name="Destinations"/>
 		<menu_item_check label="Minimapa" name="Mini-Map"/>
 		<menu_item_check label="Mapa del mundo" name="World Map"/>
 		<menu_item_call label="Crear un hito de este sitio" name="Create Landmark Here"/>
@@ -191,7 +195,8 @@
 			<menu_item_check label="Ajustar a la rejilla" name="Snap to Grid"/>
 			<menu_item_call label="Ajustar a la rejilla los ejes X e Y" name="Snap Object XY to Grid"/>
 			<menu_item_call label="Usar lo seleccionado como rejilla" name="Use Selection for Grid"/>
-			<menu_item_call label="Opciones de la rejilla" name="Grid Options"/>
+			<menu_item_call label="Opciones de la rejilla..." name="Grid Options"/>
+			<menu_item_call label="Configurar permisos por defecto..." name="Set default permissions"/>
 		</menu>
 		<menu label="Subir" name="Upload">
 			<menu_item_call label="Imagen ([COST])..." name="Upload Image"/>
@@ -199,7 +204,6 @@
 			<menu_item_call label="Animación ([COST])..." name="Upload Animation"/>
 			<menu_item_call label="Modelo mesh..." name="Upload Model"/>
 			<menu_item_call label="Masivo ([COST] por archivo)..." name="Bulk Upload"/>
-			<menu_item_call label="Configurar permisos de subida por defecto" name="perm prefs"/>
 			<menu_item_call label="Importar linkset..." name="import linkset"/>
 		</menu>
 		<menu_item_call label="Deshacer" name="Undo"/>
@@ -266,6 +270,7 @@
 		<menu_item_check label="Foto en alta resolución" name="HighResSnapshot"/>
 		<menu_item_check label="Fotos silenciosas" name="QuietSnapshotsToDisk"/>
 		<menu label="Herramientas de rendimiento" name="Performance Tools">
+			<menu_item_call label="Medidor de lag" name="Lag Meter"/>
 			<menu_item_check label="Estadísticas" name="Statistics Bar"/>
 			<menu_item_check label="Mostrar coste de dibujo del avatar (ARC)" name="Avatar Rendering Cost"/>
 		</menu>
@@ -455,7 +460,7 @@
 			<menu_item_check label="Reproducción en bucle" name="Loop Playback"/>
 			<menu_item_call label="Iniciar grabación" name="Start Record"/>
 			<menu_item_call label="Detener greabación" name="Stop Record"/>
-		</menu>
+		</menu>		
 		<menu label="Mundo virtual" name="DevelopWorld">
 			<menu_item_check label="Anular el sol de la región" name="Sim Sun Override"/>
 			<menu_item_check label="Meteorología fija" name="Fixed Weather"/>

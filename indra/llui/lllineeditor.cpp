@@ -88,6 +88,7 @@ LLLineEditor::Params::Params()
 	background_image("background_image"),
 	background_image_disabled("background_image_disabled"),
 	background_image_focused("background_image_focused"),
+	bg_image_always_focused("bg_image_always_focused", false),
 	select_on_focus("select_on_focus", false),
 	revert_on_esc("revert_on_esc", true),
 	spellcheck("spellcheck", false),
@@ -147,6 +148,7 @@ LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 	mBgImage( p.background_image ),
 	mBgImageDisabled( p.background_image_disabled ),
 	mBgImageFocused( p.background_image_focused ),
+	mShowImageFocused( p.bg_image_always_focused ),
 	mHaveHistory(FALSE),
 	mReplaceNewlinesWithSpaces( TRUE ),
 	mLabel(p.label),
@@ -157,6 +159,8 @@ LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 	mHighlightColor(p.highlight_color()),
 	mPreeditBgColor(p.preedit_bg_color()),
 	mGLFont(p.font),
+	// <FS:Ansariel> Delay context menu initialization if LLMenuGL::sMenuContainer is still NULL
+	mDelayedInit(false),
 	mContextMenuHandle(),
 	mAutoreplaceCallback()
 {
@@ -193,13 +197,23 @@ LLLineEditor::LLLineEditor(const LLLineEditor::Params& p)
 	setPrevalidateInput(p.prevalidate_input_callback());
 	setPrevalidate(p.prevalidate_callback());
 
-	// <FS:Zi> Only allocate a menu when it's called for the first time
-	// LLContextMenu* menu = LLUICtrlFactory::instance().createFromFile<LLContextMenu>
-	// 	("menu_text_editor.xml",
-	// 	 LLMenuGL::sMenuContainer,
-	// 	 LLMenuHolderGL::child_registry_t::instance());
-	// setContextMenu(menu);
-	// </FS:Zi>
+	// <FS:Ansariel> Delay context menu initialization if LLMenuGL::sMenuContainer is still NULL
+	if (LLMenuGL::sMenuContainer)
+	{
+	// </FS:Ansariel>
+	llassert(LLMenuGL::sMenuContainer != NULL);
+	LLContextMenu* menu = LLUICtrlFactory::instance().createFromFile<LLContextMenu>
+		("menu_text_editor.xml",
+		 LLMenuGL::sMenuContainer,
+		 LLMenuHolderGL::child_registry_t::instance());
+	setContextMenu(menu);
+	// <FS:Ansariel> Delay context menu initialization if LLMenuGL::sMenuContainer is still NULL
+	}
+	else
+	{
+		mDelayedInit = true;
+	}
+	// </FS:Ansariel>
 }
  
 LLLineEditor::~LLLineEditor()
@@ -213,6 +227,9 @@ LLLineEditor::~LLLineEditor()
         menu->hide();
     }
 	setContextMenu(NULL);
+
+	// <FS:Ansariel> Delay context menu initialization if LLMenuGL::sMenuContainer is still NULL
+	mDelayedInit = false;
 
 	// calls onCommit() while LLLineEditor still valid
 	gFocusMgr.releaseFocusIfNeeded( this );
@@ -256,6 +273,7 @@ void LLLineEditor::onCommit()
 
 	setControlValue(getValue());
 	LLUICtrl::onCommit();
+	resetDirty();
 
 	// Selection on commit needs to be turned off when evaluating maths
 	// expressions, to allow indication of the error position
@@ -832,7 +850,7 @@ BOOL LLLineEditor::handleHover(S32 x, S32 y, MASK mask)
 		// Scroll if mouse cursor outside of bounds
 		if (mScrollTimer.hasExpired())
 		{
-			S32 increment = llround(mScrollTimer.getElapsedTimeF32() / AUTO_SCROLL_TIME);
+			S32 increment = ll_round(mScrollTimer.getElapsedTimeF32() / AUTO_SCROLL_TIME);
 			mScrollTimer.reset();
 			mScrollTimer.setTimerExpirySec(AUTO_SCROLL_TIME);
 			if( (x < mTextLeftEdge) && (mScrollHPos > 0 ) )
@@ -1745,7 +1763,7 @@ void LLLineEditor::drawBackground()
 	{
 		image = mBgImageDisabled;
 	}
-	else if ( has_focus )
+	else if ( has_focus || mShowImageFocused)
 	{
 		image = mBgImageFocused;
 	}
@@ -1903,7 +1921,7 @@ void LLLineEditor::draw()
 				0,
 				LLFontGL::NO_SHADOW,
 				select_left - mScrollHPos,
-				mTextRightEdge - llround(rendered_pixels_right),
+				mTextRightEdge - ll_round(rendered_pixels_right),
 				&rendered_pixels_right);
 		}
 		
@@ -1913,8 +1931,8 @@ void LLLineEditor::draw()
 			color.setAlpha(alpha);
 			// selected middle
 			S32 width = mGLFont->getWidth(mText.getWString().c_str(), mScrollHPos + rendered_text, select_right - mScrollHPos - rendered_text);
-			width = llmin(width, mTextRightEdge - llround(rendered_pixels_right));
-			gl_rect_2d(llround(rendered_pixels_right), cursor_top, llround(rendered_pixels_right)+width, cursor_bottom, color);
+			width = llmin(width, mTextRightEdge - ll_round(rendered_pixels_right));
+			gl_rect_2d(ll_round(rendered_pixels_right), cursor_top, ll_round(rendered_pixels_right)+width, cursor_bottom, color);
 
 			LLColor4 tmp_color( 1.f - text_color.mV[0], 1.f - text_color.mV[1], 1.f - text_color.mV[2], alpha );
 			rendered_text += mGLFont->render( 
@@ -1925,7 +1943,7 @@ void LLLineEditor::draw()
 				0,
 				LLFontGL::NO_SHADOW,
 				select_right - mScrollHPos - rendered_text,
-				mTextRightEdge - llround(rendered_pixels_right),
+				mTextRightEdge - ll_round(rendered_pixels_right),
 				&rendered_pixels_right);
 		}
 
@@ -1940,7 +1958,7 @@ void LLLineEditor::draw()
 				0,
 				LLFontGL::NO_SHADOW,
 				S32_MAX,
-				mTextRightEdge - llround(rendered_pixels_right),
+				mTextRightEdge - ll_round(rendered_pixels_right),
 				&rendered_pixels_right);
 		}
 	}
@@ -1954,7 +1972,7 @@ void LLLineEditor::draw()
 			0,
 			LLFontGL::NO_SHADOW,
 			S32_MAX,
-			mTextRightEdge - llround(rendered_pixels_right),
+			mTextRightEdge - ll_round(rendered_pixels_right),
 			&rendered_pixels_right);
 	}
 #if 1 // for when we're ready for image art.
@@ -2114,7 +2132,7 @@ void LLLineEditor::draw()
 							0,
 							LLFontGL::NO_SHADOW,
 							S32_MAX,
-							mTextRightEdge - llround(rendered_pixels_right),
+							mTextRightEdge - ll_round(rendered_pixels_right),
 							&rendered_pixels_right, FALSE);
 		}
 
@@ -2139,7 +2157,7 @@ void LLLineEditor::draw()
 							0,
 							LLFontGL::NO_SHADOW,
 							S32_MAX,
-							mTextRightEdge - llround(rendered_pixels_right),
+							mTextRightEdge - ll_round(rendered_pixels_right),
 							&rendered_pixels_right, FALSE);
 		}
 		// Draw children (border)
@@ -2643,7 +2661,7 @@ void LLLineEditor::markAsPreedit(S32 position, S32 length)
 
 S32 LLLineEditor::getPreeditFontSize() const
 {
-	return llround(mGLFont->getLineHeight() * LLUI::getScaleFactor().mV[VY]);
+	return ll_round(mGLFont->getLineHeight() * LLUI::getScaleFactor().mV[VY]);
 }
 
 void LLLineEditor::setReplaceNewlinesWithSpaces(BOOL replace)
@@ -2664,18 +2682,24 @@ LLWString LLLineEditor::getConvertedText() const
 
 void LLLineEditor::showContextMenu(S32 x, S32 y)
 {
-	LLContextMenu* menu = static_cast<LLContextMenu*>(mContextMenuHandle.get());
-
-	// <FS:Zi> Only allocate a menu when it's called for the first time
-	if(!menu)
+	//LLContextMenu* menu = static_cast<LLContextMenu*>(mContextMenuHandle.get());
+	// <FS:Ansariel> Delay context menu initialization if LLMenuGL::sMenuContainer is still NULL
+	LLContextMenu* menu = NULL;
+	if (mDelayedInit && !mContextMenuHandle.get())
 	{
+		llassert(LLMenuGL::sMenuContainer != NULL);
 		menu = LLUICtrlFactory::instance().createFromFile<LLContextMenu>
 			("menu_text_editor.xml",
-			LLMenuGL::sMenuContainer,
-			LLMenuHolderGL::child_registry_t::instance());
+			 LLMenuGL::sMenuContainer,
+			 LLMenuHolderGL::child_registry_t::instance());
 		setContextMenu(menu);
 	}
-	// </FS:Zi>
+	else
+	{
+		menu = static_cast<LLContextMenu*>(mContextMenuHandle.get());
+	}
+	mDelayedInit = false;
+	// </FS:Ansariel>
 
 	if (menu)
 	{
@@ -2723,7 +2747,11 @@ void LLLineEditor::setContextMenu(LLContextMenu* new_context_menu)
 	if (new_context_menu)
 		mContextMenuHandle = new_context_menu->getHandle();
 	else
+	{
 		mContextMenuHandle.markDead();
+		// <FS:Ansariel> Delay context menu initialization if LLMenuGL::sMenuContainer is still NULL
+		mDelayedInit = false;
+	}
 }
 
 void LLLineEditor::setFont(const LLFontGL* font)

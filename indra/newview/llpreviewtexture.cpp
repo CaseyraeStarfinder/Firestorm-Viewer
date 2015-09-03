@@ -66,6 +66,22 @@ const F32 SECONDS_TO_SHOW_FILE_SAVED_MSG = 8.f;
 const F32 PREVIEW_TEXTURE_MAX_ASPECT = 200.f;
 const F32 PREVIEW_TEXTURE_MIN_ASPECT = 0.005f;
 
+// <FS:Ansariel> FIRE-14111: File extension missing on Linux when saving a texture
+std::string checkFileExtension(const std::string& filename, LLPreviewTexture::EFileformatType format)
+{
+	std::string tmp_name = filename;
+	std::string extension = (format == LLPreviewTexture::FORMAT_TGA ? ".tga" : ".png");
+
+	LLStringUtil::toLower(tmp_name);
+	size_t result = tmp_name.rfind(extension);
+	if (result == std::string::npos || result != tmp_name.length() - extension.size())
+	{
+		return (filename + extension);
+	}
+
+	return filename;
+}
+// </FS:Ansariel>
 
 LLPreviewTexture::LLPreviewTexture(const LLSD& key)
 	: LLPreview((key.has("uuid") ? key.get("uuid") : key)), // Changed for texture preview mode
@@ -73,6 +89,7 @@ LLPreviewTexture::LLPreviewTexture(const LLSD& key)
 	  mShowKeepDiscard(FALSE),
 	  mCopyToInv(FALSE),
 	  mIsCopyable(FALSE),
+	  mIsFullPerm(FALSE),
 	  mUpdateDimensions(TRUE),
 	  mLastHeight(0),
 	  mLastWidth(0),
@@ -100,6 +117,7 @@ LLPreviewTexture::LLPreviewTexture(const LLSD& key)
 		mCopyToInv = FALSE;
 		mIsCopyable = FALSE;
 		mPreviewToSave = FALSE;
+		mIsFullPerm = FALSE;
 	}
 }
 
@@ -262,12 +280,6 @@ void LLPreviewTexture::draw()
 
 		if ( mImage.notNull() )
 		{
-			// Automatically bring up SaveAs dialog if we opened this to save the texture.
-			if (mPreviewToSave)
-			{
-				mPreviewToSave = FALSE;
-				saveAs();
-			}
 			// Draw the texture
 			gGL.diffuseColor3f( 1.f, 1.f, 1.f );
 			gl_draw_scaled_image(interior.mLeft,
@@ -349,7 +361,7 @@ void LLPreviewTexture::draw()
 // virtual
 BOOL LLPreviewTexture::canSaveAs() const
 {
-	return mIsCopyable && !mLoadingFullImage && mImage.notNull() && !mImage->isMissingAsset();
+	return mIsFullPerm && !mLoadingFullImage && mImage.notNull() && !mImage->isMissingAsset();
 }
 
 
@@ -394,13 +406,25 @@ void LLPreviewTexture::saveAs(EFileformatType format)
 			break;
 	}
 
-	if( !file_picker.getSaveFile( saveFilter, item ? LLDir::getScrubbedFileName(item->getName()) : LLStringUtil::null) )
+	// <FS:Ansariel> FIRE-14111: File extension missing on Linux when saving a texture
+	//if( !file_picker.getSaveFile( saveFilter, item ? LLDir::getScrubbedFileName(item->getName()) : LLStringUtil::null) )
+	if( !file_picker.getSaveFile( saveFilter, item ? checkFileExtension(LLDir::getScrubbedFileName(item->getName()), format) : LLStringUtil::null) )
+	// </FS:Ansariel>
 	{
 		// User canceled or we failed to acquire save file.
 		return;
 	}
+	if(mPreviewToSave)
+	{
+		mPreviewToSave = FALSE;
+		LLFloaterReg::showTypedInstance<LLPreviewTexture>("preview_texture", item->getUUID());
+	}
+
 	// remember the user-approved/edited file name.
-	mSaveFileName = file_picker.getFirstFile();
+	// <FS:Ansariel> FIRE-14111: File extension missing on Linux when saving a texture
+	//mSaveFileName = file_picker.getFirstFile();
+	mSaveFileName = checkFileExtension(file_picker.getFirstFile(), format);
+	// </FS:Ansariel>
 	mLoadingFullImage = TRUE;
 	getWindow()->incBusyCount();
 
@@ -951,6 +975,11 @@ void LLPreviewTexture::loadAsset()
 	updateDimensions();
 	getChildView("save_tex_btn")->setEnabled(canSaveAs());
 	getChildView("save_tex_btn")->setVisible(canSaveAs());
+	if (mObjectUUID.notNull())
+	{
+		// check that we can copy inworld items into inventory
+		getChildView("Keep")->setEnabled(mIsCopyable);
+	}
 }
 
 LLPreview::EAssetStatus LLPreviewTexture::getAssetStatus()
@@ -1015,7 +1044,9 @@ void LLPreviewTexture::updateImageID()
 		mShowKeepDiscard = TRUE;
 
 		mCopyToInv = FALSE;
-		mIsCopyable = item->checkPermissionsSet(PERM_ITEM_UNRESTRICTED);
+		LLPermissions perm(item->getPermissions());
+		mIsCopyable = perm.allowCopyBy(gAgent.getID(), gAgent.getGroupID()) && perm.allowTransferTo(gAgent.getID());
+		mIsFullPerm = item->checkPermissionsSet(PERM_ITEM_UNRESTRICTED);
 	}
 	else // not an item, assume it's an asset id
 	{
@@ -1023,6 +1054,7 @@ void LLPreviewTexture::updateImageID()
 		mShowKeepDiscard = FALSE;
 		mCopyToInv = TRUE;
 		mIsCopyable = TRUE;
+		mIsFullPerm = TRUE;
 	}
 
 }

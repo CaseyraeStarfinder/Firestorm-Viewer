@@ -75,43 +75,36 @@ bool LLTextBase::compare_segment_end::operator()(const LLTextSegmentPtr& a, cons
 
 
 // helper functors
-struct LLTextBase::compare_bottom
+bool LLTextBase::compare_bottom::operator()(const S32& a, const LLTextBase::line_info& b) const
 {
-	bool operator()(const S32& a, const LLTextBase::line_info& b) const
-	{
-		return a > b.mRect.mBottom; // bottom of a is higher than bottom of b
-	}
+	return a > b.mRect.mBottom; // bottom of a is higher than bottom of b
+}
 
-	bool operator()(const LLTextBase::line_info& a, const S32& b) const
-	{
-		return a.mRect.mBottom > b; // bottom of a is higher than bottom of b
-	}
+bool LLTextBase::compare_bottom::operator()(const LLTextBase::line_info& a, const S32& b) const
+{
+	return a.mRect.mBottom > b; // bottom of a is higher than bottom of b
+}
 
-	bool operator()(const LLTextBase::line_info& a, const LLTextBase::line_info& b) const
-	{
-		return a.mRect.mBottom > b.mRect.mBottom; // bottom of a is higher than bottom of b
-	}
-
-};
+bool LLTextBase::compare_bottom::operator()(const LLTextBase::line_info& a, const LLTextBase::line_info& b) const
+{
+	return a.mRect.mBottom > b.mRect.mBottom; // bottom of a is higher than bottom of b
+}
 
 // helper functors
-struct LLTextBase::compare_top
+bool LLTextBase::compare_top::operator()(const S32& a, const LLTextBase::line_info& b) const
 {
-	bool operator()(const S32& a, const LLTextBase::line_info& b) const
-	{
-		return a > b.mRect.mTop; // top of a is higher than top of b
-	}
+	return a > b.mRect.mTop; // top of a is higher than top of b
+}
 
-	bool operator()(const LLTextBase::line_info& a, const S32& b) const
-	{
-		return a.mRect.mTop > b; // top of a is higher than top of b
-	}
+bool LLTextBase::compare_top::operator()(const LLTextBase::line_info& a, const S32& b) const
+{
+	return a.mRect.mTop > b; // top of a is higher than top of b
+}
 
-	bool operator()(const LLTextBase::line_info& a, const LLTextBase::line_info& b) const
-	{
-		return a.mRect.mTop > b.mRect.mTop; // top of a is higher than top of b
-	}
-};
+bool LLTextBase::compare_top::operator()(const LLTextBase::line_info& a, const LLTextBase::line_info& b) const
+{
+	return a.mRect.mTop > b.mRect.mTop; // top of a is higher than top of b
+}
 
 struct LLTextBase::line_end_compare
 {
@@ -651,7 +644,8 @@ void LLTextBase::drawText()
 	if ( (getSpellCheck()) && (getWText().length() > 2) )
 	{
 		// Calculate start and end indices for the spell checking range
-		S32 start = line_start, end = getLineEnd(last_line);
+		S32 start = line_start;
+		S32 end   = getLineEnd(last_line);
 
 		if ( (mSpellCheckStart != start) || (mSpellCheckEnd != end) )
 		{
@@ -1425,16 +1419,16 @@ void LLTextBase::replaceWithSuggestion(U32 index)
 		if ( (it->first <= (U32)mCursorPos) && (it->second >= (U32)mCursorPos) )
 		{
 			deselect();
-
-			// Delete the misspelled word
-			removeStringNoUndo(it->first, it->second - it->first);
-
 			// Insert the suggestion in its place
 			LLWString suggestion = utf8str_to_wstring(mSuggestionList[index]);
 			LLStyleConstSP sp(new LLStyle(getStyleParams()));
 			LLTextSegmentPtr segmentp = new LLNormalTextSegment(sp, it->first, it->first + suggestion.size(), *this);
 			segment_vec_t segments(1, segmentp);
 			insertStringNoUndo(it->first, suggestion, &segments);
+
+			// Delete the misspelled word
+			removeStringNoUndo(it->first + (S32)suggestion.length(), it->second - it->first);
+
 
 			setCursorPos(it->first + (S32)suggestion.length());
 
@@ -1680,7 +1674,7 @@ void LLTextBase::reflow()
 											line_count));
 
 				line_start_index = segment->getStart() + seg_offset;
-				cur_top -= llround((F32)line_height * mLineSpacingMult) + mLineSpacingPixels;
+				cur_top -= ll_round((F32)line_height * mLineSpacingMult) + mLineSpacingPixels;
 				remaining_pixels = text_available_width;
 				line_height = 0;
 			}
@@ -1692,7 +1686,7 @@ void LLTextBase::reflow()
 											last_segment_char_on_line, 
 											line_rect, 
 											line_count));
-				cur_top -= llround((F32)line_height * mLineSpacingMult) + mLineSpacingPixels;
+				cur_top -= ll_round((F32)line_height * mLineSpacingMult) + mLineSpacingPixels;
 				break;
 			}
 			// ...or finished a segment and there are segments remaining on this line
@@ -1707,7 +1701,7 @@ void LLTextBase::reflow()
 												line_rect, 
 												line_count));
 					line_start_index = segment->getStart() + seg_offset;
-					cur_top -= llround((F32)line_height * mLineSpacingMult) + mLineSpacingPixels;
+					cur_top -= ll_round((F32)line_height * mLineSpacingMult) + mLineSpacingPixels;
 					line_height = 0;
 					remaining_pixels = text_available_width;
 				}
@@ -2002,24 +1996,18 @@ LLTextBase::segment_set_t::iterator LLTextBase::getSegIterContaining(S32 index, 
 
 	// This goes reports one segment backwards if the cursor is inside a non-editable segment,
 	// but only if that segment is editable -Zi
-
 	static LLCachedControl<bool> fsFixCursorPosition(*LLUI::sSettingGroups["config"], "FSFixCursorPosition", true);
-	
-	if (fsFixCursorPosition)
+	if (fsFixCursorPosition && fix_position && it != mSegments.end())
 	{
-		if (fix_position)
+		LLTextSegment* seg = *it;
+		if (!seg->canEdit() && it != mSegments.begin())
 		{
-			LLTextSegment* seg=*it;
-			if(!seg->canEdit())
-			{
-				if(it!=mSegments.begin())
-				{
-					--it;
+			--it;
 
-					seg=*it;
-					if(!seg->canEdit())
-						++it;
-				}
+			seg = *it;
+			if (!seg->canEdit())
+			{
+				++it;
 			}
 		}
 	}
@@ -2058,22 +2046,17 @@ LLTextBase::segment_set_t::const_iterator LLTextBase::getSegIterContaining(S32 i
 	// This goes reports one segment backwards if the cursor is inside a non-editable segment,
 	// but only if that segment is editable -Zi
 	static LLCachedControl<bool> fsFixCursorPosition(*LLUI::sSettingGroups["config"], "FSFixCursorPosition", true);
-	
-	if (fsFixCursorPosition)
+	if (fsFixCursorPosition && fix_position && it != mSegments.end())
 	{
-		if (fix_position)
+		LLTextSegment* seg = *it;
+		if (!seg->canEdit() && it != mSegments.begin())
 		{
-			LLTextSegment* seg=*it;
-			if(!seg->canEdit())
-			{
-				if(it!=mSegments.begin())
-				{
-					--it;
+			--it;
 
-					seg=*it;
-					if(!seg->canEdit())
-						++it;
-				}
+			seg = *it;
+			if (!seg->canEdit())
+			{
+				++it;
 			}
 		}
 	}
@@ -2145,6 +2128,8 @@ void LLTextBase::createUrlContextMenu(S32 x, S32 y, const std::string &in_url)
 	registrar.add("FS.RequestTeleport", boost::bind(&LLUrlAction::executeSLURL, "secondlife:///app/firestorm/" + target_id_str + "/requestteleport"));
 	registrar.add("FS.TrackAvatar", boost::bind(&LLUrlAction::executeSLURL, "secondlife:///app/firestorm/" + target_id_str + "/track"));
 	registrar.add("FS.AddToContactSet", boost::bind(&LLUrlAction::executeSLURL, "secondlife:///app/firestorm/" + target_id_str + "/addtocontactset"));	// [FS:CR]
+	registrar.add("FS.BlockAvatar", boost::bind(&LLUrlAction::executeSLURL, "secondlife:///app/firestorm/" + target_id_str + "/blockavatar"));
+	registrar.add("FS.ViewLog", boost::bind(&LLUrlAction::executeSLURL, "secondlife:///app/firestorm/" + target_id_str + "/viewlog"));
 	// </FS:Ansariel>
 
 	// <FS:Ansariel> Add enable checks for menu items
@@ -2159,10 +2144,14 @@ void LLTextBase::createUrlContextMenu(S32 x, S32 y, const std::string &in_url)
 	enable_registrar.add("FS.EnableTrackAvatar", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, target_id, FS_RGSTR_ACT_TRACK_AVATAR));
 	enable_registrar.add("FS.EnableTeleportToTarget", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, target_id, FS_RGSTR_ACT_TELEPORT_TO));
 	enable_registrar.add("FS.EnableRequestTeleport", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, target_id, FS_RGSTR_ACT_REQUEST_TELEPORT));
+	enable_registrar.add("FS.CheckIsAgentBlocked", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, target_id, FS_RGSTR_CHK_AVATAR_BLOCKED));
+	enable_registrar.add("FS.EnableBlockAvatar", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, target_id, FS_RGSTR_CHK_IS_NOT_SELF));
+	enable_registrar.add("FS.EnableViewLog", boost::bind(&FSRegistrarUtils::checkIsEnabled, gFSRegistrarUtils, target_id, FS_RGSTR_ACT_VIEW_TRANSCRIPT));
 	// </FS:Ansariel>
 
 	// create and return the context menu from the XUI file
 	delete mPopupMenu;
+	llassert(LLMenuGL::sMenuContainer != NULL);
 	mPopupMenu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>(xui_file, LLMenuGL::sMenuContainer,
 																		 LLMenuHolderGL::child_registry_t::instance());	
 	if (mIsFriendSignal)
@@ -2232,6 +2221,8 @@ static LLUIImagePtr image_from_icon_name(const std::string& icon_name)
 
 static LLTrace::BlockTimerStatHandle FTM_PARSE_HTML("Parse HTML");
 
+
+
 void LLTextBase::appendTextImpl(const std::string &new_text, const LLStyle::Params& input_params)
 {
 	LLStyle::Params style_params(input_params);
@@ -2245,7 +2236,7 @@ void LLTextBase::appendTextImpl(const std::string &new_text, const LLStyle::Para
 		LLUrlMatch match;
 		std::string text = new_text;
 		while ( LLUrlRegistry::instance().findUrl(text, match,
-				boost::bind(&LLTextBase::replaceUrl, this, _1, _2, _3)) )
+				boost::bind(&LLTextBase::replaceUrl, this, _1, _2, _3),isContentTrusted()))
 		{
 			start = match.getStart();
 			end = match.getEnd()+1;
@@ -2271,10 +2262,12 @@ void LLTextBase::appendTextImpl(const std::string &new_text, const LLStyle::Para
 				appendAndHighlightText(subtext, part, style_params); 
 			}
 
+			// add icon before url if need
 			// <FS:Ansariel> Optional icon position
-			if (mIconPositioning == LLTextBaseEnums::LEFT)
+			//LLTextUtil::processUrlMatch(&match, this, isContentTrusted() || match.isTrusted());
+			if (mIconPositioning == LLTextBaseEnums::LEFT || match.isTrusted())
 			{
-				LLTextUtil::processUrlMatch(&match,this);
+				LLTextUtil::processUrlMatch(&match, this, isContentTrusted() || match.isTrusted());
 			}
 			// </FS:Ansariel> Optional icon position
 
@@ -2284,23 +2277,53 @@ void LLTextBase::appendTextImpl(const std::string &new_text, const LLStyle::Para
 			appendAndHighlightTextImpl(match.getLabel(), part, link_params,
 									   input_params.is_name_slurl ? false : match.underlineOnHoverOnly());
 			// </FS:CR>
+
+			// <FS:Ansariel> Unfail URI display
+			// set the tooltip for the Url label (host part)
+			if (! match.getTooltip().empty())
+			{
+				segment_set_t::iterator it = getSegIterContaining(getLength()-1);
+				if (it != mSegments.end())
+				{
+					LLTextSegmentPtr segment = *it;
+					segment->setToolTip(match.getTooltip());
+				}
+			}
+			// </FS:Ansariel>
+
+			// show query part of url with gray color only for LLUrlEntryHTTP and LLUrlEntryHTTPNoProtocol url entries
+			std::string label = match.getQuery();
+			if (label.size())
+			{
+				// <FS:Ansariel> Custom URI query part color
+				//link_params.color = LLColor4::grey;
+				//link_params.readonly_color = LLColor4::grey;
+				static LLUIColor query_part_color = LLUIColorTable::getInstance()->getColor("UriQueryPartColor", LLColor4::grey);
+				link_params.color = query_part_color;
+				link_params.readonly_color = query_part_color;
+				// </FS:Ansariel>
+			// <FS:Ansariel> Unfail URI display; add tooltip for query part
+				//appendAndHighlightTextImpl(label, part, link_params, match.underlineOnHoverOnly());
+				appendAndHighlightTextImpl(label, part, link_params, input_params.is_name_slurl ? false : match.underlineOnHoverOnly());
+			//}
 			
 			// set the tooltip for the Url label
 			if (! match.getTooltip().empty())
 			{
 				segment_set_t::iterator it = getSegIterContaining(getLength()-1);
 				if (it != mSegments.end())
-					{
-						LLTextSegmentPtr segment = *it;
-						segment->setToolTip(match.getTooltip());
-					}
+				{
+					LLTextSegmentPtr segment = *it;
+					segment->setToolTip(match.getTooltip());
+				}
+			}
+			// <FS:Ansariel> Unfail URI display
 			}
 
 			// <FS:Ansariel> Optional icon position
-			//LLTextUtil::processUrlMatch(&match,this);
-			if (mIconPositioning == LLTextBaseEnums::RIGHT)
+			if (mIconPositioning == LLTextBaseEnums::RIGHT && !match.isTrusted())
 			{
-				LLTextUtil::processUrlMatch(&match,this);
+				LLTextUtil::processUrlMatch(&match,this,isContentTrusted());
 			}
 			// </FS:Ansariel> Optional icon position
 
@@ -2618,7 +2641,7 @@ S32 LLTextBase::getDocIndexFromLocalCoord( S32 local_x, S32 local_y, BOOL round,
 	// binary search for line that starts before local_y
 	line_list_t::const_iterator line_iter = std::lower_bound(mLineInfoList.begin(), mLineInfoList.end(), doc_y, compare_bottom());
 
-	if (line_iter == mLineInfoList.end())
+	if (!mLineInfoList.size() || line_iter == mLineInfoList.end())
 	{
 		return getLength(); // past the end
 	}
@@ -2710,7 +2733,6 @@ LLRect LLTextBase::getDocRectFromDocIndex(S32 pos) const
 	// clamp pos to valid values
 	pos = llclamp(pos, 0, mLineInfoList.back().mDocIndexEnd - 1);
 
-	// find line that contains cursor
 	line_list_t::const_iterator line_iter = std::upper_bound(mLineInfoList.begin(), mLineInfoList.end(), pos, line_end_compare());
 
 	doc_rect.mLeft = line_iter->mRect.mLeft; 
@@ -2888,6 +2910,12 @@ void LLTextBase::changeLine( S32 delta )
         LLRect visible_region = getVisibleDocumentRect();
         S32 new_cursor_pos = getDocIndexFromLocalCoord(mDesiredXPixel,
                                                        mLineInfoList[new_line].mRect.mBottom + mVisibleTextRect.mBottom - visible_region.mBottom, TRUE);
+		S32 actual_line = getLineNumFromDocIndex(new_cursor_pos);
+		if (actual_line != new_line)
+		{
+			// line edge, correcting position by 1 to move onto proper line
+			new_cursor_pos += new_line - actual_line;
+		}
         setCursorPos(new_cursor_pos, true);
     }
 }
@@ -3132,13 +3160,44 @@ void LLTextBase::updateRects()
 		needsReflow();
 	}
 
+	// update mTextBoundingRect after mVisibleTextRect took scrolls into account
+	if (!mLineInfoList.empty() && mScroller)
+	{
+		S32 delta_pos = 0;
+
+		switch(mVAlign)
+		{
+		case LLFontGL::TOP:
+			delta_pos = llmax(mVisibleTextRect.getHeight() - mTextBoundingRect.mTop, -mTextBoundingRect.mBottom);
+			break;
+		case LLFontGL::VCENTER:
+			delta_pos = (llmax(mVisibleTextRect.getHeight() - mTextBoundingRect.mTop, -mTextBoundingRect.mBottom) + (mVisibleTextRect.mBottom - mTextBoundingRect.mBottom)) / 2;
+			break;
+		case LLFontGL::BOTTOM:
+			delta_pos = mVisibleTextRect.mBottom - mTextBoundingRect.mBottom;
+			break;
+		case LLFontGL::BASELINE:
+			// do nothing
+			break;
+		}
+		// move line segments to fit new visible rect
+		if (delta_pos != 0)
+		{
+			for (line_list_t::iterator it = mLineInfoList.begin(); it != mLineInfoList.end(); ++it)
+			{
+				it->mRect.translate(0, delta_pos);
+			}
+			mTextBoundingRect.translate(0, delta_pos);
+		}
+	}
+
 	// update document container again, using new mVisibleTextRect (that has scrollbars enabled as needed)
 	doc_rect.mBottom = llmin(mVisibleTextRect.mBottom,  mTextBoundingRect.mBottom);
 	doc_rect.mLeft = 0;
 	doc_rect.mRight = mScroller 
 		? llmax(mVisibleTextRect.getWidth(), mTextBoundingRect.mRight)
 		: mVisibleTextRect.getWidth();
-	doc_rect.mTop = llmax(mVisibleTextRect.mTop, mTextBoundingRect.mTop);
+	doc_rect.mTop = llmax(mVisibleTextRect.getHeight(), mTextBoundingRect.getHeight()) + doc_rect.mBottom;
 	if (!mScroller)
 	{
 		// push doc rect to top of text widget

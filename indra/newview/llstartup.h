@@ -73,6 +73,9 @@ typedef enum {
 	STATE_LOGIN_AUTH_INIT,			// Start login to SL servers
 	STATE_LOGIN_CURL_UNSTUCK,		// Update progress to remove "SL appears frozen" msg.
 	STATE_LOGIN_PROCESS_RESPONSE,	// Check authentication reply
+// <FS:Ansariel> Wait for notification confirmation
+	STATE_LOGIN_CONFIRM_NOTIFICATON,
+// </FS:Ansariel>
 	STATE_WORLD_INIT,				// Start building the world
 	STATE_MULTIMEDIA_INIT,			// Init the rest of multimedia library
 	STATE_FONT_INIT,				// Load default fonts
@@ -110,6 +113,7 @@ public:
 	static void fontInit();
 
 	static void initNameCache();
+	static void initExperiences();
 	
 	static void cleanupNameCache();
 

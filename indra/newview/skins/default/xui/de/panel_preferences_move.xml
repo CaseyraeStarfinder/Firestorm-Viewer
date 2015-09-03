@@ -15,9 +15,25 @@
 			<check_box label="Bauen/Bearbeiten" name="edit_camera_movement" tool_tip="Automatische Kamerapositionierung bei Wechsel in und aus dem Bearbeitungsmodus verwenden"/>
 			<check_box label="Aussehen" name="appearance_camera_movement" tool_tip="Automatische Kamerapositionierung im Bearbeitenmodus verwenden"/>
 			<check_box label="Zusätzliche Beleuchtung aktivieren" name="EditAppearanceLighting" tool_tip="Aktiviert die zusätzliche Beleuchtung, wenn die Form des Avatars bearbeitet wird."/>
+			<check_box label="Klick auf Avatar hält Kameraposition" name="clickonavatarkeepscamera" tool_tip="Normalerweise wird die Kameraposition beim Anklicken des Avatars zurückgesetzt. Diese Option verhindert dieses Verhalten."/>
+			<check_box label="Kameraposition nach Teleport zurücksetzen (innerhalb einer Region)" name="FSResetCameraOnTP" tool_tip="Normalerweise wird die Kameraposition beim Teleportieren zurückgesetzt. Diese Option verhindert dieses Verhalten."/>
+			<check_box label="Kameraposition bei Avatarbewegung zurücksetzen" name="FSResetCameraOnMovement"/>
+			<check_box label="Minimale Zoomdistanz der Kamera aufheben" name="disableminzoomdist" tool_tip="Deaktiviert die minimale Zoomdistanz der Kamera zu einem Objekt."/>
+			<check_box label="Beim Zurücksetzen der Ansicht Avatar in Blickrichtung der Kamera drehen" name="resetviewturnsavatar" tool_tip="Behält die Blickrichtung der Kamera bei und dreht den Avatar, wenn die Ansicht zurückgesetzt wird (Beim Drücken von ESC)."/>
+			<check_box label="Kamerabewegung durch primitive Objekte erlauben" name="ignorecameraconstraints" tool_tip="Ignoriert die Beschränkung, dass die Kamera nicht durch primitive Objekte bewegt werden kann."/>
+			<text name="ignorecameraconstraints_requires_restart">
+				(Erfordert Neustart)
+			</text>
+			<check_box label="Kamera-Kontrollen auf undurchsichtigem Hintergrund anzeigen" name="FSAlwaysOpaqueCameraControls"/>
+			<check_box label="Blockierte Avatare als Partikelwolke darstellen" name="ShowMutedAvatarsAsCloud" tool_tip="Blockierte Avatare werden als Partikelwolke in einer speziellen Farbe dargestellt."/>
+		</panel>
+
+		<!--Mouselook-->
+		<panel label="Mouselook" name="tab-mouselook">
 			<check_box label="Mouselook-Funktionalität aktivieren" name="EnableMouselook" tool_tip="Aktiviert die Ego-Perspektive und -Steuerung mit der Maus."/>
 			<check_box label="Mich im Mouselook anzeigen" name="first_person_avatar_visible"/>
 			<check_box label="Benutzerinterface im Mouselook anzeigen" name="first_person_ui_visible"/>
+			<check_box label="Gespräche und Radar beim Wechsel in Mouselook nicht schließen" name="FSShowConvoAndRadarInML"/>
 			<check_box label="Kontextmenüs im Mouselook aktivieren" name="FSEnableRightclickMenuInMouselook" tool_tip="Öffnet das Pie-/Kontextmenü im Mouselook-Modus beim drücken von ALT + rechter Maustaste."/>
 			<check_box label="Mouselook mit Scrollrad verlassen" name="FSScrollWheelExitsMouselook" tool_tip="Falls aktiviert, kann der Mouselook durch das Drehen des Scrollrads nach unten verlassen werden."/>
 			<check_box label="Zeige Mouselook-Hilfestellungen" name="mouselook_instructions_visible" tool_tip="Zeigt Hilfestellungen zum Mouselook-Modus an."/>
@@ -30,20 +46,18 @@
 			</text>
 			<check_box label="Umkehren" name="invert_mouse"/>
 		</panel>
-		
+
 		<!--Movement-->
 		<panel label="Bewegung" name="tab-movement">
 			<check_box label="Mit Pfeiltasten bewegen" name="arrow_keys_move_avatar_check"/>
-			<check_box label="AZERTY-Tastaturlayout verwenden" name="FSUseAzertyKeyboardLayout" width="200"/>
-			<text name="FSUseAzertyKeyboardLayout_requires_restart">
-				(Erfordert Neustart)
-			</text>
-			<check_box label="Drücken-drücken-halten, um zu rennen" name="tap_tap_hold_to_run" left_delta="-210"/>
+			<check_box label="Buchstabeneingabe beeinflusst Bewegung (z.B. WASD)" name="LetterKeysAffectsMovementNotFocusChatBar"/>
+			<check_box label="AZERTY-Tastaturlayout verwenden" name="FSUseAzertyKeyboardLayout"/>
+			<check_box label="Drücken-drücken-halten, um zu rennen" name="tap_tap_hold_to_run"/>
 			<check_box label="Fliegen/Landen beim Drücken von auf (springen) / ab (kriechen)" name="automatic_fly" />
 			<check_box label="Kriech-Umschaltmodus aktivieren" name="crouch_toggle_mode"/>
 			<check_box label="Warten auf Vor-Sprung- und Lande-Animationen deaktivieren" name="FSIgnoreFinishAnimation"/>
-			<check_box label="Soundeffekte beim Teleportieren abspielen" name="PlayTeleportSound"/>
-			<check_box label="Nach einem Teleport immer fliegen" name="FSFlyAfterTeleport"/>
+			<check_box label="Beim Rückwärtsgehen Drehen des Avatars zur Kamera lokal deaktivieren" name="FSDisableTurningAroundWhenWalkingBackwards" tool_tip="Deaktiviert das Drehen des Avatars mit dem Gesicht zur Kamera beim Rückwärtsgehen. Diese Option hat nur lokalen Effekt und funktioniert nicht mit geskripteten AOs."/>
+			<check_box label="Avatar zum ausgewählten Objekt drehen" name="FSTurnAvatarToSelectedObject" tool_tip="Dreht den Avatar mit dem Gesicht zum aktuell ausgewählten Objekt."/>
 			<text name="movelock_lbl">
 				Falls Movelock in der LSL-Brücke aktiviert ist...
 			</text>
@@ -67,21 +81,17 @@
 			<button label="Joystick-Konfiguration" name="joystick_setup_button"/>
 		</panel>
 
-		<!-- Firestorm -->
-		<panel label="Firestorm" name="tab-firestorm">
-			<text name="camera_options_label">
-			   Kamera-Optionen:
-			</text>
-			<check_box label="Klick auf Avatar hält Kameraposition" name="clickonavatarkeepscamera" tool_tip="Normalerweise wird die Kameraposition beim Anklicken des Avatars zurückgesetzt. Diese Option verhindert dieses Verhalten."/>
-			<check_box label="Kameraposition nach Teleport zurücksetzen (innerhalb einer Region)" name="FSResetCameraOnTP" tool_tip="Normalerweise wird die Kameraposition beim Teleportieren zurückgesetzt. Diese Option verhindert dieses Verhalten."/>
-			<check_box label="Kameraposition bei Avatarbewegung zurücksetzen" name="FSResetCameraOnMovement"/>
-			<check_box label="Minimale Zoomdistanz der Kamera aufheben" name="disableminzoomdist" tool_tip="Deaktiviert die minimale Zoomdistanz der Kamera zu einem Objekt."/>
-			<check_box label="Beim Zurücksetzen der Ansicht Avatar in Blickrichtung der Kamera drehen" name="resetviewturnsavatar" tool_tip="Behält die Blickrichtung der Kamera bei und dreht den Avatar, wenn die Ansicht zurückgesetzt wird (Beim Drücken von ESC)."/>
-			<check_box label="Kamerabewegung durch primitive Objekte erlauben" name="ignorecameraconstraints" tool_tip="Ignoriert die Beschränkung, dass die Kamera nicht durch primitive Objekte bewegt werden kann."/>
-			<text name="ignorecameraconstraints_requires_restart">
-				(Erfordert Neustart)
-			</text>
-			<check_box label="Kamera-Kontrollen auf undurchsichtigem Hintergrund anzeigen" name="FSAlwaysOpaqueCameraControls"/>
+		<!-- Teleports -->
+		<panel label="Teleports" name="tab-teleports">
+			<check_box label="Soundeffekte beim Teleportieren abspielen" name="PlayTeleportSound"/>
+			<check_box label="Nach einem Teleport immer fliegen" name="FSFlyAfterTeleport"/>
+			<check_box label="Bei Teleports immer „Abbrechen“-Button anzeigen" name="FSAlwaysShowTPCancel" tool_tip="Falls aktiviert, wird immer der „Abbrechen“-Button bei einem Teleport anzeigt, auch wenn der Simulator anderweitiges behauptet. Der Simulator weiß zu jeder Zeit, ob ein Teleport abgebrochen werden kann und ignoriert einen Abbruch-Befehl bei Gott- und Todes-TPs sowieso. RLVa-Restriktionen können diese Einstellung übersteuern."/>
+			<check_box label="Deaktiviere Teleport-Leitstrahl" name="tp_beam_toggle" tool_tip="Deaktiviert den Leitstrahl zum Teleportziel nach Teleports."/>
+			<check_box label="Deaktiviere Teleport-Anzeige" name="tp_screen_toggle" tool_tip="Deaktiviert den schwarzen Teleport-Bildschirm während eines Teleports."/>
+		</panel>
+
+		<!-- Map & Minimap -->
+		<panel label="Weltkarte &amp; Minikarte" name="tab-maps">
 			<text name="minimap_options_label">
 			   Minikarte-Optionen:
 			</text>
@@ -101,10 +111,7 @@
 			<check_box label="Doppelte Landmarken auf der Weltkarte filtern" name="WorldmapFilterDuplicateLandmarks" tool_tip="Filtert doppelte (identische) Landmarken in der Übersicht der Landmarken auf der Weltkarte."/>
 			<check_box label="Erweiterte Regionsinformationen auf der Weltkarte anzeigen" name="FSAdvancedWorldmapRegionInfo" tool_tip="Zeigt erweiterte Regionsinformationen (Anzahl Avatare und Alterseinstufung) auf der Weltkarte an."/>
 			<check_box label="Grid-Koordinaten auf der Weltkarte anzeigen" name="FSShowRegionGridCoordinates" tool_tip="Zeigt die Gridkoordinaten (mit Region als Einheit) auf der Weltkarte an."/>
-			<check_box label="Info anzeigen, wenn sich der Simulator-Kanal beim Regionswechsel ändert" name="FSShowServerVersionChangeNotice" tool_tip="Zeigt an, falls sich beim einem Wechsel der Region oder durch einen Teleport die Version des Simulators ändert, auf dem die Region läuft."/>
-			<check_box label="Simulator-Kanal in der Statusleiste anzeigen" name="FSStatusbarShowSimulatorVersion" tool_tip="Zeigt den Kanal des Simulators an, auf dem die aktuelle Region läuft."/>
-			<check_box label="Avatar umdrehen beim Rückwärtsgehen" name="backwardsturnavatar" tool_tip="Dreht den Avatar mit dem Gesicht zur Kamera beim Rückwärtsgehen."/>
-			<check_box label="Avatar zum ausgewählten Objekt drehen" name="FSTurnAvatarToSelectedObject" tool_tip="Dreht den Avatar mit dem Gesicht zum aktuell ausgewählten Objekt."/>
+			<check_box label="Aktiviere Teleport via Doppelklick auf der Weltkarte" name="FSWorldMapDoubleclickTeleport" tool_tip="Aktiviert das Teleportieren zu einem Ziel auf der Weltkarte mittels Doppelklick."/>
 		</panel>
 	</tab_container>
 </panel>

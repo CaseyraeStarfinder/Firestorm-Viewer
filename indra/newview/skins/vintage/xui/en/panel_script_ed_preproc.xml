@@ -129,6 +129,10 @@
              label="Search / Replace..."
              layout="topleft"
              name="Search / Replace..." />
+            <menu_item_call
+             label="Go to line..."
+             layout="topleft"
+             name="Go to line..." />
         </menu>
         <menu
          top="0"
@@ -311,6 +315,26 @@
              name="prefs_btn"
              left_pad="14"
              width="18" />
+            
+            <loading_indicator
+             top="2"
+             right="-10"
+             height="18"
+             width="18"
+             layout="topleft"
+             follows="top|right"
+             name="progress_indicator"
+             visible="false" />
+            <icon
+             top="2"
+             right="-10"
+             height="18"
+             width="18"
+             layout="topleft"
+             follows="top|right"
+             name="status_indicator"
+             image_name="Script_NotRunning"
+             visible="true" />
         </layout_panel>
     </layout_stack>
     <tab_container
@@ -335,7 +359,7 @@
 	 name="Script"
 	 label="Script"
 	 width="497">
-		<text_editor
+		<script_editor
 		 left="0"
 		 top="0"
 		 type="string"
@@ -346,7 +370,7 @@
 		 height="353"
 		 ignore_tab="false"
 		 layout="topleft"
-		 max_length="65536"
+		 max_length="262144"
 		 name="Script Editor"
 		 text_color="ScriptText"
 		 default_color="ScriptText"
@@ -356,11 +380,11 @@
 		 bg_readonly_color="ScriptBackground"
 		 cursor_color="ScriptCursorColor"
 		 width="497"
-		 show_line_numbers="true"
 		 enable_tooltip_paste="true"
-		 word_wrap="true">
+		 word_wrap="true"
+		 show_context_menu="true">
 			Loading...
-		</text_editor>
+		</script_editor>
 	</panel>
 	<panel
 	 bevel_style="none"
@@ -372,7 +396,7 @@
 	 name="Preprocessed"
 	 label="Preprocessed"
 	 width="497">
-		<text_editor
+		<script_editor
 		 left="0"
 		 top="0"
 		 type="string"
@@ -383,7 +407,7 @@
 		 height="353"
 		 ignore_tab="false"
 		 layout="topleft"
-		 max_length="65536"
+		 max_length="262144"
 		 name="Post Editor"
 		 text_color="ScriptText"
 		 default_color="ScriptText"
@@ -393,10 +417,10 @@
 		 bg_readonly_color="ScriptBackground"
 		 cursor_color="ScriptCursorColor"
 		 width="497"
-		 show_line_numbers="true" 
-		 word_wrap="true">
+		 word_wrap="true"
+		 show_context_menu="true">
 			Loading...
-		</text_editor>
+		</script_editor>
 	</panel>
 	</tab_container>
     <scroll_list

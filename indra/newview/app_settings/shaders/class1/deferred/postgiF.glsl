@@ -100,7 +100,7 @@ void main()
 	
 	frag_color.rgb = col;
 
-#ifdef ND_IS_AMD_CARD
+#ifdef IS_AMD_CARD
 	// If it's AMD make sure the GLSL compiler sees the arrays referenced once by static index. Otherwise it seems to optimise the storage awawy which leads to unfun crashes and artifacts.
 	vec2 dummy1 = kern[0];
 	vec2 dummy2 = kern[31];

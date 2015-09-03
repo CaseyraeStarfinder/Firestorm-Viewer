@@ -54,16 +54,14 @@ std::string FSFloaterWSAssetBlacklist::getTypeString(S32 type)
 	{
 		case 0:
 			return getString("asset_texture");
-			break;
 		case 1:
 			return getString("asset_sound");
-			break;
 		case 6:
 			return getString("asset_object");
-			break;
+		case 45:
+			return getString("asset_resident");
 		default:
 			return getString("asset_unknown");
-			break;
 	}
 }
 

@@ -30,23 +30,14 @@
 #include "fsfloatervolumecontrols.h"
 
 #include "llcheckboxctrl.h"
-#include "llfloaterreg.h"
 #include "llpanel.h"
-#include "lltabcontainer.h"
 
-#include "llfloaterpreference.h"
 #include "utilitybar.h"
 #include "llviewercontrol.h"
 
 FSFloaterVolumeControls::FSFloaterVolumeControls(const LLSD& key)
 :	LLFloater(key)
 {
-	//<FS:KC> Handled centrally now
-	/*
-	mCommitCallbackRegistrar.add("Vol.GoAudioPrefs", boost::bind(&FSFloaterVolumeControls::onAudioPrefsButtonClicked, this));
-	mCommitCallbackRegistrar.add("Vol.setControlFalse", boost::bind(&FSFloaterVolumeControls::setControlFalse, this, _2));
-	mCommitCallbackRegistrar.add("Vol.SetSounds", boost::bind(&FSFloaterVolumeControls::setSounds, this));
-	*/
 }
 
 FSFloaterVolumeControls::~FSFloaterVolumeControls()
@@ -55,6 +46,12 @@ FSFloaterVolumeControls::~FSFloaterVolumeControls()
 
 BOOL FSFloaterVolumeControls::postBuild()
 {
+	// <FS:PP> FIRE-9856: Mute sound effects disable plays sound from collisions and plays sound from gestures checkbox not disable after restart/relog
+	bool mute_sound_effects = gSavedSettings.getBOOL("MuteSounds");
+	bool mute_all_sounds = gSavedSettings.getBOOL("MuteAudio");
+	getChild<LLCheckBoxCtrl>("gesture_audio_play_btn")->setEnabled(!(mute_sound_effects || mute_all_sounds));
+	getChild<LLCheckBoxCtrl>("collisions_audio_play_btn")->setEnabled(!(mute_sound_effects || mute_all_sounds));
+	// </FS:PP>
 	return TRUE;
 }
 
@@ -64,42 +61,3 @@ void FSFloaterVolumeControls::onVisibilityChange(BOOL new_visibility)
 	UtilityBar::instance().setVolumeControlsButtonExpanded(new_visibility);
 	LLFloater::onVisibilityChange(new_visibility);
 }
-
-//<FS:KC> Handled centrally now
-/*
-void FSFloaterVolumeControls::onAudioPrefsButtonClicked()
-{
-	// bring up the prefs floater
-	LLFloaterPreference* prefsfloater = LLFloaterReg::showTypedInstance<LLFloaterPreference>("preferences");
-	if (prefsfloater)
-	{
-		// grab the 'audio' panel from the preferences floater and
-		// bring it the front!
-		LLTabContainer* tabcontainer = prefsfloater->getChild<LLTabContainer>("pref core");
-		LLPanel* audiopanel = prefsfloater->getChild<LLPanel>("audio");
-		if (tabcontainer && audiopanel)
-		{
-			tabcontainer->selectTabPanel(audiopanel);
-		}
-	}
-}
-
-void FSFloaterVolumeControls::setControlFalse(const LLSD& user_data)
-{
-	std::string control_name = user_data.asString();
-	LLControlVariable* control = findControl(control_name);
-	
-	if (control)
-	{
-		control->set(LLSD(FALSE));
-	}
-}
-
-void FSFloaterVolumeControls::setSounds()
-{
-	// Disable Enable gesture/collisions sounds checkbox if the master sound is disabled
-	// or if sound effects are disabled.
-	getChild<LLCheckBoxCtrl>("gesture_audio_play_btn")->setEnabled(!gSavedSettings.getBOOL("MuteSounds"));
-	getChild<LLCheckBoxCtrl>("collisions_audio_play_btn")->setEnabled(!gSavedSettings.getBOOL("MuteSounds"));
-}
-*/

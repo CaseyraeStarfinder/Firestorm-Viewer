@@ -1,6 +1,6 @@
 /** 
  * @file fsparticipantlist.h
- * @brief LLParticipantList intended to update view(LLAvatarList) according to incoming messages
+ * @brief FSParticipantList intended to update view(LLAvatarList) according to incoming messages
  *
  * $LicenseInfo:firstyear=2009&license=viewerlgpl$
  * Second Life Viewer Source Code
@@ -24,12 +24,13 @@
  * $/LicenseInfo$
  */
 
-#ifndef LL_PARTICIPANTLIST_H
-#define LL_PARTICIPANTLIST_H
+#ifndef FS_PARTICIPANTLIST_H
+#define FS_PARTICIPANTLIST_H
 
 #include "llviewerprecompiledheaders.h"
 #include "llevent.h"
 #include "llavatarlist.h" // for LLAvatarItemRecentSpeakerComparator
+#include "llgroupmgr.h"
 #include "lllistcontextmenu.h"
 
 class LLSpeakerMgr;
@@ -37,19 +38,29 @@ class LLAvatarList;
 class LLUICtrl;
 class LLAvalineUpdater;
 
-class LLParticipantList
+class FSParticipantList
 {
-	LOG_CLASS(LLParticipantList);
+	LOG_CLASS(FSParticipantList);
 public:
+	enum EConversationType
+	{
+		CONV_UNKNOWN         = 0,
+		CONV_PARTICIPANT     = 1,
+		CONV_SESSION_NEARBY  = 2,
+		CONV_SESSION_1_ON_1  = 3,
+		CONV_SESSION_AD_HOC  = 4,
+		CONV_SESSION_GROUP   = 5,
+		CONV_SESSION_UNKNOWN = 6
+	};
 
 	typedef boost::function<bool (const LLUUID& speaker_id)> validate_speaker_callback_t;
 
-	LLParticipantList(LLSpeakerMgr* data_source, 
+	FSParticipantList(LLSpeakerMgr* data_source, 
 					  LLAvatarList* avatar_list, 
 					  bool use_context_menu = true, 
 					  bool exclude_agent = true, 
 					  bool can_toggle_icons = true);
-	~LLParticipantList();
+	~FSParticipantList();
 	void setSpeakingIndicatorsVisible(BOOL visible);
 
 	enum EParticipantSortOrder
@@ -85,6 +96,8 @@ public:
 	 */
 	void setValidateSpeakerCallback(validate_speaker_callback_t cb);
 
+	EConversationType const getType() const { return mConvType; }
+
 protected:
 	/**
 	 * LLSpeakerMgr event handlers
@@ -108,43 +121,43 @@ protected:
 	class BaseSpeakerListener : public LLOldEvents::LLSimpleListener
 	{
 	public:
-		BaseSpeakerListener(LLParticipantList& parent) : mParent(parent) {}
+		BaseSpeakerListener(FSParticipantList& parent) : mParent(parent) {}
 	protected:
-		LLParticipantList& mParent;
+		FSParticipantList& mParent;
 	};
 
 	class SpeakerAddListener : public BaseSpeakerListener
 	{
 	public:
-		SpeakerAddListener(LLParticipantList& parent) : BaseSpeakerListener(parent) {}
+		SpeakerAddListener(FSParticipantList& parent) : BaseSpeakerListener(parent) {}
 		/*virtual*/ bool handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata);
 	};
 
 	class SpeakerRemoveListener : public BaseSpeakerListener
 	{
 	public:
-		SpeakerRemoveListener(LLParticipantList& parent) : BaseSpeakerListener(parent) {}
+		SpeakerRemoveListener(FSParticipantList& parent) : BaseSpeakerListener(parent) {}
 		/*virtual*/ bool handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata);
 	};
 
 	class SpeakerClearListener : public BaseSpeakerListener
 	{
 	public:
-		SpeakerClearListener(LLParticipantList& parent) : BaseSpeakerListener(parent) {}
+		SpeakerClearListener(FSParticipantList& parent) : BaseSpeakerListener(parent) {}
 		/*virtual*/ bool handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata);
 	};
 
 	class SpeakerModeratorUpdateListener : public BaseSpeakerListener
 	{
 	public:
-		SpeakerModeratorUpdateListener(LLParticipantList& parent) : BaseSpeakerListener(parent) {}
+		SpeakerModeratorUpdateListener(FSParticipantList& parent) : BaseSpeakerListener(parent) {}
 		/*virtual*/ bool handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata);
 	};
 		
 	class SpeakerMuteListener : public BaseSpeakerListener
 	{
 	public:
-		SpeakerMuteListener(LLParticipantList& parent) : BaseSpeakerListener(parent) {}
+		SpeakerMuteListener(FSParticipantList& parent) : BaseSpeakerListener(parent) {}
 
 		/*virtual*/ bool handleEvent(LLPointer<LLOldEvents::LLEvent> event, const LLSD& userdata);
 	};
@@ -152,14 +165,14 @@ protected:
 	/**
 	 * Menu used in the participant list.
 	 */
-	class LLParticipantListMenu : public LLListContextMenu
+	class FSParticipantListMenu : public LLListContextMenu
 	{
 	public:
-		LLParticipantListMenu(LLParticipantList& parent):mParent(parent){};
+		FSParticipantListMenu(FSParticipantList& parent):mParent(parent){};
 		/*virtual*/ LLContextMenu* createMenu();
 		/*virtual*/ void show(LLView* spawning_view, const uuid_vec_t& uuids, S32 x, S32 y);
 	protected:
-		LLParticipantList& mParent;
+		FSParticipantList& mParent;
 	private:
 		bool enableContextMenuItem(const LLSD& userdata);
 		bool enableModerateContextMenuItem(const LLSD& userdata);
@@ -175,6 +188,10 @@ protected:
 		 * Return true if Agent is group moderator(and moderator of group call).
 		 */
 		bool isGroupModerator();
+
+		bool hasAbilityToBan();
+		bool canBanSelectedMember(const LLUUID& participant_uuid);
+		void banSelectedMember(const LLUUID& participant_uuid);
 
 		// Voice moderation support
 		/**
@@ -231,12 +248,12 @@ protected:
 	{
 		LOG_CLASS(LLAvatarItemRecentSpeakerComparator);
 	public:
-		LLAvatarItemRecentSpeakerComparator(LLParticipantList& parent):mParent(parent){};
+		LLAvatarItemRecentSpeakerComparator(FSParticipantList& parent):mParent(parent){};
 		virtual ~LLAvatarItemRecentSpeakerComparator() {};
 	protected:
 		virtual bool doCompare(const LLAvatarListItem* avatar_item1, const LLAvatarListItem* avatar_item2) const;
 	private:
-		LLParticipantList& mParent;
+		FSParticipantList& mParent;
 	};
 
 private:
@@ -267,7 +284,7 @@ private:
 	LLPointer<SpeakerModeratorUpdateListener>	mSpeakerModeratorListener;
 	LLPointer<SpeakerMuteListener>				mSpeakerMuteListener;
 
-	LLParticipantListMenu*    mParticipantListMenu;
+	FSParticipantListMenu*    mParticipantListMenu;
 
 	/**
 	 * This field manages an adding  a new avatar_id in the mAvatarList
@@ -285,6 +302,8 @@ private:
 	LLPointer<LLAvatarItemRecentSpeakerComparator> mSortByRecentSpeakers;
 	validate_speaker_callback_t mValidateSpeakerCallback;
 	LLAvalineUpdater* mAvalineUpdater;
+
+	EConversationType mConvType;
 };
 
-#endif // LL_PARTICIPANTLIST_H
+#endif // FS_PARTICIPANTLIST_H

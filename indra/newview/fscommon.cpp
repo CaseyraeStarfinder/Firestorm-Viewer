@@ -32,9 +32,11 @@
 #include "llagent.h"
 #include "llavataractions.h"
 #include "llavatarnamecache.h"
+#include "llfloaterperms.h"
 #include "llinventorymodel.h"
+#include "lllogchat.h"
+#include "llmutelist.h"
 #include "llnotificationmanager.h"
-#include "llnotificationsutil.h"	// <FS:CR> reportToNearbyChat
 #include "lltooldraganddrop.h"
 #include "llviewerinventory.h"
 #include "llviewernetwork.h"
@@ -216,30 +218,38 @@ void FSCommon::applyDefaultBuildPreferences(LLViewerObject* object)
 			}
 		}
 	}
-	
+
 	U32 object_local_id = object->getLocalID();
-	gMessageSystem->newMessageFast(_PREHASH_ObjectPermissions);
-	gMessageSystem->nextBlockFast(_PREHASH_AgentData);
-	gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-	gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
-	gMessageSystem->nextBlockFast(_PREHASH_HeaderData);
-	gMessageSystem->addBOOLFast(_PREHASH_Override, (BOOL)FALSE);
-	gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
-	gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, object_local_id);
-	gMessageSystem->addU8Fast(_PREHASH_Field, PERM_NEXT_OWNER);
-	gMessageSystem->addBOOLFast(_PREHASH_Set, gSavedSettings.getBOOL("NextOwnerModify"));
-	gMessageSystem->addU32Fast(_PREHASH_Mask, PERM_MODIFY);
-	gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
-	gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, object_local_id);
-	gMessageSystem->addU8Fast(_PREHASH_Field, PERM_NEXT_OWNER);
-	gMessageSystem->addBOOLFast(_PREHASH_Set, gSavedSettings.getBOOL("NextOwnerCopy"));
-	gMessageSystem->addU32Fast(_PREHASH_Mask, PERM_COPY);
-	gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
-	gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, object_local_id);
-	gMessageSystem->addU8Fast(_PREHASH_Field, PERM_NEXT_OWNER);
-	gMessageSystem->addBOOLFast(_PREHASH_Set, gSavedSettings.getBOOL("NextOwnerTransfer"));
-	gMessageSystem->addU32Fast(_PREHASH_Mask, PERM_TRANSFER);
-	gMessageSystem->sendReliable(object->getRegion()->getHost());
+
+#ifdef OPENSIM
+	if (!LLGridManager::getInstance()->isInSecondLife() || !LLFloaterPermsDefault::getCapSent())
+#else
+	if (!LLFloaterPermsDefault::getCapSent())
+#endif
+	{
+		gMessageSystem->newMessageFast(_PREHASH_ObjectPermissions);
+		gMessageSystem->nextBlockFast(_PREHASH_AgentData);
+		gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+		gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+		gMessageSystem->nextBlockFast(_PREHASH_HeaderData);
+		gMessageSystem->addBOOLFast(_PREHASH_Override, (BOOL)FALSE);
+		gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
+		gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, object_local_id);
+		gMessageSystem->addU8Fast(_PREHASH_Field, PERM_NEXT_OWNER);
+		gMessageSystem->addBOOLFast(_PREHASH_Set, gSavedSettings.getBOOL("ObjectsNextOwnerModify"));
+		gMessageSystem->addU32Fast(_PREHASH_Mask, PERM_MODIFY);
+		gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
+		gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, object_local_id);
+		gMessageSystem->addU8Fast(_PREHASH_Field, PERM_NEXT_OWNER);
+		gMessageSystem->addBOOLFast(_PREHASH_Set, gSavedSettings.getBOOL("ObjectsNextOwnerCopy"));
+		gMessageSystem->addU32Fast(_PREHASH_Mask, PERM_COPY);
+		gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
+		gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, object_local_id);
+		gMessageSystem->addU8Fast(_PREHASH_Field, PERM_NEXT_OWNER);
+		gMessageSystem->addBOOLFast(_PREHASH_Set, gSavedSettings.getBOOL("ObjectsNextOwnerTransfer"));
+		gMessageSystem->addU32Fast(_PREHASH_Mask, PERM_TRANSFER);
+		gMessageSystem->sendReliable(object->getRegion()->getHost());
+	}
 
 	gMessageSystem->newMessage(_PREHASH_ObjectFlagUpdate);
 	gMessageSystem->nextBlockFast(_PREHASH_AgentData);
@@ -306,6 +316,10 @@ bool FSCommon::checkIsActionEnabled(const LLUUID& av_id, EFSRegistrarFunctionAct
 	{
 		return (!isSelf && RlvActions::canStartIM(av_id));
 	}
+	else if (action == FS_RGSTR_ACT_VIEW_TRANSCRIPT)
+	{
+		return (!isSelf && LLLogChat::isTranscriptExist(av_id));
+	}
 	else if (action == FS_RGSTR_ACT_ZOOM_IN)
 	{
 		return (!isSelf && LLAvatarActions::canZoomIn(av_id));
@@ -329,6 +343,18 @@ bool FSCommon::checkIsActionEnabled(const LLUUID& av_id, EFSRegistrarFunctionAct
 	else if (action == FS_RGSTR_ACT_TELEPORT_TO)
 	{
 		return (!isSelf && FSRadar::getInstance()->getEntry(av_id) != NULL);
+	}
+	else if (action == FS_RGSTR_CHK_AVATAR_BLOCKED)
+	{
+		return (!isSelf && LLMuteList::getInstance()->isMuted(av_id));
+	}
+	else if (action == FS_RGSTR_CHK_IS_SELF)
+	{
+		return isSelf;
+	}
+	else if (action == FS_RGSTR_CHK_IS_NOT_SELF)
+	{
+		return !isSelf;
 	}
 
 	return false;
@@ -362,4 +388,33 @@ std::string FSCommon::getAvatarNameByDisplaySettings(const LLAvatarName& av_name
 		name = av_name.getUserNameForDisplay();
 	}
 	return name;
+}
+
+bool FSCommon::isDefaultTexture(const LLUUID& asset_id)
+{
+	if (asset_id == LL_DEFAULT_WOOD_UUID ||
+		asset_id == LL_DEFAULT_STONE_UUID ||
+		asset_id == LL_DEFAULT_METAL_UUID ||
+		asset_id == LL_DEFAULT_GLASS_UUID ||
+		asset_id == LL_DEFAULT_FLESH_UUID ||
+		asset_id == LL_DEFAULT_PLASTIC_UUID ||
+		asset_id == LL_DEFAULT_RUBBER_UUID ||
+		asset_id == LL_DEFAULT_LIGHT_UUID ||
+		asset_id == LLUUID("5748decc-f629-461c-9a36-a35a221fe21f") ||	// UIImgWhiteUUID
+		asset_id == LLUUID("8dcd4a48-2d37-4909-9f78-f7a9eb4ef903") ||	// UIImgTransparentUUID
+		asset_id == LLUUID("f54a0c32-3cd1-d49a-5b4f-7b792bebc204") ||	// UIImgInvisibleUUID
+		asset_id == LLUUID("6522e74d-1660-4e7f-b601-6f48c1659a77") ||	// UIImgDefaultEyesUUID
+		asset_id == LLUUID("7ca39b4c-bd19-4699-aff7-f93fd03d3e7b") ||	// UIImgDefaultHairUUID
+		asset_id == LLUUID("5748decc-f629-461c-9a36-a35a221fe21f")		// UIImgDefault for all clothing
+	   )
+	{
+		return true;
+	}
+	return false;
+}
+
+bool FSCommon::isLegacySkin()
+{
+	std::string current_skin = gSavedSettings.getString("FSInternalSkinCurrent");
+	return (current_skin == "Vintage" || current_skin == "Latency");
 }

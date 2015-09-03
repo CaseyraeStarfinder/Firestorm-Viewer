@@ -88,8 +88,9 @@ public:
 	// Enables all buttons
 	static void showFromMenu(EReportType report_type);
 
-	static void showFromObject(const LLUUID& object_id);
+	static void showFromObject(const LLUUID& object_id, const LLUUID& experience_id = LLUUID::null);
 	static void showFromAvatar(const LLUUID& avatar_id, const std::string avatar_name);
+	static void showFromExperience(const LLUUID& experience_id);
 
 	static void onClickSend			(void *userdata);
 	static void onClickCancel		(void *userdata);
@@ -99,14 +100,11 @@ public:
 	static void uploadDoneCallback(const LLUUID &uuid, void* user_data, S32 result, LLExtStat ext_status);
 	static void addDescription(const std::string& description, LLMeanCollisionData *mcd = NULL);
 	static void setDescription(const std::string& description, LLMeanCollisionData *mcd = NULL);
-	
-	// static
-	static void processRegionInfo(LLMessageSystem* msg);
-	
+
 	void setPickedObjectProperties(const std::string& object_name, const std::string& owner_name, const LLUUID owner_id);
 
 private:
-	static void show(const LLUUID& object_id, const std::string& avatar_name = LLStringUtil::null);
+	static void show(const LLUUID& object_id, const std::string& avatar_name = LLStringUtil::null, const LLUUID& experience_id = LLUUID::null);
 
 	void takeScreenshot();
 	void sendReportViaCaps(std::string url);
@@ -118,16 +116,20 @@ private:
 	void sendReportViaCaps(std::string url, std::string sshot_url, const LLSD & report);
 	void setPosBox(const LLVector3d &pos);
 	void enableControls(BOOL own_avatar);
+	void getExperienceInfo(const LLUUID& object_id);
 	void getObjectInfo(const LLUUID& object_id);
 	void callbackAvatarID(const uuid_vec_t& ids, const std::vector<LLAvatarName> names);
 	void setFromAvatarID(const LLUUID& avatar_id);
 	void onAvatarNameCache(const LLUUID& avatar_id, const LLAvatarName& av_name);
+	// <FS:Ansariel> FIRE-15368: Don't include floater in screenshot update
+	void onUpdateScreenshot();
 
 private:
 	EReportType		mReportType;
 	LLUUID 			mObjectID;
 	LLUUID			mScreenID;
 	LLUUID			mAbuserID;
+	LLUUID			mExperienceID;
 	// Store the real name, not the link, for upstream reporting
 	std::string		mOwnerName;
 	BOOL			mDeselectOnClose;

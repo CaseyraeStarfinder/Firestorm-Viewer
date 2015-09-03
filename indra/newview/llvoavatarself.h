@@ -33,6 +33,7 @@
 #include <map>
 
 struct LocalTextureData;
+class LLInventoryCallback;
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -74,6 +75,9 @@ protected:
 	// LLViewerObject interface and related
 	//--------------------------------------------------------------------
 public:
+	boost::signals2::connection                   mRegionChangedSlot;
+
+	void					onSimulatorFeaturesReceived(const LLUUID& region_id);
 	/*virtual*/ void 		updateRegion(LLViewerRegion *regionp);
 	/*virtual*/ void   	 	idleUpdate(LLAgent &agent, const F64 &time);
 
@@ -86,23 +90,31 @@ public:
 	/*virtual*/ void 		requestStopMotion(LLMotion* motion);
 	/*virtual*/ LLJoint*	getJoint(const std::string &name);
 	
-				void		resetJointPositions( void );
-	
-	/*virtual*/ BOOL setVisualParamWeight(const LLVisualParam *which_param, F32 weight, BOOL upload_bake = FALSE );
-	/*virtual*/ BOOL setVisualParamWeight(const char* param_name, F32 weight, BOOL upload_bake = FALSE );
-	/*virtual*/ BOOL setVisualParamWeight(S32 index, F32 weight, BOOL upload_bake = FALSE );
+	// <FS:Ansariel> [Legacy Bake]
+	///*virtual*/ BOOL setVisualParamWeight(const LLVisualParam *which_param, F32 weight);
+	///*virtual*/ BOOL setVisualParamWeight(const char* param_name, F32 weight);
+	///*virtual*/ BOOL setVisualParamWeight(S32 index, F32 weight);
+	/*virtual*/ BOOL setVisualParamWeight(const LLVisualParam *which_param, F32 weight, BOOL upload_bake = FALSE);
+	/*virtual*/ BOOL setVisualParamWeight(const char* param_name, F32 weight, BOOL upload_bake = FALSE);
+	/*virtual*/ BOOL setVisualParamWeight(S32 index, F32 weight, BOOL upload_bake = FALSE);
+	// </FS:Ansariel> [Legacy Bake]
 	/*virtual*/ void updateVisualParams();
+	void writeWearablesToAvatar();
 	/*virtual*/ void idleUpdateAppearanceAnimation();
 
+	// <FS:Ansariel> [Legacy Bake]
 	/*virtual*/ U32  processUpdateMessage(LLMessageSystem *mesgsys,
 													 void **user_data,
 													 U32 block_num,
 													 const EObjectUpdateType update_type,
 													 LLDataPacker *dp);
+	// </FS:Ansariel> [Legacy Bake]
 
 private:
 	// helper function. Passed in param is assumed to be in avatar's parameter list.
-	BOOL setParamWeight(const LLViewerVisualParam *param, F32 weight, BOOL upload_bake = FALSE );
+	// <FS:Ansariel> [Legacy Bake]
+	//BOOL setParamWeight(const LLViewerVisualParam *param, F32 weight);
+	BOOL setParamWeight(const LLViewerVisualParam *param, F32 weight, BOOL upload_bake = FALSE);
 
 
 
@@ -112,7 +124,7 @@ private:
 
 private:
 	LLUUID mInitialBakeIDs[6];
-	bool mInitialBakesLoaded;
+	//bool mInitialBakesLoaded;
 
 
 /********************************************************************************
@@ -130,6 +142,7 @@ public:
 public:
 	/*virtual*/ BOOL 	updateCharacter(LLAgent &agent);
 	/*virtual*/ void 	idleUpdateTractorBeam();
+	bool				checkStuckAppearance();
 
 	//--------------------------------------------------------------------
 	// Loading state
@@ -186,11 +199,13 @@ public:
 	// Loading status
 	//--------------------------------------------------------------------
 public:
+	// <FS:Ansariel> [Legacy Bake]
 	/*virtual*/ bool	hasPendingBakedUploads() const;
 	S32					getLocalDiscardLevel(LLAvatarAppearanceDefines::ETextureIndex type, U32 index) const;
 	bool				areTexturesCurrent() const;
 	BOOL				isLocalTextureDataAvailable(const LLViewerTexLayerSet* layerset) const;
 	BOOL				isLocalTextureDataFinal(const LLViewerTexLayerSet* layerset) const;
+	// <FS:Ansariel> [Legacy Bake]
 	BOOL				isBakedTextureFinal(const LLAvatarAppearanceDefines::EBakedTextureIndex index) const;
 	// If you want to check all textures of a given type, pass gAgentWearables.getWearableCount() for index
 	/*virtual*/ BOOL    isTextureDefined(LLAvatarAppearanceDefines::ETextureIndex type, U32 index) const;
@@ -226,11 +241,14 @@ private:
 	//--------------------------------------------------------------------
 public:
 	LLAvatarAppearanceDefines::ETextureIndex getBakedTE(const LLViewerTexLayerSet* layerset ) const;
+	//-- SUNSHINE CLEANUP - dead? or update to just call request appearance update?
+	void				forceBakeAllTextures(bool slam_for_debug = false);
+	// <FS:Ansariel> [Legacy Bake]
 	void				setNewBakedTexture(LLAvatarAppearanceDefines::EBakedTextureIndex i, const LLUUID &uuid);
 	void				setNewBakedTexture(LLAvatarAppearanceDefines::ETextureIndex i, const LLUUID& uuid);
 	void				setCachedBakedTexture(LLAvatarAppearanceDefines::ETextureIndex i, const LLUUID& uuid);
-	void				forceBakeAllTextures(bool slam_for_debug = false);
 	static void			processRebakeAvatarTextures(LLMessageSystem* msg, void**);
+	// </FS:Ansariel> [Legacy Bake]
 protected:
 	/*virtual*/ void	removeMissingBakedTextures();
 
@@ -238,8 +256,10 @@ protected:
 	// Layers
 	//--------------------------------------------------------------------
 public:
+	// <FS:Ansariel> [Legacy Bake]
 	void 				requestLayerSetUploads();
 	void				requestLayerSetUpload(LLAvatarAppearanceDefines::EBakedTextureIndex i);
+	// </FS:Ansariel> [Legacy Bake]
 	void				requestLayerSetUpdate(LLAvatarAppearanceDefines::ETextureIndex i);
 	LLViewerTexLayerSet* getLayerSet(LLAvatarAppearanceDefines::EBakedTextureIndex baked_index) const;
 	LLViewerTexLayerSet* getLayerSet(LLAvatarAppearanceDefines::ETextureIndex index) const;
@@ -249,6 +269,8 @@ public:
 	// Composites
 	//--------------------------------------------------------------------
 public:
+	// <FS:Ansariel> [Legacy Bake]
+	///* virtual */ void	invalidateComposite(LLTexLayerSet* layerset);
 	/* virtual */ void	invalidateComposite(LLTexLayerSet* layerset, BOOL upload_result);
 	/* virtual */ void	invalidateAll();
 	/* virtual */ void	setCompositeUpdatesEnabled(bool b); // only works for self
@@ -291,6 +313,8 @@ protected:
  **/
 
 public:
+	// <FS:Ansariel> [Legacy Bake]
+	//void				wearableUpdated(LLWearableType::EType type);
 	void				wearableUpdated(LLWearableType::EType type, BOOL upload_result);
 protected:
 	U32 getNumWearables(LLAvatarAppearanceDefines::ETextureIndex i) const;
@@ -301,14 +325,11 @@ protected:
 public:
 	void 				updateAttachmentVisibility(U32 camera_mode);
 	BOOL 				isWearingAttachment(const LLUUID& inv_item_id) const;
-	BOOL				attachmentWasRequested(const LLUUID& inv_item_id) const;
-	void				addAttachmentRequest(const LLUUID& inv_item_id);
-	void				removeAttachmentRequest(const LLUUID& inv_item_id);
 	LLViewerObject* 	getWornAttachment(const LLUUID& inv_item_id);
+	bool				getAttachedPointName(const LLUUID& inv_item_id, std::string& name) const;
 // [RLVa:KB] - Checked: 2009-12-18 (RLVa-1.1.0i) | Added: RLVa-1.1.0i
 	LLViewerJointAttachment* getWornAttachmentPoint(const LLUUID& inv_item_id) const;
 // [/RLVa:KB]
-	const std::string   getAttachedPointName(const LLUUID& inv_item_id) const;
 	/*virtual*/ const LLViewerJointAttachment *attachObject(LLViewerObject *viewer_object);
 	/*virtual*/ BOOL 	detachObject(LLViewerObject *viewer_object);
 	static BOOL			detachAttachmentIntoInventory(const LLUUID& item_id);
@@ -318,13 +339,9 @@ public:
 	typedef boost::signals2::signal<void (LLViewerObject*, const LLViewerJointAttachment*, EAttachAction)> attachment_signal_t;
 	boost::signals2::connection setAttachmentCallback(const attachment_signal_t::slot_type& cb);
 // [/RLVa:KB]
-private:
-	// Track attachments that have been requested but have not arrived yet.
-	mutable std::map<LLUUID,LLTimer> mAttachmentRequests;
 // [RLVa:KB] - Checked: 2012-07-28 (RLVa-1.4.7)
 	attachment_signal_t* mAttachmentSignal;
 // [/RLVa:KB]
-
 	//--------------------------------------------------------------------
 	// HUDs
 	//--------------------------------------------------------------------
@@ -343,12 +360,21 @@ private:
 public:
 	static void		onCustomizeStart(bool disable_camera_switch = false);
 	static void		onCustomizeEnd(bool disable_camera_switch = false);
+	LLPointer<LLInventoryCallback> mEndCustomizeCallback;
 
 	//--------------------------------------------------------------------
 	// Visibility
 	//--------------------------------------------------------------------
 public:
 	bool			sendAppearanceMessage(LLMessageSystem *mesgsys) const;
+
+	// -- care and feeding of hover height.
+	void 			setHoverIfRegionEnabled();
+	void			sendHoverHeight() const;
+	/*virtual*/ void setHoverOffset(const LLVector3& hover_offset, bool send_update=true);
+
+private:
+	mutable LLVector3 mLastHoverOffsetSent;
 
 // [RLVa:KB] - Checked: 2013-03-03 (RLVa-1.4.8)
 protected:
@@ -409,6 +435,7 @@ public:
 	const std::string		debugDumpLocalTextureDataInfo(const LLViewerTexLayerSet* layerset) const; // Lists out state of this particular baked texture layer
 	const std::string		debugDumpAllLocalTextureDataInfo() const; // Lists out which baked textures are at highest LOD
 	void					sendViewerAppearanceChangeMetrics(); // send data associated with completing a change.
+	// <FS:Ansariel> [Legacy Bake]
 	void 					checkForUnsupportedServerBakeAppearance();
 private:
 	LLFrameTimer    		mDebugSelfLoadTimer;

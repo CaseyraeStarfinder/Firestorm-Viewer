@@ -36,19 +36,26 @@
 #define GROWLNOTIFIERWIN_H
 
 #include "growlnotifier.h"
+
+#ifdef HAS_GROWL
 #include <growl++.hpp>
+#endif
 
 class GrowlNotifierWin : public GrowlNotifier
 {
-public:	
+public:
 	GrowlNotifierWin();
-	
+	virtual ~GrowlNotifierWin();
+
 	void showNotification(const std::string& notification_title, const std::string& notification_message, const std::string& notification_type);
 	bool isUsable();
 	void registerApplication(const std::string& application, const std::set<std::string>& notificationTypes);
+
 private:
-	std::string applicationName;
-	Growl *growl;
+	std::string mApplicationName;
+#ifdef HAS_GROWL
+	Growl* mGrowlImpl;
+#endif
 };
 
 #endif // GROWLNOTIFIERWIN_H

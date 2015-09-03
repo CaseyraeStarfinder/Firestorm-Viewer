@@ -35,21 +35,21 @@
  tab_min_width="50"
  tab_position="top" >
 
-    <!--General-->
+    <!--Extras-->
     <panel
      top_pad="5"
      bottom="-1"
      left="1"
      right="-1"
      follows="all"
-     label="General"
-     name="tab-general" >
+     label="Extras"
+     name="tab-extras" >
         <check_box
          control_name="RestrainedLove"
          layout="topleft"
          follows="left|top"
-         top_pad="3"
-         left="15"
+         top_pad="6"
+         left="10"
          width="270"
          height="20"
          name="checkMiscRLVa"
@@ -67,64 +67,9 @@
          text_color="White_25">
             (requires restart)
         </text>
-        
         <check_box
-         top_pad="2"
-         follows="left|top"
-         height="16"
-         label="Enable double click teleports on the world map"
-         left="15"
-         name="FSWorldMapDoubleclickTeleport"
-         width="270"
-         control_name="FSWorldMapDoubleclickTeleport"
-         tool_tip="Enables teleporting via double click to a destination on the world map."/>
-		<check_box
-         top_pad="2"
-         follows="left|top"
-         height="16"
-         label="Disable Teleport Beacons"
-         name="tp_beam_toggle"
-         width="270"
-         control_name="FSDisableBeaconAfterTeleport"
-         tool_tip="Disables the teleport destination beacons after teleports."/>
-        <check_box
-         top_pad="2"
-         follows="left|top"
-         height="16"
-         label="Disable Teleport Screens"
-         name="tp_screen_toggle"
-         width="270"
-         control_name="FSDisableTeleportScreens"
-         tool_tip="Disables the black teleport screen during all teleports."/>
-        <check_box
-         top_pad="2"
-         follows="left|top"
-         height="16"
-         label="Disable Login Progress Screen"
-         name="login_screen_toggle"
-         width="270"
-         control_name="FSDisableLoginScreens"
-         tool_tip="Disables the black login progress Screen"/>
-        <check_box
-         top_pad="2"
-         follows="left|top"
-         height="16"
-         label="Disable Logout Progress Screen"
-         name="logout_screen_toggle"
-         width="270"
-         control_name="FSDisableLogoutScreens"
-         tool_tip="Disables the black Logout progress screen."/>
-        <check_box
-         top_pad="2"
-         follows="left|top"
-         height="16"
-         label="Disable automatic opening of block list"
-         name="FSDisableBlockListAutoOpen"
-         width="270"
-         control_name="FSDisableBlockListAutoOpen"
-         tool_tip="Disables the automatic opening of the block list when blocking avatars or objects."/>
-        <check_box
-         top_pad="2"
+         top_pad="3"
+         left="10"
          follows="left|top"
          height="16"
          label="Always rez objects under the land group if possible"
@@ -132,193 +77,6 @@
          width="270"
          control_name="RezUnderLandGroup"
          tool_tip="Attempts to rez objects under the land group if you're in the land group regardless of which current group tag you're wearing."/>
-        <text
-         top_pad="2"
-         left="18"
-         layout="topleft"
-         follows="left|top"
-         height="16"
-         width="300"
-         name="textFriendlistOptions">
-            Contact list options:
-        </text>
-        <text
-         top_pad="2"
-         left="30"
-         layout="topleft"
-         follows="left|top"
-         height="16"
-         width="125"
-         name="textFriendlistColumns">
-            Visible name columns:
-        </text>
-        <check_box
-         top_delta="0"
-         left_pad="15"
-         follows="left|top"
-         height="16"
-         label="Username"
-         name="FSFriendListColumnShowUserName"
-         width="70"
-         control_name="FSFriendListColumnShowUserName"
-         tool_tip="The contact list will show a column with the friend's username.">
-            <check_box.commit_callback
-             function="FS.CheckContactListColumnMode" />
-        </check_box>
-        <check_box
-         top_delta="0"
-         left_pad="15"
-         follows="left|top"
-         height="16"
-         label="Display name"
-         name="FSFriendListColumnShowDisplayName"
-         width="90"
-         control_name="FSFriendListColumnShowDisplayName"
-         tool_tip="The contact list will show a column with the friend's display name.">
-            <check_box.commit_callback
-             function="FS.CheckContactListColumnMode" />
-        </check_box>
-        <check_box
-         top_delta="0"
-         left_pad="15"
-         follows="left|top"
-         height="16"
-         label="Full name"
-         name="FSFriendListColumnShowFullName"
-         width="70"
-         control_name="FSFriendListColumnShowFullName"
-         tool_tip="The contact list will show a column with the friend's full name.">
-            <check_box.commit_callback
-             function="FS.CheckContactListColumnMode" />
-        </check_box>
-        <text
-         top_pad="2"
-         left="30"
-         follows="left|top"
-         name="textFriendListSortOrder"
-         width="60">
-         Sort list by:
-        </text>
-        <radio_group
-         top_delta="0"
-         left_pad="15"
-         height="16"
-         layout="topleft"
-         control_name="FSFriendListSortOrder"
-         name="FSFriendListSortOrder"
-         tool_tip=""
-         width="331">
-            <radio_item
-             label="Username"
-             layout="topleft"
-             name="username"
-             value="0"
-             top_pad="7"
-             width="75" />
-            <radio_item
-             left_pad="15"
-             label="Display name"
-             layout="topleft"
-             top_delta="0"
-             name="displayname"
-             value="1"
-             width="75" />
-        </radio_group>
-        <text
-         top_pad="2"
-         left="30"
-         follows="left|top"
-         name="textFriendListFullNameFormat"
-         width="105">
-         Show full name as:
-        </text>
-        <radio_group
-         top_delta="0"
-         left_pad="15"
-         height="16"
-         layout="topleft"
-         enabled_control="FSFriendListColumnShowFullName"
-         control_name="FSFriendListFullNameFormat"
-         name="FSFriendListFullNameFormat"
-         tool_tip=""
-         width="331">
-            <radio_item
-             label="Username (Display name)"
-             layout="topleft"
-             name="username_displayname"
-             value="0"
-             top_pad="7"
-             width="160" />
-            <radio_item
-             left_pad="15"
-             label="Display name (Username)"
-             layout="topleft"
-             top_delta="0"
-             name="displayname_username"
-             value="1"
-             width="75" />
-        </radio_group>
-        <check_box
-         top_pad="2"
-         left="27"
-         follows="left|top"
-         height="16"
-         label="Show permissions column"
-         name="FSFriendListColumnShowPermissions"
-         width="270"
-         control_name="FSFriendListColumnShowPermissions"
-         tool_tip="The contact list will show the columns with the permissions you granted this avatar and vice versa.">
-        </check_box>
-        <check_box
-         top_pad="4"
-         left="18"
-         follows="left|top"
-         height="16"
-         label="Render blocked avatars as particle cloud"
-         name="ShowMutedAvatarsAsCloud"
-         width="270"
-         control_name="ShowMutedAvatarsAsCloud"
-         tool_tip="Blocked avatars will be rendered as a particle cloud in special color.">
-        </check_box>
-        <check_box
-         top_pad="2"
-         follows="left|top"
-         height="16"
-         label="Hide empty system folders from inventory"
-         name="DebugHideEmptySystemFolders"
-         width="270"
-         control_name="DebugHideEmptySystemFolders"
-         tool_tip="If enabled, the inventory windows will hide all empty system folders like Favorites, Landmarks etc.">
-        </check_box>
-        <check_box
-         top_pad="2"
-         follows="left|top"
-         height="16"
-         label="Show the Received Items folder in normal inventory"
-         name="FSShowInboxFolder"
-         width="270"
-         control_name="FSShowInboxFolder"
-         tool_tip="If enabled, the inventory windows will also show the Received Items folder">
-        </check_box>
-        <check_box
-         top_pad="2"
-         follows="left|top"
-         height="16"
-         label="Allow separate search terms on each tab in inventory"
-         name="FSSplitInventorySearchOverTabs"
-         width="270"
-         control_name="FSSplitInventorySearchOverTabs"
-         tool_tip="If enabled, it is possible to enter a different search term for each tab in inventory.">
-        </check_box>
-        <check_box
-         top_pad="2"
-         follows="left|top"
-         height="16"
-         label="Deactivate tracking beacon when reaching the targeted avatar (&lt;= 3m)"
-         name="FSDisableAvatarTrackerAtCloseIn"
-         width="270"
-         control_name="FSDisableAvatarTrackerAtCloseIn"
-         tool_tip="If enabled, the tracking beacon will be disabled automatically, if the distance to the targeted avatar is less than 3m. (Default)"/>
 		<check_box
 		 control_name="EffectScriptChatParticles"
 		 height="16"
@@ -327,18 +85,36 @@
 		 name="EffectScriptChatParticles"
 		 tool_tip="If enabled scripted objects display swirling particle lights when the scripts communicate"
 		 initial_value="true"
-		 top_pad="2"
+		 top_pad="3"
 		 width="350" />
-		<check_box
-		 control_name="FSInspectAvatarSlurlOpensProfile"
-		 height="16"
-		 label="Open avatar profile directly when clicking on its name"
-		 layout="topleft"
-		 name="FSInspectAvatarSlurlOpensProfile"
-		 tool_tip="If enabled, Firestorm will open the profile of an avatar directly when clicking on a link with its name"
-		 initial_value="true"
-		 top_pad="2"
-		 width="250" />
+        <check_box
+         top_pad="3"
+         follows="left|top"
+         height="16"
+         label="Deactivate tracking beacon when reaching the targeted avatar (&lt;= 3m)"
+         name="FSDisableAvatarTrackerAtCloseIn"
+         width="270"
+         control_name="FSDisableAvatarTrackerAtCloseIn"
+         tool_tip="If enabled, the tracking beacon will be disabled automatically, if the distance to the targeted avatar is less than 3m. (Default)"/>
+        <check_box
+         top_pad="3"
+         follows="left|top"
+         height="16"
+         label="Disable Login Progress Screen"
+         name="login_screen_toggle"
+         width="270"
+         control_name="FSDisableLoginScreens"
+         tool_tip="Disables the black login progress Screen"/>
+        <check_box
+         top_pad="3"
+         follows="left|top"
+         height="16"
+         label="Disable Logout Progress Screen"
+         name="logout_screen_toggle"
+         width="270"
+         control_name="FSDisableLogoutScreens"
+         tool_tip="Disables the black Logout progress screen."/>
+
 		<check_box
 		 control_name="FSRenderFarClipStepping"
 		 height="16"
@@ -347,46 +123,47 @@
 		 name="FSRenderFarClipStepping"
 		 tool_tip="If enabled, Firestorm will use a progressive draw distance stepping after teleporting."
 		 initial_value="true"
-		 top_pad="2"
+		 top_pad="10"
 		 width="250" />
 		<slider
 		 name="progressive_draw_distance_interval"
 		 control_name="FSRenderFarClipSteppingInterval"
 		 enabled_control="FSRenderFarClipStepping"
 		 decimal_digits="0"
-		 left_pad="5"
-		 top_delta="0"
+		 left="10"
+		 top_pad="2"
 		 follows="left|top"
+		 layout="topleft"
 		 height="18"
 		 increment="1"
 		 initial_value="20"
 		 max_val="30"
 		 min_val="5"
-		 width="150"
+		 width="225"
 		 tool_tip="Interval in seconds between each draw distance increment"/>
 
         <check_box
-         top_pad="2"
+         top_pad="10"
          control_name="UseLSLBridge"
          follows="left|top"
          height="16"
          initial_value="true"
          name="UseLSLBridge"
          label="Enable LSL-Client Bridge"
-         left="15"
+         left="10"
          width="270"
          tool_tip="Allows the Viewer to use a scripted attachment (Bridge) to extend its features"/>
         <combo_box
          control_name="UseLSLFlightAssist"
          enabled_control="UseLSLBridge"
          layout="topleft"
-         left_delta="200"
-         top_delta="0"
+		 left="10"
+		 top_pad="2"
          follows="left|top"
-         height="20"
+         height="25"
          name="UseLSLFlightAssist"
          tool_tip="Enables the script that assists flying and hovering at extended altitudes"
-         width="200">
+         width="225">
             <combo_box.item
              label="Flight Assist: Disabled"
              name="flight_disabled"
@@ -653,18 +430,9 @@
          name="AntiSpamUnblock"
          label="Unblock all spam sources"
          commit_callback.function="NACL.AntiSpamUnblock"/>
-		 
+
         <check_box
          top_pad="8"
-         left="10"
-         label="Remove &quot;Block&quot; button from script dialogs"
-         control_name="FSRemoveScriptBlockButton"
-         follows="left|top"
-         height="16"
-         name="FSRemoveScriptBlockButton"
-         width="200" />
-        <check_box
-         top_pad="2"
          left="10"
          label="Remove &quot;Join&quot; button from group invitations when joining costs a fee"
          control_name="FSAllowGroupInvitationOnlyWithoutFee"
@@ -673,42 +441,32 @@
          name="FSAllowGroupInvitationOnlyWithoutFee"
          width="200" />
         <check_box
-         top_pad="2"
+         top_pad="8"
          left="10"
-         label="Notify about items from objects coming in too fast"
-         control_name="FSNotifyIncomingObjectSpam"
+         label="Confirm before paying. Threshold:"
+         control_name="FSConfirmPayments"
          follows="left|top"
          height="16"
-         name="FSNotifyIncomingObjectSpam"
-         width="200" />
-        <check_box
-         top_pad="2"
-         left="10"
-         label="Notify about items from other residents coming in too fast"
-         control_name="FSNotifyIncomingObjectSpamFrom"
-         follows="left|top"
-         height="16"
-         name="FSNotifyIncomingObjectSpamFrom"
-         width="200" />
-        <slider
-         left="10"
-         top_pad="3"
-         name="FSOfferThrottleMaxCount"
-         control_name="FSOfferThrottleMaxCount"
+         name="FSConfirmPayments"
+         width="205"
+         tool_tip="Show a confirmation dialog before paying sums greater than the threshold. To always show a confirmation, set the threshold to 0."/>
+        <spinner
+         enabled_control="FSConfirmPayments"
+         top_delta="-5"
+         control_name="FSPaymentConfirmationThreshold"
          decimal_digits="0"
-         enabled="true"
+         layout="topleft"
          follows="left|top"
          height="18"
+         left_pad="5"
          increment="1"
-         initial_value="5"
-         label="Incoming object offers throttle threshold:"
-         label_width="225"
-         max_val="20"
-         min_val="1"
-         show_text="true"
-         width="350"
-         tool_tip="Sets the threshold of incoming object offers within 10 seconds before they get throttled. Default 5" />
-	</panel>
+         initial_value="200"
+         max_val="2147483647"
+         min_val="0"
+         name="FSPaymentConfirmationThreshold"
+         tool_tip="Show a confirmation dialog before paying sums greater than the threshold. To always show a confirmation, set the threshold to 0."
+         width="100"/>
+    </panel>
 
 
     <!--Avatar-->
@@ -875,8 +633,8 @@
          name="PhoenixBeamPrev_rainbow"
          label=""
          scale_image="true"
-         image_color="White"
-         image_color_disabled="White"
+         image_color="SL-White"
+         image_color_disabled="SL-White"
          image_selected="beam_rainbow.png"
          image_unselected="beam_rainbow.png"
          image_hover_selected="beam_rainbow.png"
@@ -992,8 +750,8 @@
          height="80"
          name="PhoenixBeamPrev_Phoenix"
          label=""
-         image_color="White"
-         image_color_disabled="White"
+         image_color="SL-White"
+         image_color_disabled="SL-White"
          scale_image="true"
          image_selected="beam_phoenix.png"
          image_unselected="beam_phoenix.png"
@@ -1054,461 +812,6 @@
          control_name="BridgeIntegrationLM" />
 
     </panel>
-<!--<FS:HG> FIRE-6340, FIRE-6567 - Setting Bandwidth issues-->
-  <!--CmdLine1-->
-  <panel
-      top_pad="5"
-      bottom="-1"
-      left="1"
-      right="-1"
-      follows="all"
-      label="CmdLine 1"
-      name="tab-CmdLine1" >
-    <check_box
-      top="10"
-      follows="left|top"
-      height="16"
-      label="Enable usage of chat bar as a command line"
-      left="5"
-      name="chat_cmd_toggle"
-      width="270"
-      tool_tip=""
-      control_name="FSCmdLine"/>.
-    <!--calc-->
-    <text
-      top="25"
-      follows="left|top"
-      height="16"
-      left="10"
-      name="FSCmdLineCalc_txt"
-      width="250">
-      Calc. expressions (usage: cmd SIN(2+2))
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineCalc"
-      tool_tip=""
-      control_name="FSCmdLineCalc"
-      width="200"/>
-    <!--drawdistance-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineDrawDistance_txt"
-      width="250">
-      Change Draw Dist (usage: cmd meters)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineDrawDistance"
-      tool_tip=""
-      control_name="FSCmdLineDrawDistance"
-      width="200"/>
-    <!--bandwidth-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineBandWidth_txt"
-      width="250">
-      Max. Bandwidth (usage: cmd kbps)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineBandWidth"
-      tool_tip=""
-      control_name="FSCmdLineBandWidth"
-      width="200"/>
-    <!--cpcampos-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineCopyCam_txt"
-      width="250">
-      Copy camera position to clipboard
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineCopyCam"
-      tool_tip=""
-      control_name="FSCmdLineCopyCam"
-      width="200"/>
-    <!--rezplat-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineRezPlatform_txt"
-      width="250">
-      Rez a platform (usage: cmd 0 - 64)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineRezPlatform"
-      tool_tip=""
-      control_name="FSCmdLineRezPlatform"
-      width="200"/>
-    <slider
-      enabled_control="FSCmdLine"
-      top_pad="4"
-      name="FSCmdLinePlatformSize"
-      control_name="FSCmdLinePlatformSize"
-      decimal_digits="1"
-      follows="left|top"
-      height="18"
-      increment="0.5"
-      initial_value="5"
-      label="Width"
-      label_width="64"
-      max_val="64"
-      min_val="5"
-      show_text="true"
-      width="200"
-      tool_tip="How big do you want the platform to appear to be?"/>
-
-    <view_border
-      bevel_style="none"
-      border_thickness="1"
-      top="25"
-      left="240"
-      bottom="-25"
-      width="0"
-      follows="top|left|bottom"
-      name="EmDivisor"/>
-    <!--key2name-->
-    <text
-      top="25"
-      follows="left|top"
-      height="16"
-      left_delta="10"
-      name="FSCmdLineKeyToName_txt"
-      width="270">
-      Get avatar name from key (usage: cmd key)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineKeyToName"
-      tool_tip=""
-      control_name="FSCmdLineKeyToName"
-      width="200"/>
-    <!--cao-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineAO_txt"
-      width="250">
-      Turn AO on/off (usage: cmd on/off)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineAO"
-      tool_tip=""
-      control_name="FSCmdLineAO"
-      width="200"/>
-    <!--clrchat-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineClearChat_txt"
-      width="250">
-      Clear the chat transcript (usage: cmd)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      tool_tip="Clears the Chat Transcript to prevent lag effects from chat spammers."
-      name="FSCmdLineClearChat"
-      control_name="FSCmdLineClearChat"
-      width="200"/>
-    <!--media-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineMedia_txt"
-      width="250">
-      Set the media url (usage: cmd url type)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      tool_tip="Sets and plays your media stream to the entered url"
-      name="FSCmdLineMedia"
-      control_name="FSCmdLineMedia"
-      width="200"/>
-    <!--music-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineMusic_txt"
-      width="250">
-      Set the music stream url (usage: cmd url)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      tool_tip="sets and plays your music stream to the entered url"
-      name="FSCmdLineMusic"
-      control_name="FSCmdLineMusic"
-      width="200"/>
-    <!--dice-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineRollDice_txt"
-      width="280">
-      Roll dice (usage: cmd dice faces mt mv)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      tool_tip="Rolls dice - cmd [number of dice] [number of faces] [modifier type (optional)] [modifier value (optional)]. Example: cmd 1 20, cmd 2 40 + 5. Lack of parameters is equal to cmd 1 6 (standard die)."
-      name="FSCmdLineRollDice"
-      control_name="FSCmdLineRollDice"
-      width="200"/>
-  </panel>
-
-  <!--CmdLine2-->
-  <panel
-      top_pad="5"
-      bottom="-1"
-      left="1"
-      right="-1"
-      follows="all"
-      label="CmdLine 2"
-      name="tab-CmdLine2" >
-
-    <check_box
-      top="10"
-      follows="left|top"
-      height="16"
-      label="Enable usage of chat bar as a command line"
-      left="5"
-      name="chat_cmd_toggle2"
-      width="270"
-      tool_tip=""
-      control_name="FSCmdLine"/>
-    <!--gtp-->
-    <text
-      top="25"
-      follows="left|top"
-      height="16"
-      left="10"
-      name="FSCmdLinePos_txt"
-      width="250">
-      Teleport within sim (usage: cmd x y z)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLinePos"
-      tool_tip=""
-      control_name="FSCmdLinePos"
-      width="200"/>
-    <!--flr-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineGround_txt"
-      width="250">
-      Teleport to ground (usage: cmd)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineGround"
-      tool_tip=""
-      control_name="FSCmdLineGround"
-      width="200"/>
-    <!--gth-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineHeight_txt"
-      width="250">
-      Teleport to altitude (usage: cmd z)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineHeight"
-      tool_tip=""
-      control_name="FSCmdLineHeight"
-      width="200"/>
-    <!--mapto-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineMapTo_txt"
-      width="250">
-      Teleport to sim x (usage: cmd simname)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineMapTo"
-      tool_tip=""
-      control_name="FSCmdLineMapTo"
-      width="200"/>
-    <check_box
-      enabled_control="FSCmdLine"
-      top_pad="4"
-      follows="left|top"
-      height="16"
-      label="Use same position between sims"
-      name="toggle"
-      width="270"
-      control_name="FSCmdLineMapToKeepPos"/>
-
-    <view_border
-      bevel_style="none"
-      border_thickness="1"
-      top="25"
-      left="240"
-      bottom="-25"
-      width="0"
-      follows="top|left|bottom"
-      name="EmDivisor"/>
-    <!--tp2cam-->
-    <text
-      top="25"
-      follows="left|top"
-      height="16"
-      left_delta="10"
-      name="FSCmdTeleportToCam_txt"
-      width="250">
-      Teleport to cam position (usage: cmd)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdTeleportToCam"
-      tool_tip=""
-      control_name="FSCmdTeleportToCam"
-      width="200"/>
-    <!--offertp-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineOfferTp_txt"
-      width="250">
-      Offer teleport to avatar (usage: cmd key)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineOfferTp"
-      tool_tip=""
-      control_name="FSCmdLineOfferTp"
-      width="200"/>
-    <!--tp2-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineTP2_txt"
-      width="250">
-      Teleport to avatar (usage: cmd name)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      tool_tip="The syntax of this command allows partial names and is not case sensitive. Better results if used while the Radar is open."
-      name="FSCmdLineTP2"
-      control_name="FSCmdLineTP2"
-      width="200"/>
-    <!--tphome-->
-    <text
-      top_pad="5"
-      follows="left|top"
-      height="16"
-      name="FSCmdLineTeleportHome_txt"
-      width="250">
-      Teleport home (usage: cmd)
-    </text>
-    <line_editor
-      enabled_control="FSCmdLine"
-      top_pad="0"
-      follows="left|top"
-      height="20"
-      max_length_chars="256"
-      name="FSCmdLineTeleportHome"
-      tool_tip=""
-      control_name="FSCmdLineTeleportHome"
-      width="200"/>
-  </panel>
- <!--</FS:HG> FIRE-6340, FIRE-6567 - Setting Bandwidth issues-->
 
     <!--Windlight-->
     <panel
@@ -1934,7 +1237,7 @@
          left_delta="0"
          mouse_opaque="false"
          name="embed_item_drop_target_rect"
-         width="220"/>
+         width="250"/>
         <fs_embedded_item_drop_target
          bg_visible="false"
          border_visible="false"
@@ -1949,7 +1252,7 @@
          name="embed_item"
          tool_tip="Drop an inventory item here."
          v_pad="2"
-         width="220">
+         width="250">
          Drop an inventory item here.
         </fs_embedded_item_drop_target>
         <view_border
@@ -1960,7 +1263,7 @@
          left_delta="0"
          mouse_opaque="false"
          name="build_item_add_disp_rect"
-         width="220"/>
+         width="250"/>
         <text
          bg_visible="false"
          border_visible="false"
@@ -1975,95 +1278,12 @@
          name="build_item_add_disp_rect_txt"
          tool_tip=""
          v_pad="2"
-         width="220">
+         width="250">
          Currently set to: [ITEM]
         </text>
         <text
          top_pad="-60"
-         left_pad="20"
-         follows="left|top"
-         height="10"
-         name="text_box_permissions"
-         width="135">
-          Permissions
-        </text>
-        <view_border
-         top_pad="4"
-         bevel_style="none"
-         border_thickness="1"
-         follows="top|left"
-         height="120"
-         name="PermissionsBorder"
-         width="135"/>
-        <text
-         top_pad="-110"
-         left_delta="10"
-         follows="left|top"
-         height="10"
-         name="text_box_permnextowner"
-         width="135">
-          Next Owner:
-        </text>
-        <check_box
-         control_name="NextOwnerModify"
-         top_pad="10"
-         follows="left|top"
-         font="SansSerifSmall"
-         height="16"
-         label="Modify permission"
-         left_delta="-7"
-         tool_tip="Modify permissions"
-         name="next_owner_modify"
-         width="270"/>
-        <check_box
-         control_name="NextOwnerCopy"
-         top_pad="0"
-         follows="left|top"
-         font="SansSerifSmall"
-         height="16"
-         label="Copy permission"
-         left_delta="0"
-         tool_tip="Copy permissions"
-         name="next_owner_copy"
-         width="270">
-            <check_box.commit_callback
-			function="Perms.Copy" />
-        </check_box>
-        <check_box
-         control_name="NextOwnerTransfer"
-         top_pad="0"
-         follows="left|top"
-         font="SansSerifSmall"
-         height="16"
-         label="Transfer permission"
-         left_delta="0"
-         tool_tip="Transfer permissions"
-         name="next_owner_transfer"
-         width="270">
-			<check_box.commit_callback
-			function="Perms.Trans" />
-		</check_box>
-        <text
-         top_pad="5"
-         left_delta="5"
-         follows="left|top"
-         height="10"
-         name="text_box_permnote1"
-         width="135">
-          This will also apply
-        </text>
-        <text
-         top_pad="5"
-         follows="left|top"
-         height="10"
-         name="text_box_permnote2"
-         width="135">
-          to new uploads.
-        </text>
-
-        <text
-         top_pad="-123"
-         left_pad="-5"
+         left_pad="125"
          follows="left|top"
          height="10"
          name="text_box_pivotpoint"
@@ -2138,10 +1358,23 @@
          width="100"
          control_name="FSBuildPrefs_PivotIsPercent"/>
 
+        <button
+         follows="left|top"
+         height="25"
+         label="Default Creation Permissions"
+         layout="topleft"
+         name="fs_default_creation_permissions"
+         left="8"
+         top="185"
+         width="250">
+         <button.commit_callback
+             function="Pref.PermsDefault" />
+        </button>
+
         <check_box
          follows="left|top"
          height="16"
-         top_pad="70"
+         top_pad="105"
          left="5"
          label="Enable LSL preprocessor"
          tool_tip="When checked, the LSL preprocessor is enabled."
@@ -2153,7 +1386,7 @@
          left="15"
          enabled_control="_NACL_LSLPreprocessor"
          label="Script optimizer"
-         tool_tip="When checked, the LSL preprocessor will optimize space used by scripts at the cost of readability."
+         tool_tip="When checked, the LSL preprocessor will optimize space used by scripts."
          name="preprocoptimizer_checkbox"
          control_name="_NACL_PreProcLSLOptimizer" />
         <check_box

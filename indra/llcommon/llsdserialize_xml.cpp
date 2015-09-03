@@ -36,7 +36,7 @@
 
 extern "C"
 {
-#ifdef LL_STANDALONE
+#ifdef LL_USESYSTEMLIBS
 # include <expat.h>
 #else
 # include "expat/expat.h"
@@ -169,8 +169,8 @@ S32 LLSDXMLFormatter::format_impl(const LLSD& data, std::ostream& ostr, U32 opti
 		break;
 
 	case LLSD::TypeString:
-		if(data.asString().empty()) ostr << pre << "<string />" << post;
-		else ostr << pre << "<string>" << escapeString(data.asString()) <<"</string>" << post;
+		if(data.asStringRef().empty()) ostr << pre << "<string />" << post;
+		else ostr << pre << "<string>" << escapeString(data.asStringRef()) <<"</string>" << post;
 		break;
 
 	case LLSD::TypeDate:
@@ -183,7 +183,7 @@ S32 LLSDXMLFormatter::format_impl(const LLSD& data, std::ostream& ostr, U32 opti
 
 	case LLSD::TypeBinary:
 	{
-		LLSD::Binary buffer = data.asBinary();
+		const LLSD::Binary& buffer = data.asBinary();
 		if(buffer.empty())
 		{
 			ostr << pre << "<binary />" << post;
@@ -221,6 +221,15 @@ std::string LLSDXMLFormatter::escapeString(const std::string& in)
 	std::string::const_iterator end = in.end();
 	for(; it != end; ++it)
 	{
+		// <FS:ND> Skip invalid characters. There a s few more, but those would need inspecting of the UTF-8 sequence.
+		// See http://en.wikipedia.org/wiki/Valid_characters_in_XML
+		if( *it >= 0 && *it < 20 && *it != 0x09 && *it != 0x0A && *it != 0x0D )
+		{
+			out << "?";
+			continue;
+		}
+		// </FS:ND>
+
 		switch((*it))
 		{
 		case '<':
@@ -377,13 +386,10 @@ S32 LLSDXMLParser::Impl::parse(std::istream& input, LLSD& data)
 		{
 			break;
 		}
+		count = get_till_eol(input, (char *)buffer, BUFFER_SIZE);
+		if (!count)
 		{
-		
-			count = get_till_eol(input, (char *)buffer, BUFFER_SIZE);
-			if (!count)
-			{
-				break;
-			}
+			break;
 		}
 		status = XML_ParseBuffer(mParser, count, false);
 

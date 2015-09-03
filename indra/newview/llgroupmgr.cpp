@@ -31,6 +31,17 @@
 
 #include "llviewerprecompiledheaders.h"
 
+// <FS:ND> Disable some warnings on newer GCC versions.
+// This might also trigger on something like 4.8, but I did not suchh a GCC to test anything lower than 4.9 and higher than 4.6
+//<FS:TS? This breaks on gcc 4.8, too. Dunno about 4.7.
+#if LL_LINUX
+ #if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__ ) >= 40800
+   #pragma GCC diagnostic ignored "-Wuninitialized"
+   #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+ #endif
+#endif
+// </FS:ND>
+
 #include "llgroupmgr.h"
 
 #include <vector>
@@ -1893,8 +1904,8 @@ class GroupBanDataResponder : public LLHTTPClient::Responder
 public:
 	GroupBanDataResponder(const LLUUID& gropup_id, BOOL force_refresh=false);
 	virtual ~GroupBanDataResponder() {}
-	virtual void result(const LLSD& pContent);
-	virtual void errorWithContent(U32 pStatus, const std::string& pReason, const LLSD& pContent);
+	virtual void httpSuccess();
+	virtual void httpFailure();
 private:
 	LLUUID mGroupID;
 	BOOL mForceRefresh;
@@ -1905,18 +1916,18 @@ GroupBanDataResponder::GroupBanDataResponder(const LLUUID& gropup_id, BOOL force
 	mForceRefresh(force_refresh)
 {}
 
-void GroupBanDataResponder::errorWithContent(U32 pStatus, const std::string& pReason, const LLSD& pContent)
+void GroupBanDataResponder::httpFailure()
 {
 	LL_WARNS("GrpMgr") << "Error receiving group member data [status:" 
-		<< pStatus << "]: " << pContent << LL_ENDL;
+		<< mStatus << "]: " << mContent << LL_ENDL;
 }
 
-void GroupBanDataResponder::result(const LLSD& content)
+void GroupBanDataResponder::httpSuccess()
 {
-	if (content.has("ban_list"))
+	if (mContent.has("ban_list"))
 	{
 		// group ban data received
-		LLGroupMgr::processGroupBanRequest(content);
+		LLGroupMgr::processGroupBanRequest(mContent);
 	}
 	else if (mForceRefresh)
 	{
@@ -1995,7 +2006,8 @@ void LLGroupMgr::processGroupBanRequest(const LLSD& content)
 	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(group_id);
 	if (!gdatap)
 		return;
-	
+
+	gdatap->clearBanList();
 	LLSD::map_const_iterator i		= content["ban_list"].beginMap();
 	LLSD::map_const_iterator iEnd	= content["ban_list"].endMap();
 	for(;i != iEnd; ++i)
@@ -2022,23 +2034,31 @@ void LLGroupMgr::processGroupBanRequest(const LLSD& content)
 // Responder class for capability group management
 class GroupMemberDataResponder : public LLHTTPClient::Responder
 {
+	LOG_CLASS(GroupMemberDataResponder);
 public:
-		GroupMemberDataResponder() {}
-		virtual ~GroupMemberDataResponder() {}
-		virtual void result(const LLSD& pContent);
-		virtual void errorWithContent(U32 pStatus, const std::string& pReason, const LLSD& pContent);
+	GroupMemberDataResponder() {}
+	virtual ~GroupMemberDataResponder() {}
+
 private:
-		LLSD mMemberData;
+	/* virtual */ void httpSuccess();
+	/* virtual */ void httpFailure();
+	LLSD mMemberData;
 };
 
-void GroupMemberDataResponder::errorWithContent(U32 pStatus, const std::string& pReason, const LLSD& pContent)
+void GroupMemberDataResponder::httpFailure()
 {
-	LL_WARNS("GrpMgr") << "Error receiving group member data [status:" 
-		<< pStatus << "]: " << pContent << LL_ENDL;
+	LL_WARNS("GrpMgr") << "Error receiving group member data "
+		<< dumpResponse() << LL_ENDL;
 }
 
-void GroupMemberDataResponder::result(const LLSD& content)
+void GroupMemberDataResponder::httpSuccess()
 {
+	const LLSD& content = getContent();
+	if (!content.isMap())
+	{
+		failureResult(HTTP_INTERNAL_ERROR, "Malformed response contents", content);
+		return;
+	}
 	LLGroupMgr::processCapGroupMembersRequest(content);
 }
 
@@ -2171,6 +2191,22 @@ void LLGroupMgr::processCapGroupMembersRequest(const LLSD& content)
 			online_status,
 			is_owner);
 
+		LLGroupMemberData* member_old = group_datap->mMembers[member_id];
+		if (member_old && group_datap->mRoleMemberDataComplete)
+		{
+			LLGroupMemberData::role_list_t::iterator rit = member_old->roleBegin();
+			LLGroupMemberData::role_list_t::iterator end = member_old->roleEnd();
+
+			for ( ; rit != end; ++rit)
+			{
+				data->addRole((*rit).first,(*rit).second);
+			}
+		}
+		else
+		{
+			group_datap->mRoleMemberDataComplete = false;
+		}
+
 		group_datap->mMembers[member_id] = data;
 	}
 
@@ -2190,7 +2226,7 @@ void LLGroupMgr::processCapGroupMembersRequest(const LLSD& content)
 	group_datap->mMemberDataComplete = true;
 	group_datap->mMemberRequestID.setNull();
 	// Make the role-member data request
-	if (group_datap->mPendingRoleMemberRequest)
+	if (group_datap->mPendingRoleMemberRequest || !group_datap->mRoleMemberDataComplete)
 	{
 		group_datap->mPendingRoleMemberRequest = false;
 		LLGroupMgr::getInstance()->sendGroupRoleMembersRequest(group_id);

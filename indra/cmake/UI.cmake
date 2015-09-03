@@ -2,7 +2,7 @@
 include(Prebuilt)
 include(FreeType)
 
-if (STANDALONE)
+if (USESYSTEMLIBS)
   include(FindPkgConfig)
     
   if (LINUX)
@@ -31,8 +31,11 @@ if (STANDALONE)
     list(APPEND UI_LIBRARIES ${${pkg}_LIBRARIES})
     add_definitions(${${pkg}_CFLAGS_OTHERS})
   endforeach(pkg)
-else (STANDALONE)
-  use_prebuilt_binary(gtk-atk-pango-glib)
+else (USESYSTEMLIBS)
+  if (LINUX OR WINDOWS)
+    use_prebuilt_binary(gtk-atk-pango-glib)
+  endif (LINUX OR WINDOWS)
+
   if (LINUX)
     set(UI_LIB_NAMES
         freetype
@@ -53,7 +56,8 @@ else (STANDALONE)
     if (ND_BUILD64BIT_ARCH)
       set(UI_LIB_NAMES ${UI_LIB_NAMES}
           gio-2.0
-          pangocairo-1.0
+		  pangocairo-1.0
+          ffi
           )
     endif(ND_BUILD64BIT_ARCH)
 
@@ -78,7 +82,7 @@ else (STANDALONE)
   foreach(include ${${LL_ARCH}_INCLUDES})
       include_directories(${LIBS_PREBUILT_DIR}/include/${include})
   endforeach(include)
-endif (STANDALONE)
+endif (USESYSTEMLIBS)
 
 if (LINUX)
   add_definitions(-DLL_GTK=1 -DLL_X11=1)

@@ -92,10 +92,13 @@
 #include "llmeshrepository.h"
 
 #include "llviewernetwork.h" // <FS:CR> Aurora Sim
+#include "llvograss.h"
+#include "llvotree.h"
 
 // Globals
 LLFloaterTools *gFloaterTools = NULL;
 bool LLFloaterTools::sShowObjectCost = true;
+bool LLFloaterTools::sPreviousFocusOnAvatar = false;
 
 const std::string PANEL_NAMES[LLFloaterTools::PANEL_COUNT] =
 {
@@ -304,6 +307,8 @@ BOOL	LLFloaterTools::postBuild()
 	mSliderDozerForce		= getChild<LLSlider>("slider force");
 	// the setting stores the actual force multiplier, but the slider is logarithmic, so we convert here
 	getChild<LLUICtrl>("slider force")->setValue(log10(gSavedSettings.getF32("LandBrushForce")));
+	// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+	mTreeGrassCombo			= getChild<LLComboBox>("tree_grass_combo");
 
 	mCostTextBorder = getChild<LLViewBorder>("cost_text_border");
 
@@ -410,6 +415,9 @@ LLFloaterTools::LLFloaterTools(const LLSD& key)
 	mBtnDuplicate(NULL),
 	mBtnDuplicateInPlace(NULL),
 
+	// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+	mTreeGrassCombo(NULL),
+
 	mCheckSticky(NULL),
 	mCheckCopySelection(NULL),
 	mCheckCopyCenters(NULL),
@@ -469,6 +477,9 @@ LLFloaterTools::LLFloaterTools(const LLSD& key)
 	mCommitCallbackRegistrar.add("BuildTool.Expand",			boost::bind(&LLFloaterTools::onClickExpand,this));
 	mCommitCallbackRegistrar.add("BuildTool.Flip",				boost::bind(&LLPanelFace::onCommitFlip, _1, _2));
 	// </FS>
+
+	// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+	mCommitCallbackRegistrar.add("BuildTool.TreeGrass",			boost::bind(&LLFloaterTools::onSelectTreeGrassCombo, this));
 
 	mLandImpactsObserver = new LLLandImpactsObserver();
 	LLViewerParcelMgr::getInstance()->addObserver(mLandImpactsObserver);
@@ -674,9 +685,16 @@ void LLFloaterTools::refresh()
 		getChild<LLTextBox>("selection_count")->setText(selection_info.str());
 
 		bool have_selection = !LLSelectMgr::getInstance()->getSelection()->isEmpty();
-		childSetVisible("selection_count",  have_selection);
-		childSetVisible("remaining_capacity", have_selection);
-		childSetVisible("selection_empty", !have_selection);
+		// <FS:Ansariel> FIRE-13838 / VWR-29517: Text and link from other tools is presented in Land tool from Build floater
+		//childSetVisible("selection_count",  have_selection);
+		//childSetVisible("remaining_capacity", have_selection);
+		//childSetVisible("selection_empty", !have_selection);
+		LLTool *tool = LLToolMgr::getInstance()->getCurrentTool();
+		bool land_visible = (tool == LLToolBrushLand::getInstance() || tool == LLToolSelectLand::getInstance() );
+		childSetVisible("selection_count", !land_visible && have_selection);
+		childSetVisible("remaining_capacity", !land_visible && have_selection);
+		childSetVisible("selection_empty", !land_visible && !have_selection);
+		// </FS:Ansariel>
 	}
 
 	// <FS> disable the object and prim counts if nothing selected
@@ -910,6 +928,10 @@ void LLFloaterTools::updatePopup(LLCoordGL center, MASK mask)
 	// Create buttons
 	BOOL create_visible = (tool == LLToolCompCreate::getInstance());
 
+	// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+	if (mTreeGrassCombo) mTreeGrassCombo->setVisible(create_visible);
+	if (create_visible) buildTreeGrassCombo();
+
 	mBtnCreate	->setToggleState(	tool == LLToolCompCreate::getInstance() );
 
 	if (mCheckCopySelection
@@ -1107,6 +1129,15 @@ void LLFloaterTools::onClose(bool app_quitting)
 
 	// hide the advanced object weights floater
 	LLFloaterReg::hideInstance("object_weights");
+
+	// prepare content for next call
+	mPanelContents->clearContents();
+
+	if(sPreviousFocusOnAvatar)
+	{
+		sPreviousFocusOnAvatar = false;
+		gAgentCamera.setAllowChangeToFollow(TRUE);
+	}
 }
 
 void click_popup_info(void*)
@@ -1268,6 +1299,9 @@ void LLFloaterTools::setObjectType( LLPCode pcode )
 {
 	LLToolPlacer::setObjectType( pcode );
 	gSavedSettings.setBOOL("CreateToolCopySelection", FALSE);
+	// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+	gFloaterTools->buildTreeGrassCombo();
+	// </FS:Ansariel>
 	gFocusMgr.setMouseCapture(NULL);
 }
 
@@ -1292,9 +1326,9 @@ void LLFloaterTools::setGridMode(S32 mode)
 
 void LLFloaterTools::onClickGridOptions()
 {
-	LLFloaterReg::showInstance("build_options");
-	// RN: this makes grid options dependent on build tools window
-	//floaterp->addDependentFloater(LLFloaterBuildOptions::getInstance(), FALSE);
+	LLFloater* floaterp = LLFloaterReg::showInstance("build_options");
+	// position floater next to build tools, not over
+	floaterp->setRect(gFloaterView->findNeighboringPosition(this, floaterp));
 }
 
 // static
@@ -2242,3 +2276,93 @@ void LLFloaterTools::onClickExpand()
 		btnExpand->setImageOverlay("Arrow_Down", btnExpand->getImageOverlayHAlign());
 	}
 }
+
+// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+template<class P>
+void build_plant_combo(const std::map<U32, P*>& list, LLComboBox* combo)
+{
+	if (!combo || list.empty()) return;
+	combo->removeall();
+	typename std::map<U32, P*>::const_iterator it = list.begin();
+	typename std::map<U32, P*>::const_iterator end = list.end();
+	for ( ; it != end; ++it )
+	{
+		P* plant = (*it).second;
+		if (plant) combo->addSimpleElement(plant->mName, ADD_BOTTOM);
+	}
+}
+
+void LLFloaterTools::buildTreeGrassCombo()
+{
+	if (!mTreeGrassCombo) return;
+	
+	// Rebuild the combo with the list we need, then select the last-known use
+	// TODO: rebuilding this list continuously is probably not the best way
+	LLPCode pcode = LLToolPlacer::getObjectType();
+	std::string type = LLStringUtil::null;
+	
+	// LL_PCODE_TREE_NEW seems to be "new" as in "dodo"
+	switch (pcode)
+	{
+		case LL_PCODE_LEGACY_TREE:
+		case LL_PCODE_TREE_NEW:
+			build_plant_combo(LLVOTree::sSpeciesTable, mTreeGrassCombo);
+			mTreeGrassCombo->addSimpleElement("Random", ADD_TOP);
+			type = "Tree";
+			break;
+		case LL_PCODE_LEGACY_GRASS:
+			build_plant_combo(LLVOGrass::sSpeciesTable, mTreeGrassCombo);
+			mTreeGrassCombo->addSimpleElement("Random", ADD_TOP);
+			type = "Grass";
+			break;
+		default:
+			mTreeGrassCombo->setEnabled(false);
+			break;
+	}
+	
+	// select last selected if exists
+	if (!type.empty())
+	{
+		// Enable the options
+		mTreeGrassCombo->setEnabled(true);
+		
+		// Set the last selection, or "Random" (old default) if there isn't one
+		std::string last_selected = gSavedSettings.getString("LastSelected"+type);
+		if (last_selected.empty())
+		{
+			mTreeGrassCombo->selectByValue(LLSD(std::string("Random")));
+		}
+		else
+		{
+			mTreeGrassCombo->selectByValue(LLSD(last_selected));
+		}
+	}
+}
+
+void LLFloaterTools::onSelectTreeGrassCombo()
+{
+	// Save the last-used selection
+	std::string last_selected = mTreeGrassCombo->getValue().asString();
+	LLPCode pcode = LLToolPlacer::getObjectType();
+	std::string type = "";
+	
+	switch (pcode)
+	{
+		case LL_PCODE_LEGACY_GRASS:
+			type = "Grass";
+			break;
+		case LL_PCODE_LEGACY_TREE:
+		case LL_PCODE_TREE_NEW:
+			type = "Tree";
+			break;
+		default:
+			break;
+	}
+	
+	if (!type.empty())
+	{
+		// Should never be an empty string
+		gSavedSettings.setString("LastSelected"+type, last_selected);
+	}
+}
+// </FS:Ansariel>

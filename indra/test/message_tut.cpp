@@ -45,6 +45,7 @@ namespace
 			mStatus = code;
 		}
 		virtual void extendedResult(S32 code, const std::string& message, const LLSD& headers) { }
+		virtual void extendedResult(S32 code, const LLSD& result, const LLSD& headers) { }
 		S32 mStatus;
 	};
 }
@@ -118,9 +119,8 @@ namespace tut
 
 		void writeConfigFile(const LLSD& config)
 		{
-			std::ostringstream ostr;
-			ostr << mTestConfigDir << mSep << "message.xml";
-			llofstream file(ostr.str());
+			std::string ostr(mTestConfigDir + mSep + "message.xml");
+			llofstream file(ostr.c_str());
 			if (file.is_open())
 			{
 				LLSDSerialize::toPrettyXML(config, file);
@@ -141,7 +141,7 @@ namespace tut
 		const LLSD message;
 		const LLPointer<Response> response = new Response();
 		gMessageSystem->dispatch(name, message, response);
-		ensure_equals(response->mStatus, 404);
+		ensure_equals(response->mStatus, HTTP_NOT_FOUND);
 	}
 }
 

@@ -59,6 +59,7 @@
 #include "llviewerregion.h"
 #include "llviewerwindow.h"
 #include "llworld.h"
+#include "llfloaterperms.h"
 // [RLVa:KB] - Checked: 2011-05-22 (RLVa-1.3.1a)
 #include "rlvhandler.h"
 #include "rlvlocks.h"
@@ -176,6 +177,13 @@ void LLPanelContents::refresh()
 	}	
 }
 
+void LLPanelContents::clearContents()
+{
+	if (mPanelInventoryObject)
+	{
+		mPanelInventoryObject->clearInventoryTask();
+	}
+}
 
 
 //
@@ -206,12 +214,14 @@ void LLPanelContents::onClickNewScript(void *userdata)
 
 		LLPermissions perm;
 		perm.init(gAgent.getID(), gAgent.getID(), LLUUID::null, LLUUID::null);
+
+		// Parameters are base, owner, everyone, group, next
 		perm.initMasks(
 			PERM_ALL,
 			PERM_ALL,
-			PERM_NONE,
-			PERM_NONE,
-			PERM_MOVE | PERM_TRANSFER);
+			LLFloaterPerms::getEveryonePerms("Scripts"),
+			LLFloaterPerms::getGroupPerms("Scripts"),
+			PERM_MOVE | LLFloaterPerms::getNextOwnerPerms("Scripts"));
 		std::string desc;
 		LLViewerAssetType::generateDescriptionFor(LLAssetType::AT_LSL_TEXT, desc);
 		LLPointer<LLViewerInventoryItem> new_item =
@@ -229,18 +239,14 @@ void LLPanelContents::onClickNewScript(void *userdata)
 				time_corrected());
 		object->saveScript(new_item, TRUE, true);
 
+		std::string name = new_item->getName();
+
 		// *NOTE: In order to resolve SL-22177, we needed to create
 		// the script first, and then you have to click it in
 		// inventory to edit it.
 		// *TODO: The script creation should round-trip back to the
 		// viewer so the viewer can auto-open the script and start
 		// editing ASAP.
-#if 0
-		// <FS:Ansariel> FIRE-511 / VWR-27512: Can't open script editors from objects individually
-		//LLFloaterReg::showInstance("preview_scriptedit", LLSD(inv_item->getUUID()), TAKE_FOCUS_YES);
-		LLFloaterReg::showInstance("preview_scriptedit", LLSD().with("xoredid", inv_item->getUUID() ^ object->mID).with("assetid", inv_item->getUUID()), TAKE_FOCUS_YES);
-		// </FS:Ansariel>
-#endif
 	}
 }
 

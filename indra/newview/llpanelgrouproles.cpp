@@ -58,6 +58,7 @@
 
 // [FS:CR] FIRE-12276
 #include "llfilepicker.h"
+#include "fsnamelistavatarmenu.h"
 
 static LLPanelInjector<LLPanelGroupRoles> t_panel_group_roles("panel_group_roles");
 
@@ -433,10 +434,7 @@ void LLPanelGroupRoles::setGroupID(const LLUUID& id)
 		button->setEnabled(gAgent.hasPowerInGroup(mGroupID, GP_MEMBER_VISIBLE_IN_DIR));
 	// [/FS:CR]
 	if(mSubTabContainer)
-		// <FS:Ansariel> FIRE-13501: Activate "Members" tab by default
-		//mSubTabContainer->selectTab(1);
-		mSubTabContainer->selectTab(0);
-		// </FS:Ansariel>
+		mSubTabContainer->selectTab(1);
 	group_roles_tab->mFirstOpen = TRUE;
 	activate();
 }
@@ -803,21 +801,12 @@ LLPanelGroupMembersSubTab::LLPanelGroupMembersSubTab()
 	mChanged(FALSE),
 	mPendingMemberUpdate(FALSE),
 	mHasMatch(FALSE),
-	// <FS:Ansariel> Member list doesn't load properly
-	//mNumOwnerAdditions(0),
 	mNumOwnerAdditions(0)
-	//mAvatarNameCacheConnection()
-	// </FS:Ansariel>
 {
 }
 
 LLPanelGroupMembersSubTab::~LLPanelGroupMembersSubTab()
 {
-	// <FS:Ansariel> Member list doesn't load properly
-	//if (mAvatarNameCacheConnection.connected())
-	//{
-	//	mAvatarNameCacheConnection.disconnect();
-	//}
 	for (avatar_name_cache_connection_map_t::iterator it = mAvatarNameCacheConnections.begin(); it != mAvatarNameCacheConnections.end(); ++it)
 	{
 		if (it->second.connected())
@@ -826,7 +815,6 @@ LLPanelGroupMembersSubTab::~LLPanelGroupMembersSubTab()
 		}
 	}
 	mAvatarNameCacheConnections.clear();
-	// </FS:Ansariel>
 	if (mMembersList)
 	{
 		gSavedSettings.setString("GroupMembersSortOrder", mMembersList->getSortColumnName());
@@ -856,7 +844,10 @@ BOOL LLPanelGroupMembersSubTab::postBuildSubTab(LLView* root)
 	mMembersList->setCommitCallback(onMemberSelect, this);
 	// Show the member's profile on double click.
 	mMembersList->setDoubleClickCallback(onMemberDoubleClick, this);
-	mMembersList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+	// <FS:Ansariel> Special Firestorm menu also allowing multi-select action
+	//mMembersList->setContextMenu(LLScrollListCtrl::MENU_AVATAR);
+	mMembersList->setContextMenu(&gFSNameListAvatarMenu);
+	// </FS:Ansariel>
 	
 	LLSD row;
 	row["columns"][0]["column"] = "name";
@@ -1227,7 +1218,9 @@ void LLPanelGroupMembersSubTab::sendEjectNotifications(const LLUUID& group_id, c
 		for (uuid_vec_t::const_iterator i = selected_members.begin(); i != selected_members.end(); ++i)
 		{
 			LLSD args;
-			args["AVATAR_NAME"] = LLSLURL("agent", *i, "displayname").getSLURLString();
+			// <FS:Ansariel> Always show complete name in rights confirmation dialogs
+			//args["AVATAR_NAME"] = LLSLURL("agent", *i, "displayname").getSLURLString();
+			args["AVATAR_NAME"] = LLSLURL("agent", *i, "completename").getSLURLString();
 			args["GROUP_NAME"] = group_data->mName;
 			
 			LLNotifications::instance().add(LLNotification::Params("EjectAvatarFromGroup").substitutions(args));
@@ -1710,13 +1703,8 @@ void LLPanelGroupMembersSubTab::addMemberToList(LLGroupMemberData* data)
 	mHasMatch = TRUE;
 }
 
-// <FS:Ansariel> Member list doesn't load properly
-//void LLPanelGroupMembersSubTab::onNameCache(const LLUUID& update_id, LLGroupMemberData* member, const LLAvatarName& av_name)
 void LLPanelGroupMembersSubTab::onNameCache(const LLUUID& update_id, LLGroupMemberData* member, const LLAvatarName& av_name, const LLUUID& av_id)
-// </FS:Ansariel>
 {
-	// <FS:Ansariel> Member list doesn't load properly
-	//mAvatarNameCacheConnection.disconnect();
 	avatar_name_cache_connection_map_t::iterator it = mAvatarNameCacheConnections.find(av_id);
 	if (it != mAvatarNameCacheConnections.end())
 	{
@@ -1726,7 +1714,6 @@ void LLPanelGroupMembersSubTab::onNameCache(const LLUUID& update_id, LLGroupMemb
 		}
 		mAvatarNameCacheConnections.erase(it);
 	}
-	// </FS:Ansariel>
 
 	LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(mGroupID);
 	if (!gdatap
@@ -1779,6 +1766,17 @@ void LLPanelGroupMembersSubTab::updateMembers()
 		mMembersList->deleteAllItems();
 	}
 
+	// <FS:Ansariel> Clear old callbacks so we don't end up adding people twice
+	for (avatar_name_cache_connection_map_t::iterator it = mAvatarNameCacheConnections.begin(); it != mAvatarNameCacheConnections.end(); ++it)
+	{
+		if (it->second.connected())
+		{
+			it->second.disconnect();
+		}
+	}
+	mAvatarNameCacheConnections.clear();
+	// </FS:Ansariel>
+
 	LLGroupMgrGroupData::member_list_t::iterator end = gdatap->mMembers.end();
 
 	LLTimer update_time;
@@ -1804,14 +1802,6 @@ void LLPanelGroupMembersSubTab::updateMembers()
 		else
 		{
 			// If name is not cached, onNameCache() should be called when it is cached and add this member to list.
-			// *TODO : Add one callback per fetched avatar name
-			// <FS:Ansariel> Member list doesn't load properly
-			//if (mAvatarNameCacheConnection.connected())
-			//{
-			//	mAvatarNameCacheConnection.disconnect();
-			//}
-			//mAvatarNameCacheConnection = LLAvatarNameCache::get(mMemberProgress->first, boost::bind(&LLPanelGroupMembersSubTab::onNameCache, this, gdatap->getMemberVersion(), mMemberProgress->second, _2));
-			
 			avatar_name_cache_connection_map_t::iterator it = mAvatarNameCacheConnections.find(mMemberProgress->first);
 			if (it != mAvatarNameCacheConnections.end())
 			{
@@ -1822,7 +1812,6 @@ void LLPanelGroupMembersSubTab::updateMembers()
 				mAvatarNameCacheConnections.erase(it);
 			}
 			mAvatarNameCacheConnections[mMemberProgress->first] = LLAvatarNameCache::get(mMemberProgress->first, boost::bind(&LLPanelGroupMembersSubTab::onNameCache, this, gdatap->getMemberVersion(), mMemberProgress->second, _2, _1));
-			// </FS:Ansariel>
 		}
 	}
 
@@ -1871,7 +1860,7 @@ void LLPanelGroupMembersSubTab::onExportMembersToXML()
 	LLAPRFile::tFiletype* file = outfile.getFileHandle();
 	if (!file) return;
 	
-	apr_file_printf(file, "Group membership record for %s", gdatap->mName.c_str());
+	apr_file_printf(file, "Group membership record for %s (avatar key, avatar name, last online, land contribution)", gdatap->mName.c_str());
 	
 	LLSD memberlist;
 	for (LLGroupMgrGroupData::member_list_t::const_iterator member_itr = gdatap->mMembers.begin();
@@ -1883,10 +1872,11 @@ void LLPanelGroupMembersSubTab::onExportMembersToXML()
 		/// When the group membership is fully loaded, this works fine as is.
 		LLAvatarName av_name;
 		LLAvatarNameCache::get(member_itr->first, &av_name);
-		apr_file_printf(file, "\n%s,%s,%s",
+		apr_file_printf(file, "\n%s,%s,%s,%s",
 						member_itr->first.asString().c_str(),
 						av_name.getCompleteName().c_str(),
-						member_itr->second->getOnlineStatus().c_str());
+						member_itr->second->getOnlineStatus().c_str(),
+						llformat("%d", member_itr->second->getContribution()).c_str());
 	}
 	apr_file_printf(file, "\n");
 }
@@ -2437,8 +2427,8 @@ void LLPanelGroupRolesSubTab::handleActionCheck(LLUICtrl* ctrl, bool force)
 		}
 		else
 		{
-			LL_WARNS() << "Unable to look up role information for role id: "
-					<< role_id << LL_ENDL;
+				LL_WARNS() << "Unable to look up role information for role id: "
+						<< role_id << LL_ENDL;
 		}
 	}
 
@@ -2923,9 +2913,10 @@ void LLPanelGroupActionsSubTab::setGroupID(const LLUUID& id)
 	if(mActionMembers) mActionMembers->deleteAllItems();
 
 	if(mActionDescription) mActionDescription->clear();
-
+	
 	LLPanelGroupSubTab::setGroupID(id);
 }
+
 
 // LLPanelGroupBanListSubTab /////////////////////////////////////////////
 static LLPanelInjector<LLPanelGroupBanListSubTab> t_panel_group_ban_subtab("panel_group_banlist_subtab");
@@ -3180,17 +3171,18 @@ void LLPanelGroupBanListSubTab::populateBanList()
 		
 		ban_entry.columns.add().column("name").font.name("SANSSERIF_SMALL").style("NORMAL");
 
+		// Baker TODO: MAINT-
 		// Check out utc_to_pacific_time()
 
 		std::string ban_date_str = bd.mBanDate.toHTTPDateString("%Y/%m/%d");
-		time_t utc_time;
-		utc_time = time_corrected();
-		LLSD substitution;
-		substitution["datetime"] = (S32) utc_time;
-		LLStringUtil::format (ban_date_str, substitution);
+// 		time_t utc_time;
+// 		utc_time = time_corrected();
+// 		LLSD substitution;
+// 		substitution["datetime"] = (S32) utc_time;
+// 		LLStringUtil::format (ban_date_str, substitution);
 
-		LL_INFOS("BAKER") << "[BAKER] BAN_DATE: " << bd.mBanDate.toHTTPDateString("%Y/%m/%d") << LL_ENDL;
-		LL_INFOS("BAKER") << "[BAKER] BAN_DATE_MODIFIED: " << ban_date_str << LL_ENDL;
+		//LL_INFOS("BAKER") << "[BAKER] BAN_DATE: " << bd.mBanDate.toHTTPDateString("%Y/%m/%d") << LL_ENDL;
+		//LL_INFOS("BAKER") << "[BAKER] BAN_DATE_MODIFIED: " << ban_date_str << LL_ENDL;
 
 		//ban_entry.columns.add().column("ban_date").value(ban_date_str.font.name("SANSSERIF_SMALL").style("NORMAL");
 		ban_entry.columns.add().column("ban_date").value(bd.mBanDate.toHTTPDateString("%Y/%m/%d")).font.name("SANSSERIF_SMALL").style("NORMAL");

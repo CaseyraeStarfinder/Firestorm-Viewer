@@ -56,6 +56,7 @@
 #include "llaudiosourcevo.h"
 #include "llagent.h"
 #include "llagentcamera.h"
+#include "llagentwearables.h"
 #include "llbbox.h"
 #include "llbox.h"
 #include "llcylinder.h"
@@ -99,12 +100,19 @@
 #include "lltrans.h"
 #include "llsdutil.h"
 #include "llmediaentry.h"
+#include "llfloaterperms.h"
 #include "llvocache.h"
 // [RLVa:KB] - Checked: 2011-05-22 (RLVa-1.3.1a)
 #include "rlvhandler.h"
 #include "rlvlocks.h"
 // [/RLVa:KB]
 #include "fswsassetblacklist.h"
+
+// <FS:Ansariel> [Legacy Bake]
+#ifdef OPENSIM
+#include "llviewernetwork.h"
+#endif
+// </FS:Ansariel> [Legacy Bake]
 
 //#define DEBUG_UPDATE_TYPE
 
@@ -157,6 +165,18 @@ LLViewerObject *LLViewerObject::createObject(const LLUUID &id, const LLPCode pco
 			{
 				gAgentAvatarp = new LLVOAvatarSelf(id, pcode, regionp);
 				gAgentAvatarp->initInstance();
+// <FS:Ansariel> [Legacy Bake]
+				//gAgentWearables.setAvatarObject(gAgentAvatarp);
+#ifdef OPENSIM
+				if (LLGridManager::getInstance()->isInSecondLife())
+				{
+					gAgentWearables.setAvatarObject(gAgentAvatarp);
+
+				}
+#else
+				gAgentWearables.setAvatarObject(gAgentAvatarp);
+#endif
+// </FS:Ansariel> [Legacy Bake]
 			}
 			else 
 			{
@@ -361,9 +381,16 @@ void LLViewerObject::markDead()
 		//LL_INFOS() << "Marking self " << mLocalID << " as dead." << LL_ENDL;
 		
 		// Root object of this hierarchy unlinks itself.
+		LLVOAvatar *av = getAvatarAncestor();
 		if (getParent())
 		{
 			((LLViewerObject *)getParent())->removeChild(this);
+		}
+		LLUUID mesh_id;
+		if (av && LLVOAvatar::getRiggedMeshID(this,mesh_id))
+		{
+			// This case is needed for indirectly attached mesh objects.
+			av->resetJointPositionsOnDetach(mesh_id);
 		}
 
 		// Mark itself as dead
@@ -1977,6 +2004,11 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 				
 				if (sent_parentp && (sent_parentp != this) && !sent_parentp->isDead())
 				{
+                    if (((LLViewerObject*)sent_parentp)->isAvatar())
+                    {
+                        //LL_DEBUGS("Avatar") << "ATT got object update for attachment " << LL_ENDL; 
+                    }
+                    
 					//
 					// We have a viewer object for the parent, and it's not dead.
 					// Do the actual reparenting here.
@@ -2319,7 +2351,7 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
 		}
 	}
 
-	if ((new_rot != getRotation())
+	if ((new_rot.isNotEqualEps(getRotation(), F_ALMOST_ZERO))
 		|| (new_angv != old_angv))
 	{
 		if (new_rot != mPreviousRotation)
@@ -2779,6 +2811,7 @@ void LLViewerObject::saveScript(
 	 * interaction with doUpdateInventory() called below.
 	 */
 	LL_DEBUGS() << "LLViewerObject::saveScript() " << item->getUUID() << " " << item->getAssetUUID() << LL_ENDL;
+
 	LLPointer<LLViewerInventoryItem> task_item =
 		new LLViewerInventoryItem(item->getUUID(), mID, item->getPermissions(),
 								  item->getAssetUUID(), item->getType(),
@@ -2843,8 +2876,8 @@ void LLViewerObject::dirtyInventory()
 		mInventory->clear(); // will deref and delete entries
 		delete mInventory;
 		mInventory = NULL;
-		mInventoryDirty = TRUE;
 	}
+	mInventoryDirty = TRUE;
 }
 
 void LLViewerObject::registerInventoryListener(LLVOInventoryListener* listener, void* user_data)
@@ -2881,12 +2914,15 @@ void LLViewerObject::clearInventoryListeners()
 
 void LLViewerObject::requestInventory()
 {
-	mInventoryDirty = FALSE;
+	if(mInventoryDirty && mInventory && !mInventoryCallbacks.empty())
+	{
+		mInventory->clear(); // will deref and delete entries
+		delete mInventory;
+		mInventory = NULL;
+		mInventoryDirty = FALSE; //since we are going to request it now
+	}
 	if(mInventory)
 	{
-		//mInventory->clear() // will deref and delete it
-		//delete mInventory;
-		//mInventory = NULL;
 		doInventoryCallback();
 	}
 	// throw away duplicate requests
@@ -3051,7 +3087,7 @@ void LLViewerObject::processTaskInvFile(void** user_data, S32 error_code, LLExtS
 BOOL LLViewerObject::loadTaskInvFile(const std::string& filename)
 {
 	std::string filename_and_local_path = gDirUtilp->getExpandedFilename(LL_PATH_CACHE, filename);
-	llifstream ifs(filename_and_local_path);
+	llifstream ifs(filename_and_local_path.c_str());
 	if(ifs.good())
 	{
 		char buffer[MAX_STRING];	/* Flawfinder: ignore */
@@ -3432,8 +3468,17 @@ void LLViewerObject::setLinksetCost(F32 cost)
 {
 	mLinksetCost = cost;
 	mCostStale = false;
-	
-	if (isSelected())
+
+	BOOL needs_refresh = isSelected();
+	child_list_t::iterator iter = mChildList.begin();
+	while(iter != mChildList.end() && !needs_refresh)
+	{
+		LLViewerObject* child = *iter;
+		needs_refresh = child->isSelected();
+		iter++;
+	}
+
+	if (needs_refresh)
 	{
 		gFloaterTools->dirty();
 	}
@@ -5080,6 +5125,22 @@ LLVOAvatar* LLViewerObject::asAvatar()
 	return NULL;
 }
 
+// If this object is directly or indirectly parented by an avatar, return it.
+LLVOAvatar* LLViewerObject::getAvatarAncestor()
+{
+	LLViewerObject *pobj = (LLViewerObject*) getParent();
+	while (pobj)
+	{
+		LLVOAvatar *av = pobj->asAvatar();
+		if (av)
+		{
+			return av;
+		}
+		pobj =  (LLViewerObject*) pobj->getParent();
+	}
+	return NULL;
+}
+
 BOOL LLViewerObject::isParticleSource() const
 {
 	return !mPartSourcep.isNull() && !mPartSourcep->isDead();
@@ -5256,7 +5317,6 @@ void LLViewerObject::setAttachedSound(const LLUUID &audio_uuid, const LLUUID& ow
 {
 	if (!gAudiop)
 	{
-		LL_WARNS("AudioEngine") << "LLAudioEngine instance doesn't exist!" << LL_ENDL;
 		return;
 	}
 	
@@ -5590,6 +5650,28 @@ void LLViewerObject::clearDrawableState(U32 state, BOOL recursive)
 		}
 	}
 }
+
+BOOL LLViewerObject::isDrawableState(U32 state, BOOL recursive) const
+{
+	BOOL matches = FALSE;
+	if (mDrawable)
+	{
+		matches = mDrawable->isState(state);
+	}
+	if (recursive)
+	{
+		for (child_list_t::const_iterator iter = mChildList.begin();
+			 (iter != mChildList.end()) && matches; iter++)
+		{
+			LLViewerObject* child = *iter;
+			matches &= child->isDrawableState(state, recursive);
+		}
+	}
+
+	return matches;
+}
+
+
 
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // RN: these functions assume a 2-level hierarchy 
@@ -6254,6 +6336,17 @@ const LLUUID &LLViewerObject::extractAttachmentItemID()
 	}
 	setAttachmentItemID(item_id);
 	return getAttachmentItemID();
+}
+
+const std::string& LLViewerObject::getAttachmentItemName()
+{
+	static std::string empty;
+	LLInventoryItem *item = gInventory.getItem(getAttachmentItemID());
+	if (isAttachment() && item)
+	{
+		return item->getName();
+	}
+	return empty;
 }
 
 //virtual

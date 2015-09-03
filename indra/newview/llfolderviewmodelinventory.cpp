@@ -27,6 +27,7 @@
 #include "llviewerprecompiledheaders.h"
 #include "llfolderviewmodelinventory.h"
 #include "llinventorymodelbackgroundfetch.h"
+#include "llinventoryfunctions.h"
 #include "llinventorypanel.h"
 #include "lltooldraganddrop.h"
 #include "llfavoritesbar.h"
@@ -108,6 +109,29 @@ bool LLFolderViewModelInventory::contentsReady()
 	return !LLInventoryModelBackgroundFetch::instance().folderFetchActive();
 }
 
+bool LLFolderViewModelInventory::isFolderComplete(LLFolderViewFolder* folder)
+{
+	LLFolderViewModelItemInventory* modelp = static_cast<LLFolderViewModelItemInventory*>(folder->getViewModelItem());
+	LLUUID cat_id = modelp->getUUID();
+	if (cat_id.isNull())
+	{
+		return false;
+	}
+	LLViewerInventoryCategory* cat = gInventory.getCategory(cat_id);
+	if (cat)
+	{
+		// don't need to check version - descendents_server == -1 if we have no data
+		S32 descendents_server = cat->getDescendentCount();
+		S32 descendents_actual = cat->getViewerDescendentCount();
+		if (descendents_server == descendents_actual
+			|| (descendents_actual > 0 && descendents_server == -1)) // content was loaded in previous session
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void LLFolderViewModelItemInventory::requestSort()
 {
 	LLFolderViewModelItemCommon::requestSort();
@@ -129,13 +153,18 @@ void LLFolderViewModelItemInventory::requestSort()
 
 void LLFolderViewModelItemInventory::setPassedFilter(bool passed, S32 filter_generation, std::string::size_type string_offset, std::string::size_type string_size)
 {
+	bool generation_skip = mMarkedDirtyGeneration >= 0
+		&& mPrevPassedAllFilters
+		&& mMarkedDirtyGeneration < mRootViewModel.getFilter().getFirstSuccessGeneration();
 	LLFolderViewModelItemCommon::setPassedFilter(passed, filter_generation, string_offset, string_size);
 	bool before = mPrevPassedAllFilters;
 	mPrevPassedAllFilters = passedFilter(filter_generation);
 
-	if (before != mPrevPassedAllFilters)
+	if (before != mPrevPassedAllFilters || generation_skip)
 	{
-		// Need to rearrange the folder if the filtered state of the item changed
+		// Need to rearrange the folder if the filtered state of the item changed,
+		// previously passed item skipped filter generation changes while being dirty
+		// or previously passed not yet filtered item was marked dirty
 		LLFolderViewFolder* parent_folder = mFolderViewItem->getParentFolder();
 		if (parent_folder)
 		{
@@ -143,6 +172,9 @@ void LLFolderViewModelItemInventory::setPassedFilter(bool passed, S32 filter_gen
 		}
 	}
 }
+
+
+
 
 bool LLFolderViewModelItemInventory::filterChildItem( LLFolderViewModelItem* item, LLFolderViewFilter& filter )
 {
@@ -269,7 +301,7 @@ bool LLInventorySort::operator()(const LLFolderViewModelItemInventory* const& a,
 
 	// We sort by name if we aren't sorting by date
 	// OR if these are folders and we are sorting folders by name.
-	bool by_name = (!mByDate || (mFoldersByName && (a->getSortGroup() != SG_ITEM)));
+	bool by_name = ((!mByDate || (mFoldersByName && (a->getSortGroup() != SG_ITEM))) && !mFoldersByWeight);
 
 	if (a->getSortGroup() != b->getSortGroup())
 	{
@@ -301,6 +333,31 @@ bool LLInventorySort::operator()(const LLFolderViewModelItemInventory* const& a,
 			return (compare < 0);
 		}
 	}
+    else if (mFoldersByWeight)
+    {
+        S32 weight_a = compute_stock_count(a->getUUID());
+        S32 weight_b = compute_stock_count(b->getUUID());
+		if (weight_a == weight_b)
+		{
+            // Equal weight -> use alphabetical order
+			return (LLStringUtil::compareDict(a->getDisplayName(), b->getDisplayName()) < 0);
+		}
+		else if (weight_a == COMPUTE_STOCK_INFINITE)
+        {
+            // No stock -> move a at the end of the list
+            return false;
+        }
+        else if (weight_b == COMPUTE_STOCK_INFINITE)
+        {
+            // No stock -> move b at the end of the list
+            return true;
+        }
+        else
+		{
+            // Lighter is first (sorted in increasing order of weight)
+            return (weight_a < weight_b);
+        }
+    }
 	else
 	{
 		time_t first_create = a->getCreationDate();

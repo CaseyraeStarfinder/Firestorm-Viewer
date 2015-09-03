@@ -118,8 +118,8 @@ public:
 private:
 	/*virtual*/ void done()
 	{
-		uuid_vec_t::const_iterator it = mAdded.begin(), end = mAdded.end();
-		for(; it != end; ++it)
+		const uuid_set_t& added = gInventory.getAddedIDs();
+		for (uuid_set_t::const_iterator it = added.begin(); it != added.end(); ++it)
 		{
 			LLInventoryItem* item = gInventory.getItem(*it);
 			if (!item || item->getType() != LLAssetType::AT_LANDMARK)
@@ -135,8 +135,6 @@ private:
 				mInput->onLandmarkLoaded(lm);
 			}
 		}
-
-		mAdded.clear();
 	}
 
 	LLLocationInputCtrl* mInput;
@@ -153,7 +151,11 @@ public:
 private:
 	/*virtual*/ void changed(U32 mask)
 	{
-		if (mask & (~(LLInventoryObserver::LABEL|LLInventoryObserver::INTERNAL|LLInventoryObserver::ADD)))
+		if (mask & (~(LLInventoryObserver::LABEL|
+					  LLInventoryObserver::INTERNAL|
+					  LLInventoryObserver::ADD|
+					  LLInventoryObserver::CREATE|
+					  LLInventoryObserver::UPDATE_CREATE)))
 		{
 			mInput->updateAddLandmarkButton();
 		}
@@ -932,11 +934,19 @@ void LLLocationInputCtrl::refreshParcelIcons()
 #endif // OPENSIM
 // </FS:CR>
 
+		// <FS:Ansariel> Undo MAIN-23 for now...
+		//bool is_parcel_owner = (gAgent.getID() == current_parcel->getOwnerID());
+		//bool allow_group_modify = (gAgent.isInGroup(current_parcel->getGroupID()) && current_parcel->getAllowGroupModify());
+		// </FS:Ansariel>
+
 		// Most icons are "block this ability"
 		mParcelIcon[VOICE_ICON]->setVisible(   !allow_voice );
 		mParcelIcon[FLY_ICON]->setVisible(     !allow_fly );
 		mParcelIcon[PUSH_ICON]->setVisible(    !allow_push );
+		// <FS:Ansariel> Undo MAIN-23 for now...
+		//mParcelIcon[BUILD_ICON]->setVisible(   !allow_build && !is_parcel_owner && !allow_group_modify );
 		mParcelIcon[BUILD_ICON]->setVisible(   !allow_build );
+		// </FS:Ansariel>
 		mParcelIcon[SCRIPTS_ICON]->setVisible( !allow_scripts );
 		mParcelIcon[DAMAGE_ICON]->setVisible(  allow_damage );
 		mParcelIcon[PATHFINDING_DIRTY_ICON]->setVisible(mIsNavMeshDirty);

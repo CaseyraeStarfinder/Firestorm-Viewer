@@ -39,7 +39,6 @@
 #include "llavatarnamecache.h"
 #include "llavatariconctrl.h"
 #include "llavatarlist.h"
-#include "lldraghandle.h"
 #include "fsfloaterim.h"
 #include "llimview.h"
 #include "llfloaterreg.h"
@@ -357,10 +356,10 @@ void FSFloaterVoiceControls::refreshParticipantList()
 	if (!non_avatar_caller)
 	{
 		llassert(mParticipants == NULL); // check for possible memory leak
-		mParticipants = new LLParticipantList(mSpeakerManager, mAvatarList, true, mVoiceType != VC_GROUP_CHAT && mVoiceType != VC_AD_HOC_CHAT, false);
+		mParticipants = new FSParticipantList(mSpeakerManager, mAvatarList, true, mVoiceType != VC_GROUP_CHAT && mVoiceType != VC_AD_HOC_CHAT, false);
 		mParticipants->setValidateSpeakerCallback(boost::bind(&FSFloaterVoiceControls::validateSpeaker, this, _1));
 		const U32 speaker_sort_order = gSavedSettings.getU32("SpeakerParticipantDefaultOrder");
-		mParticipants->setSortOrder(LLParticipantList::EParticipantSortOrder(speaker_sort_order));
+		mParticipants->setSortOrder(FSParticipantList::EParticipantSortOrder(speaker_sort_order));
 		
 		if (LLLocalSpeakerMgr::getInstance() == mSpeakerManager)
 		{
@@ -636,8 +635,6 @@ void FSFloaterVoiceControls::initParticipantsVoiceState()
 
 void FSFloaterVoiceControls::updateParticipantsVoiceState()
 {
-	uuid_vec_t speakers_list;
-
 	// Get a list of participants from VoiceClient
 	uuid_vec_t speakers_uuids;
 	get_voice_participants_uuids(speakers_uuids);

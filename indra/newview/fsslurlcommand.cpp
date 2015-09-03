@@ -27,11 +27,10 @@
 #include "llviewerprecompiledheaders.h"
 #include "fsslurlcommand.h"
 
-#include "fscommon.h"
-#include "fsradar.h"
 #include "llagent.h"
 #include "llavataractions.h"
 #include "llcommandhandler.h"
+#include "lllogchat.h"
 #include "llnotificationsutil.h"
 
 
@@ -113,6 +112,24 @@ public:
 			if (gAgentID != target_id)
 			{
 				LLAvatarActions::addToContactSet(target_id);
+			}
+			return true;
+		}
+
+		if (verb == "blockavatar")
+		{
+			if (gAgentID != target_id)
+			{
+				LLAvatarActions::toggleBlock(target_id);
+			}
+			return true;
+		}
+
+		if (verb == "viewlog")
+		{
+			if (gAgentID != target_id && LLLogChat::isTranscriptExist(target_id))
+			{
+				LLAvatarActions::viewChatHistory(target_id);
 			}
 			return true;
 		}

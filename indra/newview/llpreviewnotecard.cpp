@@ -244,9 +244,12 @@ void LLPreviewNotecard::loadAsset()
 
 	if(item)
 	{
-		if (gAgent.allowOperation(PERM_COPY, item->getPermissions(),
-									GP_OBJECT_MANIPULATE)
-			|| gAgent.isGodlike())
+		LLPermissions perm(item->getPermissions());
+		BOOL is_owner = gAgent.allowOperation(PERM_OWNER, perm, GP_OBJECT_MANIPULATE);
+		BOOL allow_copy = gAgent.allowOperation(PERM_COPY, perm, GP_OBJECT_MANIPULATE);
+		BOOL allow_modify = canModify(mObjectUUID, item);
+
+		if (allow_copy || gAgent.isGodlike())
 		{
 			mAssetID = item->getAssetUUID();
 			if(mAssetID.isNull())
@@ -300,11 +303,16 @@ void LLPreviewNotecard::loadAsset()
 			editor->setEnabled(FALSE);
 			mAssetStatus = PREVIEW_ASSET_LOADED;
 		}
-		if(!gAgent.allowOperation(PERM_MODIFY, item->getPermissions(),
-								GP_OBJECT_MANIPULATE))
+
+		if(!allow_modify)
 		{
 			editor->setEnabled(FALSE);
 			getChildView("lock")->setVisible( TRUE);
+		}
+
+		if(allow_modify || is_owner)
+		{
+			getChildView("Delete")->setEnabled(TRUE);
 		}
 	}
 	else
@@ -359,14 +367,11 @@ void LLPreviewNotecard::onLoadComplete(LLVFS *vfs,
 			}
 
 			previewEditor->makePristine();
-
+			BOOL modifiable = preview->canModify(preview->mObjectID, preview->getItem());
 			// <FS:Ansariel> Force spell checker to check again after saving a NC,
 			//               or misspelled words wouldn't be shown
 			previewEditor->onSpellCheckSettingsChange();
 
-			const LLInventoryItem* item = preview->getItem();
-			BOOL modifiable = item && gAgent.allowOperation(PERM_MODIFY,
-								item->getPermissions(), GP_OBJECT_MANIPULATE);
 			preview->setEnabled(modifiable);
 			preview->mAssetStatus = PREVIEW_ASSET_LOADED;
 		}
@@ -408,15 +413,6 @@ void LLPreviewNotecard::onClickSave(void* user_data)
 // static
 void LLPreviewNotecard::onClickDelete(void* user_data)
 {
-// [FS:CR] FIRE-2700
-	LLPreviewNotecard* preview = (LLPreviewNotecard*)user_data;
-	LLNotificationsUtil::add("DeleteNotecard", LLSD(), LLSD(), boost::bind(&LLPreviewNotecard::handleDeleteChangesDialog, preview, _1, _2));
-}
-
-// static
-void LLPreviewNotecard::onConfirmDelete(void* user_data)
-{
-// [/FS:CR]
 	LLPreviewNotecard* preview = (LLPreviewNotecard*)user_data;
 	if(preview)
 	{
@@ -516,12 +512,20 @@ bool LLPreviewNotecard::saveIfNeeded(LLInventoryItem* copyitem)
 												&onSaveComplete,
 												(void*)info,
 												FALSE);
+				// <FS:Ansariel> FIRE-9039: Close notecard after choosing "Save" in close confirmation
+				//return true;
 			}
 			else // !gAssetStorage
 			{
 				LL_WARNS() << "Not connected to an asset storage system." << LL_ENDL;
 				return false;
 			}
+			// <FS:Ansariel> FIRE-9039: Close notecard after choosing "Save" in close confirmation
+			//if(mCloseAfterSave)
+			//{
+			//	closeFloater();
+			//}
+			// </FS:Ansariel>
 		}
 	}
 	return true;
@@ -529,14 +533,7 @@ bool LLPreviewNotecard::saveIfNeeded(LLInventoryItem* copyitem)
 
 void LLPreviewNotecard::deleteNotecard()
 {
-	LLViewerInventoryItem* item = gInventory.getItem(mItemUUID);
-	if (item != NULL)
-	{
-		const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
-		gInventory.changeItemParent(item, trash_id, FALSE);
-	}
-
-	closeFloater();
+	LLNotificationsUtil::add("DeleteNotecard", LLSD(), LLSD(), boost::bind(&LLPreviewNotecard::handleConfirmDeleteDialog,this, _1, _2));
 }
 
 // static
@@ -642,18 +639,44 @@ bool LLPreviewNotecard::handleSaveChangesDialog(const LLSD& notification, const 
 	return false;
 }
 
-// [FS:CR] FIRE-2700
-bool LLPreviewNotecard::handleDeleteChangesDialog(const LLSD& notification, const LLSD& response)
+bool LLPreviewNotecard::handleConfirmDeleteDialog(const LLSD& notification, const LLSD& response)
 {
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
-	if (option == 0)
+	if (option != 0)
 	{
-		LLPreviewNotecard::onConfirmDelete((void*)this);
+		// canceled
+		return false;
 	}
-	
+
+	if (mObjectUUID.isNull())
+	{
+		// move item from agent's inventory into trash
+		LLViewerInventoryItem* item = gInventory.getItem(mItemUUID);
+		if (item != NULL)
+		{
+			const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
+			gInventory.changeItemParent(item, trash_id, FALSE);
+		}
+	}
+	else
+	{
+		// delete item from inventory of in-world object
+		LLViewerObject* object = gObjectList.findObject(mObjectUUID);
+		if(object)
+		{
+			LLViewerInventoryItem* item = dynamic_cast<LLViewerInventoryItem*>(object->getInventoryObject(mItemUUID));
+			if (item != NULL)
+			{
+				object->removeInventory(mItemUUID);
+			}
+		}
+	}
+
+	// close floater, ignore unsaved changes
+	mForceClose = TRUE;
+	closeFloater();
 	return false;
 }
-// [/FS:CR]
 
 // <FS:Ansariel> FIRE-13969: Search button
 void LLPreviewNotecard::onSearchButtonClicked()

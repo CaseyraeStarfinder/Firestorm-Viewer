@@ -61,6 +61,10 @@
 #include "llnotificationsutil.h"
 #include "pipeline.h"
 #include "llmaterialmgr.h"
+#include "llimagedimensionsinfo.h"
+#include "llviewercontrol.h"
+#include "lltrans.h"
+#include "llviewerdisplay.h"
 
 /*=======================================*/
 /*  Formal declarations, constants, etc. */
@@ -72,7 +76,6 @@ bool                        LLLocalBitmapMgr::sNeedsRebake;
 static const F32 LL_LOCAL_TIMER_HEARTBEAT   = 3.0;
 static const BOOL LL_LOCAL_USE_MIPMAPS      = true;
 static const S32 LL_LOCAL_DISCARD_LEVEL     = 0;
-static const U32 LL_LOCAL_TEXLAYER_FOR_IDX  = 0;
 static const bool LL_LOCAL_SLAM_FOR_DEBUG   = true;
 static const bool LL_LOCAL_REPLACE_ON_DEL   = true;
 static const S32 LL_LOCAL_UPDATE_RETRIES    = 5;
@@ -125,7 +128,7 @@ LLLocalBitmap::LLLocalBitmap(std::string filename)
 LLLocalBitmap::~LLLocalBitmap()
 {
 	// replace IDs with defaults, if set to do so.
-	if(LL_LOCAL_REPLACE_ON_DEL && mValid) // fix for STORM-1837
+	if(LL_LOCAL_REPLACE_ON_DEL && mValid && gAgentAvatarp) // fix for STORM-1837
 	{
 		replaceIDs(mWorldID, IMG_DEFAULT);
 		LLLocalBitmapMgr::doRebake();
@@ -199,7 +202,7 @@ bool LLLocalBitmap::updateSelf(EUpdateType optional_firstupdate)
 				{
 					// decode is successful, we can safely proceed.
 					LLUUID old_id = LLUUID::null;
-					if (!(optional_firstupdate == UT_FIRSTUSE) && !mWorldID.isNull())
+					if ((optional_firstupdate != UT_FIRSTUSE) && !mWorldID.isNull())
 					{
 						old_id = mWorldID;
 					}
@@ -215,15 +218,18 @@ bool LLLocalBitmap::updateSelf(EUpdateType optional_firstupdate)
 
 					gTextureList.addImage(texture);
 			
-					if (!optional_firstupdate == UT_FIRSTUSE)
+					if (optional_firstupdate != UT_FIRSTUSE)
 					{
 						// seek out everything old_id uses and replace it with mWorldID
 						replaceIDs(old_id, mWorldID);
 
 						// remove old_id from gimagelist
 						LLViewerFetchedTexture* image = gTextureList.findImage(old_id);
-						gTextureList.deleteImage(image);
-						image->unref();
+						if (image != NULL)
+						{
+							gTextureList.deleteImage(image);
+							image->unref();
+						}
 					}
 
 					mUpdateRetries = LL_LOCAL_UPDATE_RETRIES;
@@ -527,6 +533,13 @@ void LLLocalBitmap::updateUserSculpts(LLUUID old_id, LLUUID new_id)
 
 void LLLocalBitmap::updateUserLayers(LLUUID old_id, LLUUID new_id, LLWearableType::EType type)
 {
+	// <FS:Ansariel> FIRE-15787: Crash fix
+	if (!isAgentAvatarValid())
+	{
+		return;
+	}
+	// </FS:Ansariel>
+
 	U32 count = gAgentWearables.getWearableCount(type);
 	for(U32 wearable_iter = 0; wearable_iter < count; wearable_iter++)
 	{
@@ -548,12 +561,16 @@ void LLLocalBitmap::updateUserLayers(LLUUID old_id, LLUUID new_id, LLWearableTyp
 					LLAvatarAppearanceDefines::ETextureIndex reg_texind = getTexIndex(type, baked_texind);
 					if (reg_texind != LLAvatarAppearanceDefines::TEX_NUM_INDICES)
 					{
-						U32 index = gAgentWearables.getWearableIndex(wearable);
-						gAgentAvatarp->setLocalTexture(reg_texind, gTextureList.getImage(new_id), FALSE, index);
-						gAgentAvatarp->wearableUpdated(type, FALSE);
-
-						/* telling the manager to rebake once update cycle is fully done */
-						LLLocalBitmapMgr::setNeedsRebake();
+						U32 index;
+						if (gAgentWearables.getWearableIndex(wearable,index))
+						{
+							gAgentAvatarp->setLocalTexture(reg_texind, gTextureList.getImage(new_id), FALSE, index);
+							// <FS:Ansariel> [Legacy Bake]
+							//gAgentAvatarp->wearableUpdated(type);
+							gAgentAvatarp->wearableUpdated(type, FALSE);
+							/* telling the manager to rebake once update cycle is fully done */
+							LLLocalBitmapMgr::setNeedsRebake();
+						}
 					}
 
 				}
@@ -833,6 +850,12 @@ LLLocalBitmapMgr::~LLLocalBitmapMgr()
 {
 }
 
+void LLLocalBitmapMgr::cleanupClass()
+{
+	std::for_each(sBitmapList.begin(), sBitmapList.end(), DeletePointer());
+	sBitmapList.clear();
+}
+
 bool LLLocalBitmapMgr::addUnit()
 {
 	bool add_successful = false;
@@ -845,6 +868,12 @@ bool LLLocalBitmapMgr::addUnit()
 		std::string filename = picker.getFirstFile();
 		while(!filename.empty())
 		{
+			if(!checkTextureDimensions(filename))
+			{
+				filename = picker.getNextFile();
+				continue;
+			}
+
 			LLLocalBitmap* unit = new LLLocalBitmap(filename);
 
 			if (unit->getValid())
@@ -872,6 +901,37 @@ bool LLLocalBitmapMgr::addUnit()
 	}
 
 	return add_successful;
+}
+
+bool LLLocalBitmapMgr::checkTextureDimensions(std::string filename)
+{
+	std::string exten = gDirUtilp->getExtension(filename);
+	U32 codec = LLImageBase::getCodecFromExtension(exten);
+	std::string mImageLoadError;
+	LLImageDimensionsInfo image_info;
+	if (!image_info.load(filename,codec))
+	{
+		return false;
+	}
+
+	S32 max_width = gSavedSettings.getS32("max_texture_dimension_X");
+	S32 max_height = gSavedSettings.getS32("max_texture_dimension_Y");
+
+	if ((image_info.getWidth() > max_width) || (image_info.getHeight() > max_height))
+	{
+		LLStringUtil::format_map_t args;
+		args["WIDTH"] = llformat("%d", max_width);
+		args["HEIGHT"] = llformat("%d", max_height);
+		mImageLoadError = LLTrans::getString("texture_load_dimensions_error", args);
+
+		LLSD notif_args;
+		notif_args["REASON"] = mImageLoadError;
+		LLNotificationsUtil::add("CannotUploadTexture", notif_args);
+
+		return false;
+	}
+
+	return true;
 }
 
 void LLLocalBitmapMgr::delUnit(LLUUID tracking_id)

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <floater name="panel_im">
+	<floater.string name="participant_added" value="[NAME] wurde zur Unterhaltung eingeladen."/>
+	<floater.string name="multiple_participants_added" value="[NAME] wurden zur Unterhaltung eingeladen."/>
 	<layout_stack name="ls_control_panel">
 		<layout_panel name="gprofile_panel">
 			<button name="group_info_btn" tool_tip="Zeige Gruppenprofil"/>
@@ -34,11 +36,25 @@
 		<layout_panel name="im_history_btn_panel">
 			<button name="im_history_btn" tool_tip="Gesprächsverlauf öffnen"/>
 		</layout_panel>
+		<layout_panel name="add_participant_panel">
+			<button name="add_participant_btn" tool_tip="Jemanden zu dieser Unterhaltung hinzufügen"/>
+		</layout_panel>
 		<layout_panel name="send_sysinfo_btn_panel">
 			<button name="send_sysinfo_btn" tool_tip="System-Informationen übermitteln"/>
 		</layout_panel>
 		<layout_panel name="support_panel">
 			<check_box label="Version senden" name="FSSupportGroupChatPrefix_toggle" tool_tip="Fügt die aktuelle Viewer-Version und Oberfläche am Anfang jeder Nachricht hinzu, die an diese Gruppe gesendet werden, um die Support-Mitarbeiter dabei zu unterstützen, ein mögliches Problem besser zu diagnostizieren und die Genauigkeit der Antworten auf deine Fragen zu verbessern."/>
+		</layout_panel>
+	</layout_stack>
+	<layout_stack name="chat_stack">
+		<layout_panel name="panel_im_control_lp">
+			<layout_stack name="im_panels">
+				<layout_panel name="unread_messages_holder">
+					<text name="unread_messages_text">
+						Ungelesene Nachrichten: [NUM]
+					</text>
+				</layout_panel>
+			</layout_stack>
 		</layout_panel>
 	</layout_stack>
 </floater>

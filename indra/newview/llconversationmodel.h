@@ -88,7 +88,7 @@ public:
 	virtual void move( LLFolderViewModelItem* parent_listener ) { }
 	virtual BOOL isItemCopyable() const { return FALSE; }
 	virtual BOOL copyToClipboard() const { return FALSE; }
-	virtual BOOL cutToClipboard() const { return FALSE; }
+	virtual BOOL cutToClipboard() { return FALSE; }
 	virtual BOOL isClipboardPasteable() const { return FALSE; }
 	virtual void pasteFromClipboard() { }
 	virtual void pasteLinkFromClipboard() { }
@@ -145,6 +145,7 @@ protected:
 	bool mNeedsRefresh;	// Flag signaling to the view that something changed for this item
 	F64  mLastActiveTime;
 	bool mDisplayModeratorOptions;
+	bool mDisplayGroupBanOptions;
 	boost::signals2::connection mAvatarNameCacheConnection;
 };	
 
@@ -208,12 +209,12 @@ public:
 	void dumpDebugData();
 	void setModeratorOptionsVisible(bool visible) { mDisplayModeratorOptions = visible; }
 	void setDisplayModeratorRole(bool displayRole);
+	void setGroupBanVisible(bool visible) { mDisplayGroupBanOptions = visible; }
 
 private:
 	void onAvatarNameCache(const LLAvatarName& av_name);	// callback used by fetchAvatarName
 	void updateName(const LLAvatarName& av_name);
 
-	bool mIsMuted;		         // default is false
 	bool mIsModerator;	         // default is false
 	bool mDisplayModeratorLabel; // default is false
 	std::string mDisplayName;

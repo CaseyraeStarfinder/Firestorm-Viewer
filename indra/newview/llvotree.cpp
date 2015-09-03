@@ -129,6 +129,9 @@ void LLVOTree::initClass()
 			F32 F32_val;
 			LLUUID id;
 			S32 S32_val;
+			
+			// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+			std::string name;
 
 			BOOL success = TRUE;
 
@@ -232,15 +235,23 @@ void LLVOTree::initClass()
 			success &= tree_def->getFastAttributeF32(repeat_z_string, F32_val);
 			newTree->mRepeatTrunkZ = F32_val;
 
+			// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+			static LLStdStringHandle name_string = LLXmlTree::addAttributeString("name"); // MC
+			tree_def->getFastAttributeString(name_string, name);
+			newTree->mName = name;
+			// </FS:Ansariel>
+
 			sSpeciesTable[species] = newTree;
 
 			if (species >= sMaxTreeSpecies) sMaxTreeSpecies = species + 1;
 
 			if (!success)
 			{
-				std::string name;
-				static LLStdStringHandle name_string = LLXmlTree::addAttributeString("name");
-				tree_def->getFastAttributeString(name_string, name);
+				// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+				//std::string name;
+				//static LLStdStringHandle name_string = LLXmlTree::addAttributeString("name");
+				//tree_def->getFastAttributeString(name_string, name);
+				// </FS:Ansariel>
 				LL_WARNS() << "Incomplete definition of tree " << name << LL_ENDL;
 			}
 		}
@@ -395,9 +406,6 @@ void LLVOTree::idleUpdate(LLAgent &agent, const F64 &time)
 
 	mTrunkLOD = trunk_LOD;
 }
-
-const F32 TREE_BLEND_MIN = 1.f;
-const F32 TREE_BLEND_RANGE = 1.f;
 
 void LLVOTree::render(LLAgent &agent)
 {

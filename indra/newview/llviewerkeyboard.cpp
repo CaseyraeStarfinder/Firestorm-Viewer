@@ -61,7 +61,6 @@ const F32 FLY_FRAMES = 4;
 const F32 NUDGE_TIME = 0.25f;  // in seconds
 const S32 NUDGE_FRAMES = 2;
 const F32 ORBIT_NUDGE_RATE = 0.05f;  // fraction of normal speed
-const F32 YAW_NUDGE_RATE = 0.05f;  // fraction of normal speed
 
 struct LLKeyboardActionRegistry 
 :	public LLRegistrySingleton<std::string, boost::function<void (EKeystate keystate)>, LLKeyboardActionRegistry>
@@ -74,7 +73,7 @@ void agent_jump( EKeystate s )
 {
 	if( KEYSTATE_UP == s  ) return;
 	F32 time = gKeyboard->getCurKeyElapsedTime();
-	S32 frame_count = llround(gKeyboard->getCurKeyElapsedFrameCount());
+	S32 frame_count = ll_round(gKeyboard->getCurKeyElapsedFrameCount());
 
 	// <FS:Ansariel> Chalice Yao's crouch toggle
 	if (gSavedSettings.getBOOL("FSCrouchToggleStatus"))
@@ -121,22 +120,29 @@ void agent_push_down( EKeystate s )
 	// </FS:Ansariel>
 }
 
+static void agent_check_temporary_run(LLAgent::EDoubleTapRunMode mode)
+{
+//	if (gAgent.mDoubleTapRunMode == mode &&
+//		gAgent.getRunning() &&
+//		!gAgent.getAlwaysRun())
+//	{
+//		// Turn off temporary running.
+//		gAgent.clearRunning();
+//		gAgent.sendWalkRun(gAgent.getRunning());
+//	}
+// [RLVa:KB] - Checked: 2011-05-11 (RLVa-1.3.0i) | Added: RLVa-1.3.0i
+	if ( (gAgent.mDoubleTapRunMode == mode) && (gAgent.getTempRun()) )
+		gAgent.clearTempRun();
+// [/RLVa:KB]
+}
+
 static void agent_handle_doubletap_run(EKeystate s, LLAgent::EDoubleTapRunMode mode)
 {
 	if (KEYSTATE_UP == s)
 	{
-//		if (gAgent.mDoubleTapRunMode == mode &&
-//		    gAgent.getRunning() &&
-//		    !gAgent.getAlwaysRun())
-//		{
-//			// Turn off temporary running.
-//			gAgent.clearRunning();
-//			gAgent.sendWalkRun(gAgent.getRunning());
-//		}
-// [RLVa:KB] - Checked: 2011-05-11 (RLVa-1.3.0i) | Added: RLVa-1.3.0i
-		if ( (gAgent.mDoubleTapRunMode == mode) && (gAgent.getTempRun()) )
-			gAgent.clearTempRun();
-// [/RLVa:KB]
+		// Note: in case shift is already released, slide left/right run
+		// will be released in agent_turn_left()/agent_turn_right()
+		agent_check_temporary_run(mode);
 	}
 	else if (gSavedSettings.getBOOL("AllowTapTapHoldRun") &&
 		 KEYSTATE_DOWN == s &&
@@ -166,7 +172,7 @@ static void agent_push_forwardbackward( EKeystate s, S32 direction, LLAgent::EDo
 	if (KEYSTATE_UP == s) return;
 
 	F32 time = gKeyboard->getCurKeyElapsedTime();
-	S32 frame_count = llround(gKeyboard->getCurKeyElapsedFrameCount());
+	S32 frame_count = ll_round(gKeyboard->getCurKeyElapsedFrameCount());
 
 	if( time < NUDGE_TIME || frame_count <= NUDGE_FRAMES)
 	{
@@ -182,6 +188,8 @@ void camera_move_forward( EKeystate s );
 
 void agent_push_forward( EKeystate s )
 {
+	if(gAgent.isMovementLocked()) return;
+
 	//in free camera control mode we need to intercept keyboard events for avatar movements
 	if (LLFloaterCamera::inFreeCameraMode())
 	{
@@ -197,17 +205,17 @@ void camera_move_backward( EKeystate s );
 
 void agent_push_backward( EKeystate s )
 {
+	if(gAgent.isMovementLocked()) return;
+
 	//in free camera control mode we need to intercept keyboard events for avatar movements
 	if (LLFloaterCamera::inFreeCameraMode())
 	{
 		camera_move_backward(s);
 	}
-	// <FS:Ansariel> Comment out what shouldn't be here at all but got back in LL merge fail
-	//else if (!gAgent.backwardGrabbed() && gAgentAvatarp->isSitting())
-	//{
-	//	gAgentCamera.changeCameraToThirdPerson();
-	//}
-	// </FS:Ansariel>
+	else if (!gAgent.backwardGrabbed() && gAgentAvatarp->isSitting() && gSavedSettings.getBOOL("LeaveMouselook"))
+	{
+		gAgentCamera.changeCameraToThirdPerson();
+	}
 	else
 	{
 		agent_push_forwardbackward(s, -1, LLAgent::DOUBLETAP_BACKWARD);
@@ -219,7 +227,7 @@ static void agent_slide_leftright( EKeystate s, S32 direction, LLAgent::EDoubleT
 	agent_handle_doubletap_run(s, mode);
 	if( KEYSTATE_UP == s ) return;
 	F32 time = gKeyboard->getCurKeyElapsedTime();
-	S32 frame_count = llround(gKeyboard->getCurKeyElapsedFrameCount());
+	S32 frame_count = ll_round(gKeyboard->getCurKeyElapsedFrameCount());
 
 	if( time < NUDGE_TIME || frame_count <= NUDGE_FRAMES)
 	{
@@ -234,12 +242,14 @@ static void agent_slide_leftright( EKeystate s, S32 direction, LLAgent::EDoubleT
 
 void agent_slide_left( EKeystate s )
 {
+	if(gAgent.isMovementLocked()) return;
 	agent_slide_leftright(s, 1, LLAgent::DOUBLETAP_SLIDELEFT);
 }
 
 
 void agent_slide_right( EKeystate s )
 {
+	if(gAgent.isMovementLocked()) return;
 	agent_slide_leftright(s, -1, LLAgent::DOUBLETAP_SLIDERIGHT);
 }
 
@@ -254,13 +264,20 @@ void agent_turn_left( EKeystate s )
 		return;
 	}
 
+	if(gAgent.isMovementLocked()) return;
+
 	if (LLToolCamera::getInstance()->mouseSteerMode())
 	{
 		agent_slide_left(s);
 	}
 	else
 	{
-		if (KEYSTATE_UP == s) return;
+		if (KEYSTATE_UP == s)
+		{
+			// Check temporary running. In case user released 'left' key with shift already released.
+			agent_check_temporary_run(LLAgent::DOUBLETAP_SLIDELEFT);
+			return;
+		}
 		F32 time = gKeyboard->getCurKeyElapsedTime();
 		gAgent.moveYaw( LLFloaterMove::getYawRate( time ) );
 	}
@@ -277,13 +294,20 @@ void agent_turn_right( EKeystate s )
 		return;
 	}
 
+	if(gAgent.isMovementLocked()) return;
+
 	if (LLToolCamera::getInstance()->mouseSteerMode())
 	{
 		agent_slide_right(s);
 	}
 	else
 	{
-		if (KEYSTATE_UP == s) return;
+		if (KEYSTATE_UP == s)
+		{
+			// Check temporary running. In case user released 'right' key with shift already released.
+			agent_check_temporary_run(LLAgent::DOUBLETAP_SLIDERIGHT);
+			return;
+		}
 		F32 time = gKeyboard->getCurKeyElapsedTime();
 		gAgent.moveYaw( -LLFloaterMove::getYawRate( time ) );
 	}
@@ -345,8 +369,8 @@ void camera_spin_around_cw( EKeystate s )
 
 void camera_spin_around_ccw_sitting( EKeystate s )
 {
-	if( KEYSTATE_UP == s ) return;
-	if (gAgent.rotateGrabbed() || gAgentCamera.sitCameraEnabled())
+	if( KEYSTATE_UP == s && gAgent.mDoubleTapRunMode != LLAgent::DOUBLETAP_SLIDERIGHT ) return;
+	if (gAgent.rotateGrabbed() || gAgentCamera.sitCameraEnabled() || gAgent.getRunning())
 	{
 		//send keystrokes, but do not change camera
 		agent_turn_right(s);
@@ -361,8 +385,8 @@ void camera_spin_around_ccw_sitting( EKeystate s )
 
 void camera_spin_around_cw_sitting( EKeystate s )
 {
-	if( KEYSTATE_UP == s  ) return;
-	if (gAgent.rotateGrabbed() || gAgentCamera.sitCameraEnabled())
+	if( KEYSTATE_UP == s && gAgent.mDoubleTapRunMode != LLAgent::DOUBLETAP_SLIDELEFT ) return;
+	if (gAgent.rotateGrabbed() || gAgentCamera.sitCameraEnabled() || gAgent.getRunning())
 	{
 		//send keystrokes, but do not change camera
 		agent_turn_left(s);
@@ -438,8 +462,8 @@ void camera_move_backward( EKeystate s )
 
 void camera_move_forward_sitting( EKeystate s )
 {
-	if( KEYSTATE_UP == s  ) return;
-	if (gAgent.forwardGrabbed() || gAgentCamera.sitCameraEnabled())
+	if( KEYSTATE_UP == s && gAgent.mDoubleTapRunMode != LLAgent::DOUBLETAP_FORWARD ) return;
+	if (gAgent.forwardGrabbed() || gAgentCamera.sitCameraEnabled() || gAgent.getRunning())
 	{
 		agent_push_forward(s);
 	}
@@ -452,9 +476,9 @@ void camera_move_forward_sitting( EKeystate s )
 
 void camera_move_backward_sitting( EKeystate s )
 {
-	if( KEYSTATE_UP == s  ) return;
+	if( KEYSTATE_UP == s && gAgent.mDoubleTapRunMode != LLAgent::DOUBLETAP_BACKWARD ) return;
 
-	if (gAgent.backwardGrabbed() || gAgentCamera.sitCameraEnabled())
+	if (gAgent.backwardGrabbed() || gAgentCamera.sitCameraEnabled() || gAgent.getRunning())
 	{
 		agent_push_backward(s);
 	}
@@ -598,16 +622,14 @@ void start_chat( EKeystate s )
 
 void start_gesture( EKeystate s )
 {
-	// Ansariel: If avatar is pointing at something, don't start
-	//           gesture. This works around the bug with Shared
-	//           Media prims.
+	// <FS:Ansariel> If avatar is pointing at something, don't start gesture.
+	//               This works around the bug with Shared Media prims.
 	if (gAgentCamera.mPointAtObject)
 	{
 		return;
 	}
 
-	// Ansariel: FIRE-4167: Don't start gesture if a floater with
-	//           web content has focus
+	// <FS:Ansariel> FIRE-4167: Don't start gesture if a floater with web content has focus
 	LLFloater* focused_floater = gFloaterView->getFocusedFloater();
 	if (focused_floater && dynamic_cast<LLFloaterWebContent*>(focused_floater))
 	{
@@ -618,20 +640,20 @@ void start_gesture( EKeystate s )
 	if (KEYSTATE_UP == s &&
 		! (focus_ctrlp && focus_ctrlp->acceptsTextInput()))
 	{
-		// <FS:Ansariel> Changed for new chatbar
- 		// ((LLFloaterReg::getTypedInstance<LLFloaterIMNearbyChat>("nearby_chat"))->getCurrentChat().empty()) <FS:TM> CHUI Merge new
+		// <FS:Ansariel> [FS Communication UI]
+ 		//if ((LLFloaterReg::getTypedInstance<LLFloaterIMNearbyChat>("nearby_chat"))->getCurrentChat().empty())
  		//{
  		//	// No existing chat in chat editor, insert '/'
- 		//	LLFloaterIMNearbyChat::startChat("/"); <FS:TM> CHUI Merge new
+ 		//	LLFloaterIMNearbyChat::startChat("/");
  		//}
  		//else
  		//{
  		//	// Don't overwrite existing text in chat editor
- 		//	LLFloaterIMNearbyChat::startChat(NULL); <FS:TM> CHUI Merge new
+ 		//	LLFloaterIMNearbyChat::startChat(NULL);
  		//}
 
-		FSNearbyChat::instance().showDefaultChatBar(TRUE,"/"); // <FS:TM> CHUI Merge Check this
- 		// </FS:Ansariel>
+		FSNearbyChat::instance().showDefaultChatBar(TRUE, "/");
+ 		// </FS:Ansariel> [FS Communication UI]
 	}
 }
 
@@ -860,6 +882,18 @@ LLViewerKeyboard::Keys::Keys()
 
 S32 LLViewerKeyboard::loadBindingsXML(const std::string& filename)
 {
+	// <FS:Ansariel> Allow instant change of keyboard layout
+	for (S32 i = 0; i < MODE_COUNT; i++)
+	{
+		mBindingCount[i] = 0;
+
+		for (S32 j = 0; j < MAX_KEY_BINDINGS; j++)
+		{
+			mBindings[i][j] = LLKeyBinding();
+		}
+	}
+	// </FS:Ansariel>
+
 	S32 binding_count = 0;
 	Keys keys;
 	LLSimpleXUIParser parser;

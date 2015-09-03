@@ -279,6 +279,8 @@ LLEditWearableDictionary::WearableEntry::WearableEntry(LLWearableType::EType typ
                 ESubpart part = (ESubpart)va_arg(argp,int);
                 mSubparts.push_back(part);
         }
+
+		va_end( argp ); // <FS:ND/> Need to clean up
 }
 
 LLEditWearableDictionary::Subparts::Subparts()
@@ -865,10 +867,8 @@ void LLPanelEditWearable::draw()
 
 void LLPanelEditWearable::onClose()
 {
-	if ( isDirty() )
-	{
-		revertChanges();
-	}
+	// any unsaved changes should be reverted at this point
+	revertChanges();
 }
 
 void LLPanelEditWearable::setVisible(BOOL visible)
@@ -932,28 +932,35 @@ void LLPanelEditWearable::onCommitSexChange()
         if (!isAgentAvatarValid()) return;
 
         LLWearableType::EType type = mWearablePtr->getType();
-        U32 index = gAgentWearables.getWearableIndex(mWearablePtr);
-
-        if( !gAgentWearables.isWearableModifiable(type, index))
+        U32 index;
+        if( !gAgentWearables.getWearableIndex(mWearablePtr, index) ||
+			!gAgentWearables.isWearableModifiable(type, index))
         {
-                return;
+			return;
         }
 
         LLViewerVisualParam* param = static_cast<LLViewerVisualParam*>(gAgentAvatarp->getVisualParam( "male" ));
         if( !param )
         {
-                return;
+			return;
         }
 
         bool is_new_sex_male = (gSavedSettings.getU32("AvatarSex") ? SEX_MALE : SEX_FEMALE) == SEX_MALE;
         LLViewerWearable*     wearable = gAgentWearables.getViewerWearable(type, index);
         if (wearable)
         {
+                // <FS:Ansariel> [Legacy Bake]
+                //wearable->setVisualParamWeight(param->getID(), is_new_sex_male);
                 wearable->setVisualParamWeight(param->getID(), is_new_sex_male, FALSE);
         }
-        param->setWeight( is_new_sex_male, FALSE );
+        // <FS:Ansariel> [Legacy Bake]
+        //param->setWeight( is_new_sex_male);
 
-        gAgentAvatarp->updateSexDependentLayerSets( FALSE );
+        //gAgentAvatarp->updateSexDependentLayerSets();
+        param->setWeight( is_new_sex_male, FALSE);
+
+        gAgentAvatarp->updateSexDependentLayerSets(FALSE);
+        // </FS:Ansariel> [Legacy Bake]
 
         gAgentAvatarp->updateVisualParams();
         showWearable(mWearablePtr, TRUE, TRUE);
@@ -985,10 +992,19 @@ void LLPanelEditWearable::onTexturePickerCommit(const LLUICtrl* ctrl)
                         }
                         if (getWearable())
                         {
-                                U32 index = gAgentWearables.getWearableIndex(getWearable());
-                                gAgentAvatarp->setLocalTexture(entry->mTextureIndex, image, FALSE, index);
-                                LLVisualParamHint::requestHintUpdates();
-                                gAgentAvatarp->wearableUpdated(type, FALSE);
+							U32 index;
+							if (gAgentWearables.getWearableIndex(getWearable(), index))
+							{
+								gAgentAvatarp->setLocalTexture(entry->mTextureIndex, image, FALSE, index);
+								LLVisualParamHint::requestHintUpdates();
+								// <FS:Ansariel> [Legacy Bake]
+								//gAgentAvatarp->wearableUpdated(type);
+								gAgentAvatarp->wearableUpdated(type, FALSE);
+							}
+							else
+							{
+								LL_WARNS() << "wearable not found in gAgentWearables" << LL_ENDL;
+							}
                         }
                 }
                 else
@@ -1012,8 +1028,12 @@ void LLPanelEditWearable::onColorSwatchCommit(const LLUICtrl* ctrl)
                         const LLColor4& new_color = LLColor4(ctrl->getValue());
                         if( old_color != new_color )
                         {
+                                // <FS:Ansariel> [Legacy Bake]
+                                //getWearable()->setClothesColor(entry->mTextureIndex, new_color);
                                 getWearable()->setClothesColor(entry->mTextureIndex, new_color, TRUE);
                                 LLVisualParamHint::requestHintUpdates();
+                                // <FS:Ansariel> [Legacy Bake]
+                                //gAgentAvatarp->wearableUpdated(getWearable()->getType());
                                 gAgentAvatarp->wearableUpdated(getWearable()->getType(), FALSE);
                         }
                 }
@@ -1065,7 +1085,12 @@ void LLPanelEditWearable::saveChanges(bool force_save_as)
                 return;
         }
 
-        U32 index = gAgentWearables.getWearableIndex(mWearablePtr);
+        U32 index;
+		if (!gAgentWearables.getWearableIndex(mWearablePtr, index))
+		{
+			LL_WARNS() << "wearable not found" << LL_ENDL;
+			return;
+		}
 
         std::string new_name = mNameEditor->getText();
 
@@ -1085,10 +1110,10 @@ void LLPanelEditWearable::saveChanges(bool force_save_as)
 
         if (force_save_as)
         {
-                // the name of the wearable has changed, re-save wearable with new name
-                LLAppearanceMgr::instance().removeCOFItemLinks(mWearablePtr->getItemID());
+			// the name of the wearable has changed, re-save wearable with new name
+			LLAppearanceMgr::instance().removeCOFItemLinks(mWearablePtr->getItemID(),gAgentAvatarp->mEndCustomizeCallback);
 			gAgentWearables.saveWearableAs(mWearablePtr->getType(), index, new_name, description, FALSE);
-                mNameEditor->setText(mWearableItem->getName());
+			mNameEditor->setText(mWearableItem->getName());
         }
         else
         {
@@ -1098,17 +1123,21 @@ void LLPanelEditWearable::saveChanges(bool force_save_as)
 			if (link_item)
 			{
 				// Create new link
-				link_inventory_item( gAgent.getID(),
-									 link_item->getLinkedUUID(),
-									 LLAppearanceMgr::instance().getCOF(),
-									 link_item->getName(),
-									 description,
-									 LLAssetType::AT_LINK,
-									 NULL);
+				LL_DEBUGS("Avatar") << "link refresh, creating new link to " << link_item->getLinkedUUID()
+									<< " removing old link at " << link_item->getUUID()
+									<< " wearable item id " << mWearablePtr->getItemID() << LL_ENDL;
+
+				LLInventoryObject::const_object_list_t obj_array;
+				obj_array.push_back(LLConstPointer<LLInventoryObject>(link_item));
+				link_inventory_array(LLAppearanceMgr::instance().getCOF(),
+									 obj_array, 
+									 gAgentAvatarp->mEndCustomizeCallback);
 				// Remove old link
-				gInventory.purgeObject(link_item->getUUID());
+				remove_inventory_item(link_item->getUUID(), gAgentAvatarp->mEndCustomizeCallback);
 			}
-                gAgentWearables.saveWearable(mWearablePtr->getType(), index, TRUE, new_name);
+			// <FS:Ansariel> [Legacy Bake]
+			//gAgentWearables.saveWearable(mWearablePtr->getType(), index, new_name);
+			gAgentWearables.saveWearable(mWearablePtr->getType(), index, TRUE, new_name);
         }
 
 	
@@ -1126,6 +1155,8 @@ void LLPanelEditWearable::revertChanges()
         mNameEditor->setText(mWearableItem->getName());
         updatePanelPickerControls(mWearablePtr->getType());
         updateTypeSpecificControls(mWearablePtr->getType());
+        // <FS:Ansariel> [Legacy Bake]
+        //gAgentAvatarp->wearableUpdated(mWearablePtr->getType());
         gAgentAvatarp->wearableUpdated(mWearablePtr->getType(), FALSE);
 }
 
@@ -1324,15 +1355,15 @@ void LLPanelEditWearable::toggleTypeSpecificControls(LLWearableType::EType type)
 
 void LLPanelEditWearable::updateTypeSpecificControls(LLWearableType::EType type)
 {
-        const F32 ONE_METER = 1.0;
-        const F32 ONE_FOOT = 0.3048 * ONE_METER; // in meters
+        const F32 ONE_METER = 1.0f;
+        const F32 ONE_FOOT = 0.3048f * ONE_METER; // in meters
         // Update controls specific to shape editing panel.
         if (type == LLWearableType::WT_SHAPE)
         {
                 // Update avatar height
 				// The .195 is a fudge factor derived by measuring against
 				//  prims inworld, and carried forward from Phoenix. -- TS
-				F32 new_size = gAgentAvatarp->mBodySize.mV[VZ] + .195;
+				F32 new_size = gAgentAvatarp->mBodySize.mV[VZ] + .195f;
 
                 if (gSavedSettings.getBOOL("HeightUnits") == FALSE)
                 {
@@ -1586,6 +1617,12 @@ void LLPanelEditWearable::onInvisibilityCommit(LLCheckBoxCtrl* checkbox_ctrl, LL
 
         LL_INFOS() << "onInvisibilityCommit, self " << this << " checkbox_ctrl " << checkbox_ctrl << LL_ENDL;
 
+		U32 index;
+		if (!gAgentWearables.getWearableIndex(getWearable(),index))
+		{
+			LL_WARNS() << "wearable not found" << LL_ENDL;
+			return;
+		}
         bool new_invis_state = checkbox_ctrl->get();
         if (new_invis_state)
         {
@@ -1593,9 +1630,10 @@ void LLPanelEditWearable::onInvisibilityCommit(LLCheckBoxCtrl* checkbox_ctrl, LL
                 mPreviousAlphaTexture[te] = lto->getID();
                 
                 LLViewerFetchedTexture* image = LLViewerTextureManager::getFetchedTexture( IMG_INVISIBLE );
-                U32 index = gAgentWearables.getWearableIndex(getWearable());
-                gAgentAvatarp->setLocalTexture(te, image, FALSE, index);
-                gAgentAvatarp->wearableUpdated(getWearable()->getType(), FALSE);
+				gAgentAvatarp->setLocalTexture(te, image, FALSE, index);
+				// <FS:Ansariel> [Legacy Bake]
+				//gAgentAvatarp->wearableUpdated(getWearable()->getType());
+				gAgentAvatarp->wearableUpdated(getWearable()->getType(), FALSE);
         }
         else
         {
@@ -1610,8 +1648,9 @@ void LLPanelEditWearable::onInvisibilityCommit(LLCheckBoxCtrl* checkbox_ctrl, LL
                 LLViewerFetchedTexture* image = LLViewerTextureManager::getFetchedTexture(prev_id);
                 if (!image) return;
 
-                U32 index = gAgentWearables.getWearableIndex(getWearable());
                 gAgentAvatarp->setLocalTexture(te, image, FALSE, index);
+                // <FS:Ansariel> [Legacy Bake]
+                //gAgentAvatarp->wearableUpdated(getWearable()->getType());
                 gAgentAvatarp->wearableUpdated(getWearable()->getType(), FALSE);
         }
 
@@ -1701,6 +1740,8 @@ void LLPanelEditWearable::onClickedImportBtn()
 			{
 				LLVisualParam* visual_param = getWearable()->getVisualParam(id);
 				if (visual_param)
+					// <FS:Ansariel> [AIS Merge] Change back once legacy baking is re-added
+					//visual_param->setWeight(value);
 					visual_param->setWeight(value, FALSE);
 			}
 			else

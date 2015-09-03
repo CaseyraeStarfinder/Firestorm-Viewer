@@ -60,7 +60,12 @@ enum InventoryOfferResponse
 	IOR_ACCEPT,
 	IOR_DECLINE,
 	IOR_MUTE,
-	IOR_SHOW
+	IOR_SHOW,
+	// <FS:Ansariel> FIRE-3832: Silent accept/decline of inventory offers
+	IOR_ACCEPT_SILENT,
+	IOR_DECLINE_SILENT,
+	IOR_SHOW_SILENT
+	// </FS:Ansariel>
 };
 
 BOOL can_afford_transaction(S32 cost);
@@ -206,7 +211,9 @@ void invalid_message_callback(LLMessageSystem*, void*, EMessageException);
 
 void process_initiate_download(LLMessageSystem* msg, void**);
 void start_new_inventory_observer();
-void open_inventory_offer(const uuid_vec_t& items, const std::string& from_name);
+// <FS:Ansariel> FIRE-15886
+//void open_inventory_offer(const uuid_vec_t& items, const std::string& from_name);
+void open_inventory_offer(const uuid_vec_t& items, const std::string& from_name, bool from_agent = false);
 
 // Returns true if item is not in certain "quiet" folder which don't need UI
 // notification (e.g. trash, cof, lost-and-found) and agent is not AFK, false otherwise.

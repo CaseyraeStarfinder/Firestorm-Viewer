@@ -73,6 +73,15 @@ BOOL LLPanelVolumePulldown::postBuild()
 	LLSliderCtrl* volslider =  getChild<LLSliderCtrl>( "System Volume" );
 	volslider->setValue(gSavedSettings.getF32("AudioLevelMaster"));
 
+	// <FS:PP> FIRE-9856: Mute sound effects disable plays sound from collisions and plays sound from gestures checkbox not disable after restart/relog
+	bool mute_sound_effects = gSavedSettings.getBOOL("MuteSounds");
+	bool mute_all_sounds = gSavedSettings.getBOOL("MuteAudio");
+	LLCheckBoxCtrl* gesture_audio_play_btn = getChild<LLCheckBoxCtrl>("gesture_audio_play_btn");
+	gesture_audio_play_btn->setEnabled(!(mute_sound_effects || mute_all_sounds));
+	LLCheckBoxCtrl* collisions_audio_play_btn = getChild<LLCheckBoxCtrl>("collisions_audio_play_btn");
+	collisions_audio_play_btn->setEnabled(!(mute_sound_effects || mute_all_sounds));
+	// </FS:PP> 
+
 	return LLPanel::postBuild();
 }
 

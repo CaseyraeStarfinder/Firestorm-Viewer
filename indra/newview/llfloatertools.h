@@ -130,6 +130,11 @@ private:
 	static void setObjectType( LLPCode pcode );
 	void onClickGridOptions();
 
+	// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+	void buildTreeGrassCombo();
+	void onSelectTreeGrassCombo();
+	// </FS:Ansariel>
+
 public:
 	LLButton		*mBtnFocus;
 	LLButton		*mBtnMove;
@@ -178,6 +183,9 @@ public:
 	LLButton	*mBtnDuplicate;
 	LLButton	*mBtnDuplicateInPlace;
 
+	// <FS:Ansariel> FIRE-7802: Grass and tree selection in build tool
+	LLComboBox*		mTreeGrassCombo;
+
 	// Create buttons
 	LLCheckBoxCtrl	*mCheckSticky;
 	LLCheckBoxCtrl	*mCheckCopySelection;
@@ -223,11 +231,13 @@ private:
 	S32					mExpandedHeight;
 	std::map<std::string, std::string> mStatusText;
 
+
 protected:
 	LLSD				mMediaSettings;
 
 public:
 	static bool		sShowObjectCost;
+	static bool		sPreviousFocusOnAvatar;
 	
 };
 

@@ -48,6 +48,7 @@
 
 #include "llares.h"
 #include "llavatarnamecache.h"
+#include "llexperiencecache.h"
 #include "lllandmark.h"
 #include "llcachename.h"
 #include "lldir.h"
@@ -124,7 +125,10 @@
 #include "llkeyboard.h"
 #include "llloginhandler.h"			// gLoginHandler, SLURL support
 #include "lllogininstance.h" // Host the login module.
-#include "llpanellogin.h"
+// <FS:Ansariel> [FS Login Panel]
+//#include "llpanellogin.h"
+#include "fspanellogin.h"
+// <FS:Ansariel> [FS Login Panel]
 #include "llmutelist.h"
 #include "llavatarpropertiesprocessor.h"
 #include "llpanelclassified.h"
@@ -198,6 +202,7 @@
 #include "llevents.h"
 #include "llstartuplistener.h"
 #include "lltoolbarview.h"
+#include "llexperiencelog.h"
 
 #if LL_WINDOWS
 #include "lldxhardware.h"
@@ -223,6 +228,8 @@
 #include "llfloatersearch.h"
 #include "llfloatersidepanelcontainer.h"
 #include "llnotificationmanager.h"
+#include "llprogressview.h"
+#include "lltoolbarview.h"
 #include "NACLantispam.h"
 #include "rlvhandler.h"
 #include "streamtitledisplay.h"
@@ -271,7 +278,8 @@ static LLVector3 gAgentStartLookAt(1.0f, 0.f, 0.f);
 static std::string gAgentStartLocation = "safe";
 static bool mLoginStatePastUI = false;
 
-const S32 DEFAULT_MAX_AGENT_GROUPS = 25;
+const S32 DEFAULT_MAX_AGENT_GROUPS = 42;
+const S32 ALLOWED_MAX_AGENT_GROUPS = 500;
 
 boost::scoped_ptr<LLEventPump> LLStartUp::sStateWatcher(new LLEventStream("StartupState"));
 boost::scoped_ptr<LLStartupListener> LLStartUp::sListener(new LLStartupListener());
@@ -343,28 +351,28 @@ class GridListRequestResponder : public LLHTTPClient::Responder
 {
 public:
 	//If we get back a normal response, handle it here
-	virtual void result(const LLSD& content)
+	virtual void httpSuccess()
 	{
 		std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, "grids.remote.xml");
 
 		llofstream out_file;
-		out_file.open(filename);
-		LLSDSerialize::toPrettyXML(content, out_file);
+		out_file.open(filename.c_str());
+		LLSDSerialize::toPrettyXML(getContent(), out_file);
 		out_file.close();
 		LL_INFOS() << "GridListRequest: got new list." << LL_ENDL;
 		sGridListRequestReady = true;
 	}
 
 	//If we get back an error (not found, etc...), handle it here
-	virtual void error(U32 status, const std::string& reason)
+	virtual void httpFailure()
 	{
 		sGridListRequestReady = true;
-		if (304 == status)
+		if (HTTP_NOT_MODIFIED == getStatus())
 		{
 			LL_DEBUGS("GridManager") << "<- no error :P ... GridListRequest: List not modified since last session" << LL_ENDL;
 		}
 		else
-			LL_WARNS() << "GridListRequest::error("<< status << ": " << reason << ")" << LL_ENDL;
+			LL_WARNS() << "GridListRequest::error("<< getStatus() << ": " << getReason() << ")" << LL_ENDL;
 	}
 };
 // </AW: opensim>
@@ -373,12 +381,12 @@ public:
 class SLGridStatusResponder : public LLHTTPClient::Responder
 {
 public:
-	virtual void completedRaw(U32 status, const std::string& reason, const LLChannelDescriptors& channels, const LLIOPipe::buffer_ptr_t& buffer)
+	virtual void completedRaw(const LLChannelDescriptors& channels, const LLIOPipe::buffer_ptr_t& buffer)
 	{
-
-		if (!isGoodStatus(status) && status != 304)
+		S32 status = getStatus();
+		if (!isGoodStatus() && status != HTTP_NOT_MODIFIED)
 		{
-			if (status == 499)
+			if (status == HTTP_INTERNAL_ERROR)
 			{
 				reportToNearbyChat(LLTrans::getString("SLGridStatusTimedOut"));
 			}
@@ -405,42 +413,41 @@ public:
 		strstrm << istr.rdbuf();
 		std::string fetchedNews = strstrm.str();
 
-		S32 itemStart = fetchedNews.find("<item>");
-		S32 itemEnd = fetchedNews.find("</item>");
+		size_t itemStart = fetchedNews.find("<item>");
+		size_t itemEnd = fetchedNews.find("</item>");
 		if (itemEnd != std::string::npos && itemStart != std::string::npos)
 		{
-
 			// Isolate latest news data
 			itemStart += 6;
 			std::string theNews = fetchedNews.substr(itemStart, itemEnd - itemStart);
 
 			// Check for and remove CDATA characters if they're present
-			S32 titleStart = theNews.find("<title><![CDATA[");
+			size_t titleStart = theNews.find("<title><![CDATA[");
 			if (titleStart != std::string::npos)
 			{
 				theNews.replace(titleStart, 16, "<title>");
 			}
-			S32 titleEnd = theNews.find("]]></title>");
+			size_t titleEnd = theNews.find("]]></title>");
 			if (titleEnd != std::string::npos)
 			{
 				theNews.replace(titleEnd, 11, "</title>");
 			}
-			S32 descStart = theNews.find("<description><![CDATA[");
+			size_t descStart = theNews.find("<description><![CDATA[");
 			if (descStart != std::string::npos)
 			{
 				theNews.replace(descStart, 22, "<description>");
 			}
-			S32 descEnd = theNews.find("]]></description>");
+			size_t descEnd = theNews.find("]]></description>");
 			if (descEnd != std::string::npos)
 			{
 				theNews.replace(descEnd, 17, "</description>");
 			}
-			S32 linkStart = theNews.find("<link><![CDATA[");
+			size_t linkStart = theNews.find("<link><![CDATA[");
 			if (linkStart != std::string::npos)
 			{
 				theNews.replace(linkStart, 15, "<link>");
 			}
-			S32 linkEnd = theNews.find("]]></link>");
+			size_t linkEnd = theNews.find("]]></link>");
 			if (linkEnd != std::string::npos)
 			{
 				theNews.replace(linkEnd, 10, "</link>");
@@ -454,7 +461,12 @@ public:
 			descEnd = theNews.find("</description>");
 			linkEnd = theNews.find("</link>");
 
-			if (titleStart != std::string::npos && descStart != std::string::npos && linkStart != std::string::npos && titleEnd != std::string::npos && descEnd != std::string::npos && linkEnd != std::string::npos)
+			if (titleStart != std::string::npos &&
+				descStart != std::string::npos &&
+				linkStart != std::string::npos &&
+				titleEnd != std::string::npos &&
+				descEnd != std::string::npos &&
+				linkEnd != std::string::npos)
 			{
 				titleStart += 7;
 				descStart += 13;
@@ -472,14 +484,12 @@ public:
 				reportToNearbyChat(LLTrans::getString("SLGridStatusInvalidMsg"));
 				LL_WARNS("SLGridStatusResponder") << "Error - inner tag(s) missing" << LL_ENDL;
 			}
-
 		}
 		else
 		{
 			reportToNearbyChat(LLTrans::getString("SLGridStatusInvalidMsg"));
 			LL_WARNS("SLGridStatusResponder") << "Error - output without </item>" << LL_ENDL;
 		}
-
 	}
 };
 // </FS:PP>
@@ -490,6 +500,12 @@ void update_texture_fetch()
 	LLAppViewer::getImageDecodeThread()->update(1); // unpauses the image thread
 	LLAppViewer::getTextureFetch()->update(1); // unpauses the texture fetch thread
 	gTextureList.updateImages(0.10f);
+}
+
+void set_flags_and_update_appearance()
+{
+	LLAppearanceMgr::instance().setAttachmentInvLinkEnable(true);
+	LLAppearanceMgr::instance().updateAppearanceFromCOF(true, true, no_op);
 }
 
 // Returns false to skip other idle processing. Should only return
@@ -580,7 +596,7 @@ bool idle_startup()
 // [/RLVa:KB]
 
 #if HAS_GROWL
-		GrowlManager::InitiateManager();
+		GrowlManager::initiateManager();
 #endif
 
 		// <FS:Ansariel> Store current font and skin for system info (FIRE-6806)
@@ -1083,11 +1099,14 @@ bool idle_startup()
 			{
 // <FS:CR>
 				//LLPanelLogin::setFields( gUserCredential, gRememberPassword);
-				LLPanelLogin::setFields(gUserCredential);
+				FSPanelLogin::setFields(gUserCredential, true);
 // </FS:CR>
 			}
 			display_startup();
-			LLPanelLogin::giveFocus();
+			// <FS:Ansariel> [FS Login Panel]
+			//LLPanelLogin::giveFocus();
+			FSPanelLogin::giveFocus();
+			// </FS:Ansariel> [FS Login Panel]
 
 			// MAINT-3231 Show first run dialog only for Desura viewer
 			if (gSavedSettings.getString("sourceid") == "1208_desura")
@@ -1189,7 +1208,10 @@ bool idle_startup()
 		{
 			// TODO if not use viewer auth
 			// Load all the name information out of the login view
-			LLPanelLogin::getFields(gUserCredential, gRememberPassword); 
+			// <FS:Ansariel> [FS Login Panel]
+			//LLPanelLogin::getFields(gUserCredential, gRememberPassword); 
+			FSPanelLogin::getFields(gUserCredential, gRememberPassword); 
+			// </FS:Ansariel> [FS Login Panel]
 			// end TODO
 	 
 			// HACK: Try to make not jump on login
@@ -1265,6 +1287,14 @@ bool idle_startup()
 		// Overwrite default user settings with user settings								 
 		LLAppViewer::instance()->loadSettingsFromDirectory("Account");
 
+		// <FS:Ansariel> Restore bottom toolbar layout now he have the user settings
+		LLLayoutStack* chat_bar_stack = gToolBarView->findChild<LLLayoutStack>("chat_bar_stack");
+		if (chat_bar_stack)
+		{
+			chat_bar_stack->refreshFromSettings();
+		}
+		// </FS:Ansariel>
+
 		// Convert 'LogInstantMessages' into 'KeepConversationLogTranscripts' for backward compatibility (CHUI-743).
 		// <FS:CR> FIRE-11410 - Don't do this, handle it in settings restore and first run
 		//LLControlVariablePtr logInstantMessagesControl = gSavedPerAccountSettings.getControl("LogInstantMessages");
@@ -1330,7 +1360,11 @@ bool idle_startup()
 		{
 			LLSLURL slurl;
 			// WS: Close the Panel only, if we have DisableLoginScreens enabled. Else fade away.
-			if(gSavedSettings.getBOOL("FSDisableLoginScreens")) LLPanelLogin::closePanel();
+			if(gSavedSettings.getBOOL("FSDisableLoginScreens"))
+				// <FS:Ansariel> [FS Login Panel]
+				//LLPanelLogin::closePanel();
+				FSPanelLogin::closePanel();
+				// </FS:Ansariel> [FS Login Panel]
 		}
 
 		
@@ -1570,7 +1604,8 @@ bool idle_startup()
 								LLNotificationsUtil::add("TrustCertificateError", args, response,
 														trust_cert_done);
 								
-								show_connect_box = true;
+								// <FS:Ansariel> Not needed here - done below
+								//show_connect_box = true;
 							}
 							else
 							{
@@ -1582,9 +1617,11 @@ bool idle_startup()
 								LLNotificationsUtil::add("GeneralCertificateError", args, response,
 														 general_cert_done);
 								
-								reset_login();
-								gSavedSettings.setBOOL("AutoLogin", FALSE);
-								show_connect_box = true;
+								// <FS:Ansariel> Not needed here - done below & in transition_back_to_login_panel()
+								//reset_login();
+								//gSavedSettings.setBOOL("AutoLogin", FALSE);
+								//show_connect_box = true;
+								// </FS:Ansariel>
 								
 							}
 
@@ -1603,7 +1640,10 @@ bool idle_startup()
 				//setup map of datetime strings to codes and slt & local time offset from utc
 				// *TODO: Does this need to be here?
 				LLStringOps::setupDatetimeInfo (false);
-				transition_back_to_login_panel(emsg.str());
+				// <FS:Ansariel> Wait for notification confirmation
+				//transition_back_to_login_panel(emsg.str());
+				LLStartUp::setStartupState(STATE_LOGIN_CONFIRM_NOTIFICATON);
+				// </FS:Ansariel>
 				show_connect_box = true;
 			}
 		}
@@ -1624,7 +1664,11 @@ bool idle_startup()
 				// create the default proximal channel
 				LLVoiceChannel::initClass();
 				
-				gSecAPIHandler->saveCredential(gUserCredential, gRememberPassword);
+				if (gSavedSettings.getBOOL("FSRememberUsername"))
+				{
+					gSecAPIHandler->saveCredential(gUserCredential, gRememberPassword);
+				}
+				FSPanelLogin::clearPassword();
 				LLStartUp::setStartupState( STATE_WORLD_INIT);
 				LLTrace::get_frame_recording().reset();
 			}
@@ -1634,13 +1678,27 @@ bool idle_startup()
 				args["ERROR_MESSAGE"] = emsg.str();
 				LL_INFOS("LLStartup") << "Notification: " << args << LL_ENDL;
 				LLNotificationsUtil::add("ErrorMessage", args, LLSD(), login_alert_done);
-				transition_back_to_login_panel(emsg.str());
+				// <FS:Ansariel> Wait for notification confirmation
+				//transition_back_to_login_panel(emsg.str());
+				LLStartUp::setStartupState(STATE_LOGIN_CONFIRM_NOTIFICATON);
+				// </FS:Ansariel>
 				show_connect_box = true;
 				return FALSE;
 			}
 		}
 		return FALSE;
 	}
+
+	// <FS:Ansariel> Wait for notification confirmation
+	if (STATE_LOGIN_CONFIRM_NOTIFICATON == LLStartUp::getStartupState())
+	{
+		display_startup();
+		gViewerWindow->getProgressView()->setVisible(FALSE);
+		display_startup();
+		ms_sleep(1);
+		return FALSE;
+	}
+	// </FS:Ansariel>
 
 	//---------------------------------------------------------------------
 	// World Init
@@ -1651,6 +1709,16 @@ bool idle_startup()
 		display_startup();
 		// We should have an agent id by this point.
 		llassert(!(gAgentID == LLUUID::null));
+
+		// <FS:Ansariel> Force HTTP inventory enabled on Second Life
+#ifdef OPENSIM
+		if (LLGridManager::getInstance()->isInSecondLife())
+#endif
+		{
+			gMenuBarView->getChild<LLMenuItemGL>("HTTP Textures")->setVisible(FALSE);
+			gMenuBarView->getChild<LLMenuItemGL>("HTTP Inventory")->setVisible(FALSE);
+		}
+		// </FS:Ansariel>
 
 		// Finish agent initialization.  (Requires gSavedSettings, builds camera)
 		gAgent.init();
@@ -1726,6 +1794,8 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 		LLViewerRegion *regionp = LLWorld::getInstance()->getRegionFromHandle(gFirstSimHandle);
 		LL_INFOS("AppInit") << "Adding initial simulator " << regionp->getOriginGlobal() << LL_ENDL;
 		
+		LL_DEBUGS("CrossingCaps") << "Calling setSeedCapability from init_idle(). Seed cap == "
+		<< gFirstSimSeedCap << LL_ENDL;
 		regionp->setSeedCapability(gFirstSimSeedCap);
 		LL_DEBUGS("AppInit") << "Waiting for seed grant ...." << LL_ENDL;
 		display_startup();
@@ -1735,6 +1805,9 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 		// Set agent's initial position, which will be read by LLVOAvatar when the avatar
 		// object is created.  I think this must be done after setting the region.  JC
 		gAgent.setPositionAgent(agent_start_position_region);
+
+		display_startup();
+		LLStartUp::initExperiences();
 
 		display_startup();
 		LLStartUp::setStartupState( STATE_MULTIMEDIA_INIT );
@@ -1783,11 +1856,11 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 			{
 				LLStringUtil::format_map_t args;
 				args["[NUMBER]"] = llformat("%d", num_retries + 1);
-				set_startup_status(0.4f, LLTrans::getString("LoginRetrySeedCapGrant", args), gAgent.mMOTD);
+				set_startup_status(0.4f, LLTrans::getString("LoginRetrySeedCapGrant", args), gAgent.mMOTD.c_str());
 			}
 			else
 			{
-				set_startup_status(0.4f, LLTrans::getString("LoginRequestSeedCapGrant"), gAgent.mMOTD);
+				set_startup_status(0.4f, LLTrans::getString("LoginRequestSeedCapGrant"), gAgent.mMOTD.c_str());
 			}
 		}
 		display_startup();
@@ -2272,6 +2345,15 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 		// This method MUST be called before gInventory.findCategoryUUIDForType because of 
 		// gInventory.mIsAgentInvUsable is set to true in the gInventory.buildParentChildMap.
 		gInventory.buildParentChildMap();
+		gInventory.createCommonSystemCategories();
+
+		// It's debatable whether this flag is a good idea - sets all
+		// bits, and in general it isn't true that inventory
+		// initialization generates all types of changes. Maybe add an
+		// INITIALIZE mask bit instead?
+		gInventory.addChangedMask(LLInventoryObserver::ALL, LLUUID::null);
+		gInventory.notifyObservers();
+		
 		display_startup();
 
 		//all categories loaded. lets create "My Favorites" category
@@ -2372,7 +2454,12 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 		}
 		
 		display_startup();
-		
+        
+        // *TODO : Uncomment that line once the whole grid migrated to SLM and suppress it from LLAgent::handleTeleportFinished() (llagent.cpp)
+        //check_merchant_status();
+
+		display_startup();
+
 		// <FS:CR> Compatibility with old backups
 		// Put gSavedPerAccountSettings here, put gSavedSettings in llappviewer.cpp
 		// *TODO: Should we keep these around forever or just three release cycles?
@@ -2405,6 +2492,7 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 
 		display_startup();
 
+		// <FS:Ansariel> [FS Login Panel]
 		// based on the comments, we've successfully logged in so we can delete the 'forced'
 		// URL that the updater set in settings.ini (in a mostly paranoid fashion)
 		std::string nextLoginLocation = gSavedSettings.getString( "NextLoginLocation" );
@@ -2417,6 +2505,7 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 			gSavedSettings.saveToFile( gSavedSettings.getString("ClientSettingsFile") , TRUE );
 			LLUIColorTable::instance().saveUserSettings();
 		};
+		// </FS:Ansariel> [FS Login Panel]
 
 		display_startup();
 		// JC: Initializing audio requests many sounds for download.
@@ -2541,10 +2630,6 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 		display_startup();
 		
 		// <FS:CR> Load dynamic script library from xml
-		if (!gScriptLibrary.loadLibrary(gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, "scriptlibrary_lsl.xml")))
-		{
-			gScriptLibrary.loadLibrary(gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "scriptlibrary_lsl.xml"));
-		}
 #ifdef OPENSIM
 		if (LLGridManager::getInstance()->isInOpenSim())
 		{
@@ -2573,7 +2658,7 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 	{
 		display_startup();
 		F32 timeout_frac = timeout.getElapsedTimeF32()/PRECACHING_DELAY;
-
+		
 		// We now have an inventory skeleton, so if this is a user's first
 		// login, we can start setting up their clothing and avatar 
 		// appearance.  This helps to avoid the generic "Ruth" avatar in
@@ -2582,18 +2667,45 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 			&& !sInitialOutfit.empty()    // registration set up an outfit
 			&& !sInitialOutfitGender.empty() // and a gender
 			&& isAgentAvatarValid()	  // can't wear clothes without object
-			&& !gAgent.isGenderChosen() ) // nothing already loading
+			&& !gAgent.isOutfitChosen()) // nothing already loading
 		{
 			// Start loading the wearables, textures, gestures
 			LLStartUp::loadInitialOutfit( sInitialOutfit, sInitialOutfitGender );
+		}
+		// If not first login, we need to fetch COF contents and
+		// compute appearance from that.
+// <FS:Ansariel> [Legacy Bake]
+		//if (isAgentAvatarValid() && !gAgent.isFirstLogin() && !gAgent.isOutfitChosen())
+#ifdef OPENSIM
+		if (LLGridManager::getInstance()->isInSecondLife() && isAgentAvatarValid() && !gAgent.isFirstLogin() && !gAgent.isOutfitChosen())
+#else
+		if (isAgentAvatarValid() && !gAgent.isFirstLogin() && !gAgent.isOutfitChosen())
+#endif
+// </FS:Ansariel> [Legacy Bake]
+		{
+			gAgentWearables.notifyLoadingStarted();
+			gAgent.setOutfitChosen(TRUE);
+			gAgentWearables.sendDummyAgentWearablesUpdate();
+			callAfterCategoryFetch(LLAppearanceMgr::instance().getCOF(), set_flags_and_update_appearance);
 		}
 
 		display_startup();
 
 		// wait precache-delay and for agent's avatar or a lot longer.
-		if(((timeout_frac > 1.f) && isAgentAvatarValid())
-		   || (timeout_frac > 3.f))
+		if ((timeout_frac > 1.f) && isAgentAvatarValid())
 		{
+			LLStartUp::setStartupState( STATE_WEARABLES_WAIT );
+		}
+		else if (timeout_frac > 10.f) 
+		{
+			// If we exceed the wait above while isAgentAvatarValid is
+			// not true yet, we will change startup state and
+			// eventually (once avatar does get created) wind up at
+			// the gender chooser. This should occur only in very
+			// unusual circumstances, so set the timeout fairly high
+			// to minimize mistaken hits here.
+			LL_WARNS() << "Wait for valid avatar state exceeded " 
+					<< timeout.getElapsedTimeF32() << " will invoke gender chooser" << LL_ENDL; 
 			LLStartUp::setStartupState( STATE_WEARABLES_WAIT );
 		}
 		else
@@ -2601,7 +2713,7 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 			update_texture_fetch();
 			set_startup_status(0.60f + 0.30f * timeout_frac,
 				LLTrans::getString("LoginPrecaching"),
-					gAgent.mMOTD);
+					gAgent.mMOTD.c_str());
 			display_startup();
 		}
 		
@@ -2615,12 +2727,11 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 		const F32 wearables_time = wearables_timer.getElapsedTimeF32();
 		static LLCachedControl<F32> max_wearables_time(gSavedSettings, "ClothingLoadingDelay");
 
-		display_startup();
-		if (!gAgent.isGenderChosen() && isAgentAvatarValid())
+		if (!gAgent.isOutfitChosen() && isAgentAvatarValid())
 		{
-			// No point in waiting for clothing, we don't even
-			// know what gender we are.  Pop a dialog to ask and
-			// proceed to draw the world. JC
+			// No point in waiting for clothing, we don't even know
+			// what outfit we want.  Pop up a gender chooser dialog to
+			// ask and proceed to draw the world. JC
 			//
 			// *NOTE: We might hit this case even if we have an
 			// initial outfit, but if the load hasn't started
@@ -2636,7 +2747,18 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 			// </FS:Ansariel> Set CURRENT_GRID parameter
 			LLStartUp::setStartupState( STATE_CLEANUP );
 		}
-		else if (wearables_time >= max_wearables_time())
+		
+		display_startup();
+
+// <FS:Ansariel> [Legacy Bake]
+		//if (gAgent.isOutfitChosen() && (wearables_time > max_wearables_time))
+#ifdef OPENSIM
+		if ((LLGridManager::getInstance()->isInSecondLife() && gAgent.isOutfitChosen() && (wearables_time > max_wearables_time)) ||
+			(!LLGridManager::getInstance()->isInSecondLife() && (wearables_time > max_wearables_time)))
+#else
+		if (gAgent.isOutfitChosen() && (wearables_time > max_wearables_time))
+#endif
+// </FS:Ansariel> [Legacy Bake]
 		{
 			LLNotificationsUtil::add("ClothingLoading");
 			record(LLStatViewer::LOADING_WEARABLES_LONG_DELAY, wearables_time);
@@ -2647,25 +2769,24 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 				&& gAgentAvatarp->isFullyLoaded())
 		{
 			// wait for avatar to be completely loaded
-			//LL_INFOS() << "avatar fully loaded" << LL_ENDL;
-			LLStartUp::setStartupState( STATE_CLEANUP );
-		}
-		// OK to just get the wearables
-		else if (!gAgent.isFirstLogin() && gAgentWearables.areWearablesLoaded() )
-		{
-			// We have our clothing, proceed.
-			//LL_INFOS() << "wearables loaded" << LL_ENDL;
-			LLStartUp::setStartupState( STATE_CLEANUP );
+			if (isAgentAvatarValid()
+				&& gAgentAvatarp->isFullyLoaded())
+			{
+				LL_DEBUGS("Avatar") << "avatar fully loaded" << LL_ENDL;
+				LLStartUp::setStartupState( STATE_CLEANUP );
+				return TRUE;
+			}
 		}
 		else
 		{
-			display_startup();
-			update_texture_fetch();
-			display_startup();
-			set_startup_status(0.9f + 0.1f * wearables_time / max_wearables_time(),
-				LLTrans::getString("LoginDownloadingClothing").c_str(),
-				gAgent.mMOTD.c_str());
-			display_startup();
+			// OK to just get the wearables
+			if ( gAgentWearables.areWearablesLoaded() )
+			{
+				// We have our clothing, proceed.
+				LL_DEBUGS("Avatar") << "wearables loaded" << LL_ENDL;
+				LLStartUp::setStartupState( STATE_CLEANUP );
+				return TRUE;
+			}
 
 			// <FS:Ansariel> Can't fall through here, so return
 			return TRUE;
@@ -2772,6 +2893,8 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 		llassert(LLPathfindingManager::getInstance() != NULL);
 		LLPathfindingManager::getInstance()->initSystem();
 
+		gAgentAvatarp->sendHoverHeight();
+
 		// <FS:Techwolf Lupindo> FIRE-6643 Display MOTD when login screens are disabled
 		if (gSavedSettings.getBOOL("FSDisableLoginScreens"))
 		{
@@ -2788,7 +2911,6 @@ LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, first_sim_size_x, 
 		return TRUE;
 	}
 
-	LL_WARNS("AppInit") << "Reached end of idle_startup for state " << LLStartUp::getStartupState() << LL_ENDL;
 	return TRUE;
 }
 
@@ -2806,7 +2928,10 @@ void login_show()
 		gToolBarView->setVisible(FALSE);
 	}
 	
-	LLPanelLogin::show(	gViewerWindow->getWindowRectScaled(), login_callback, NULL );
+	// <FS:Ansariel> [FS Login Panel]
+	//LLPanelLogin::show(	gViewerWindow->getWindowRectScaled(), login_callback, NULL );
+	FSPanelLogin::show(	gViewerWindow->getWindowRectScaled(), login_callback, NULL );
+	// </FS:Ansariel> [FS Login Panel]
 }
 
 // Callback for when login screen is closed.  Option 0 = connect, option 1 = quit.
@@ -2834,7 +2959,10 @@ void login_callback(S32 option, void *userdata)
 		
 		if (LLAppViewer::instance()->quitRequested())
 		{
-			LLPanelLogin::closePanel();
+			// <FS:Ansariel> [FS Login Panel]
+			//LLPanelLogin::closePanel();
+			FSPanelLogin::closePanel();
+			// </FS:Ansariel> [FS Login Panel]
 		}
 		return;
 	}
@@ -2859,7 +2987,10 @@ bool first_run_dialog_callback(const LLSD& notification, const LLSD& response)
 		LLWeb::loadURLExternal(LLTrans::getString("create_account_url") );
 	}
 
-	LLPanelLogin::giveFocus();
+	// <FS:Ansariel> [FS Login Panel]
+	//LLPanelLogin::giveFocus();
+	FSPanelLogin::giveFocus();
+	// </FS:Ansariel> [FS Login Panel]
 	return false;
 }
 
@@ -2893,7 +3024,10 @@ bool login_alert_status(const LLSD& notification, const LLSD& response)
             LL_WARNS("AppInit") << "Missing case in login_alert_status switch" << LL_ENDL;
     }
 
-	LLPanelLogin::giveFocus();
+	// <FS:Ansariel> [FS Login Panel]
+	//LLPanelLogin::giveFocus();
+	FSPanelLogin::giveFocus();
+	// </FS:Ansariel> [FS Login Panel]
 	return false;
 }
 
@@ -2952,8 +3086,10 @@ void register_viewer_callbacks(LLMessageSystem* msg)
 	msg->setHandlerFuncFast(_PREHASH_RemoveNameValuePair,	process_remove_name_value);
 	msg->setHandlerFuncFast(_PREHASH_AvatarAnimation,		process_avatar_animation);
 	msg->setHandlerFuncFast(_PREHASH_AvatarAppearance,		process_avatar_appearance);
+	// <FS:Ansariel> [Legacy Bake]
 	msg->setHandlerFunc("AgentCachedTextureResponse",	LLAgent::processAgentCachedTextureResponse);
 	msg->setHandlerFunc("RebakeAvatarTextures", LLVOAvatarSelf::processRebakeAvatarTextures);
+	// </FS:Ansariel> [Legacy Bake]
 	msg->setHandlerFuncFast(_PREHASH_CameraConstraint,		process_camera_constraint);
 	msg->setHandlerFuncFast(_PREHASH_AvatarSitResponse,		process_avatar_sit_response);
 	msg->setHandlerFunc("SetFollowCamProperties",			process_set_follow_cam_properties);
@@ -3033,8 +3169,8 @@ void register_viewer_callbacks(LLMessageSystem* msg)
 	// msg->setHandlerFuncFast(_PREHASH_ReputationIndividualReply,
 	//					LLFloaterRate::processReputationIndividualReply);
 
-	msg->setHandlerFuncFast(_PREHASH_AgentWearablesUpdate,
-						LLAgentWearables::processAgentInitialWearablesUpdate );
+	// <FS:Ansariel> [Legacy Bake]
+	msg->setHandlerFuncFast(_PREHASH_AgentWearablesUpdate, LLAgentWearables::processAgentInitialWearablesUpdate );
 
 	msg->setHandlerFunc("ScriptControlChange",
 						LLAgent::processScriptControlChange );
@@ -3200,9 +3336,13 @@ void LLStartUp::loadInitialOutfit( const std::string& outfit_folder_name,
 		LL_DEBUGS() << "initial outfit category id: " << cat_id << LL_ENDL;
 	}
 
-	// This is really misnamed -- it means we have started loading
-	// an outfit/shape that will give the avatar a gender eventually. JC
-	gAgent.setGenderChosen(TRUE);
+	gAgent.setOutfitChosen(TRUE);
+// <FS:Ansariel> [Legacy Bake]
+#ifdef OPENSIM
+	if (LLGridManager::getInstance()->isInSecondLife())
+#endif
+// </FS:Ansariel> [Legacy Bake]
+	gAgentWearables.sendDummyAgentWearablesUpdate();
 }
 
 //static
@@ -3215,10 +3355,10 @@ void LLStartUp::saveInitialOutfit()
 	
 	if (sWearablesLoadedCon.connected())
 	{
-		LL_DEBUGS() << "sWearablesLoadedCon is connected, disconnecting" << LL_ENDL;
+		LL_DEBUGS("Avatar") << "sWearablesLoadedCon is connected, disconnecting" << LL_ENDL;
 		sWearablesLoadedCon.disconnect();
 	}
-	LL_DEBUGS() << "calling makeNewOutfitLinks( \"" << sInitialOutfit << "\" )" << LL_ENDL;
+	LL_DEBUGS("Avatar") << "calling makeNewOutfitLinks( \"" << sInitialOutfit << "\" )" << LL_ENDL;
 	LLAppearanceMgr::getInstance()->makeNewOutfitLinks(sInitialOutfit,false);
 }
 
@@ -3304,8 +3444,6 @@ std::string LLStartUp::startupStateToString(EStartupState state)
 #define RTNENUM(E) case E: return #E
 	switch(state){
 		RTNENUM( STATE_FIRST );
-		RTNENUM( STATE_FETCH_GRID_INFO);
-		RTNENUM( STATE_AUDIO_INIT);
 		RTNENUM( STATE_BROWSER_INIT );
 		RTNENUM( STATE_LOGIN_SHOW );
 		RTNENUM( STATE_LOGIN_WAIT );
@@ -3327,6 +3465,12 @@ std::string LLStartUp::startupStateToString(EStartupState state)
 		RTNENUM( STATE_WEARABLES_WAIT );
 		RTNENUM( STATE_CLEANUP );
 		RTNENUM( STATE_STARTED );
+		// <FS:Ansariel> Add FS-specific startup states
+		RTNENUM( STATE_FETCH_GRID_INFO );
+		RTNENUM( STATE_AUDIO_INIT);
+		RTNENUM( STATE_AGENTS_WAIT );
+		RTNENUM( STATE_LOGIN_CONFIRM_NOTIFICATON );
+		// </FS:Ansariel>
 	default:
 		return llformat("(state #%d)", state);
 	}
@@ -3426,13 +3570,20 @@ void LLStartUp::initNameCache()
 	// capabilities for display name lookup
 	LLAvatarNameCache::initClass(false,gSavedSettings.getBOOL("UsePeopleAPI"));
 	LLAvatarNameCache::setUseDisplayNames(gSavedSettings.getBOOL("UseDisplayNames"));
-	// <FS:Ansariel> FIRE-13073: Show username setting doesn't apply after relog
 	LLAvatarNameCache::setUseUsernames(gSavedSettings.getBOOL("NameTagShowUsernames"));
 
 	// <FS:CR> Legacy name/Username format
 	LLAvatarName::setUseLegacyFormat(gSavedSettings.getBOOL("FSNameTagShowLegacyUsernames"));
 	// <FS:CR> FIRE-6659: Legacy "Resident" name toggle
 	LLAvatarName::setTrimResidentSurname(gSavedSettings.getBOOL("FSTrimLegacyNames"));
+}
+
+
+void LLStartUp::initExperiences()
+{
+	LLAppViewer::instance()->loadExperienceCache();
+	LLExperienceCache::initClass();
+	LLExperienceLog::instance().initialize();
 }
 
 void LLStartUp::cleanupNameCache()
@@ -3667,7 +3818,10 @@ bool LLStartUp::startLLProxy()
 
 bool login_alert_done(const LLSD& notification, const LLSD& response)
 {
-	LLPanelLogin::giveFocus();
+	// <FS:Ansariel> [FS Login Panel]
+	//LLPanelLogin::giveFocus();
+	transition_back_to_login_panel(std::string());
+	// </FS:Ansariel> [FS Login Panel]
 	return false;
 }
 
@@ -3727,8 +3881,11 @@ LLSD transform_cert_args(LLPointer<LLCertificate> cert)
 // when we handle a cert error, give focus back to the login panel
 void general_cert_done(const LLSD& notification, const LLSD& response)
 {
-	LLStartUp::setStartupState( STATE_LOGIN_SHOW );			
-	LLPanelLogin::giveFocus();
+	// <FS:Ansariel> [FS Login Panel]
+	//LLStartUp::setStartupState( STATE_LOGIN_SHOW );			
+	//LLPanelLogin::giveFocus();
+	transition_back_to_login_panel(std::string());
+	// </FS:Ansariel> [FS Login Panel]
 }
 
 // check to see if the user wants to trust the cert.
@@ -3748,11 +3905,17 @@ void trust_cert_done(const LLSD& notification, const LLSD& response)
 			break;
 		}
 		case OPT_CANCEL_TRUST:
-			reset_login();
-			gSavedSettings.setBOOL("AutoLogin", FALSE);			
-			LLStartUp::setStartupState( STATE_LOGIN_SHOW );				
+			// <FS:Ansariel> That's what transition_back_to_login_panel is for and does!
+			//reset_login();
+			//gSavedSettings.setBOOL("AutoLogin", FALSE);			
+			//LLStartUp::setStartupState( STATE_LOGIN_SHOW );				
+			transition_back_to_login_panel(std::string());
+			// </FS:Ansariel>
 		default:
-			LLPanelLogin::giveFocus();
+			// <FS:Ansariel> [FS Login Panel]
+			//LLPanelLogin::giveFocus();
+			transition_back_to_login_panel(std::string());
+			// </FS:Ansariel> [FS Login Panel]
 			break;
 	}
 
@@ -4018,7 +4181,19 @@ bool process_login_success_response(U32 &first_sim_size_x, U32 &first_sim_size_y
 		flag = login_flags["gendered"].asString();
 		if(flag == "Y")
 		{
-			gAgent.setGenderChosen(TRUE);
+			// We don't care about this flag anymore; now base whether
+			// outfit is chosen on COF contents, initial outfit
+			// requested and available, etc.
+
+			//gAgent.setGenderChosen(TRUE);
+			// <FS:Ansariel> [Legacy Bake]
+#ifdef OPENSIM
+			if (!LLGridManager::getInstance()->isInSecondLife())
+			{
+				gAgent.setOutfitChosen(TRUE);
+			}
+#endif
+			// </FS:Ansariel> [Legacy Bake]
 		}
 		
 		bool pacific_daylight_time = false;
@@ -4175,16 +4350,33 @@ bool process_login_success_response(U32 &first_sim_size_x, U32 &first_sim_size_y
 		std::string openid_token = response["openid_token"];
 		LLViewerMedia::openIDSetup(openid_url, openid_token);
 	}
-// <FS:AW  opensim max groups support>
-//	if(response.has("max-agent-groups")) {		
-//		std::string max_agent_groups(response["max-agent-groups"]);
+	// <FS:AW> opensim max groups support
+	//gMaxAgentGroups = DEFAULT_MAX_AGENT_GROUPS;
+	//if(response.has("max-agent-groups"))
+	//{
+	//	S32 agent_groups = atoi(std::string(response["max-agent-groups"]).c_str());
+	//	if (agent_groups > 0 && agent_groups <= ALLOWED_MAX_AGENT_GROUPS)
+	//	{
+	//		gMaxAgentGroups = agent_groups;
+	//		LL_INFOS("LLStartup") << "gMaxAgentGroups read from login.cgi: "
+	//			<< gMaxAgentGroups << LL_ENDL;
+	//	}
+	//	else
+	//	{
+	//		LL_INFOS("LLStartup") << "Invalid value received, using defaults for gMaxAgentGroups: "
+	//			<< gMaxAgentGroups << LL_ENDL;
+	//	}
+	//}
+	//else {
+	//	LL_INFOS("LLStartup") << "Missing max-agent-groups, using default value for gMaxAgentGroups: "
+	//						  << gMaxAgentGroups << LL_ENDL;
+	//}
 	if(response.has("max-agent-groups") || response.has("max_groups"))
 	{
 		std::string max_agent_groups;
 		response.has("max_groups") ?
 			max_agent_groups = response["max_groups"].asString()
 			: max_agent_groups = response["max-agent-groups"].asString();
-// </FS:AW  opensim max groups support>
 
 		gMaxAgentGroups = atoi(max_agent_groups.c_str());
 		LL_INFOS("LLStartup") << "gMaxAgentGroups read from login.cgi: "
@@ -4192,7 +4384,6 @@ bool process_login_success_response(U32 &first_sim_size_x, U32 &first_sim_size_y
 	}
 	else
 	{
-// [CR] FIRE-12229
 #ifdef OPENSIM
 		gMaxAgentGroups = 0;
 		LL_INFOS("LLStartup") << "did not receive max-agent-groups. unlimited groups activated" << LL_ENDL;
@@ -4201,8 +4392,8 @@ bool process_login_success_response(U32 &first_sim_size_x, U32 &first_sim_size_y
 		LL_INFOS("LLStartup") << "using gMaxAgentGroups default: "
 							  << gMaxAgentGroups << LL_ENDL;
 #endif
-// [CR] FIRE-12229
 	}
+	// </FS:AW>
 
 // <FS:AW opensim currency support>
 	std::string currency = "L$";
@@ -4288,3 +4479,4 @@ void transition_back_to_login_panel(const std::string& emsg)
 	reset_login(); // calls LLStartUp::setStartupState( STATE_LOGIN_SHOW );
 	gSavedSettings.setBOOL("AutoLogin", FALSE);
 }
+

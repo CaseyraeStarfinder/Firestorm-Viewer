@@ -61,6 +61,7 @@
 #include "llglheaders.h"
 #include "lltrans.h"
 #include "llvoavatarself.h"
+#include "llhudrender.h"
 
 const F32 RADIUS_PIXELS = 100.f;		// size in screen space
 const F32 SQ_RADIUS = RADIUS_PIXELS * RADIUS_PIXELS;
@@ -367,9 +368,9 @@ void LLManipRotate::render()
 	LLQuaternion object_rot = first_object->getRotationEdit();
 	object_rot.getEulerAngles(&(euler_angles.mV[VX]), &(euler_angles.mV[VY]), &(euler_angles.mV[VZ]));
 	euler_angles *= RAD_TO_DEG;
-	euler_angles.mV[VX] = llround(fmodf(euler_angles.mV[VX] + 360.f, 360.f), 0.05f);
-	euler_angles.mV[VY] = llround(fmodf(euler_angles.mV[VY] + 360.f, 360.f), 0.05f);
-	euler_angles.mV[VZ] = llround(fmodf(euler_angles.mV[VZ] + 360.f, 360.f), 0.05f);
+	euler_angles.mV[VX] = ll_round(fmodf(euler_angles.mV[VX] + 360.f, 360.f), 0.05f);
+	euler_angles.mV[VY] = ll_round(fmodf(euler_angles.mV[VY] + 360.f, 360.f), 0.05f);
+	euler_angles.mV[VZ] = ll_round(fmodf(euler_angles.mV[VZ] + 360.f, 360.f), 0.05f);
 
 	renderXYZ(euler_angles);
 }
@@ -452,6 +453,9 @@ BOOL LLManipRotate::handleMouseDownOnPart( S32 x, S32 y, MASK mask )
 	// Route future Mouse messages here preemptively.  (Release on mouse up.)
 	setMouseCapture( TRUE );
 	LLSelectMgr::getInstance()->enableSilhouette(FALSE);
+
+	mHelpTextTimer.reset();
+	sNumTimesHelpTextShown++;
 	return TRUE;
 }
 
@@ -644,7 +648,7 @@ void LLManipRotate::drag( S32 x, S32 y )
 				// (which have no shared frame of reference other than their render positions)
 				LLXform* parent_xform = object->mDrawable->getXform()->getParent();
 				new_position = (selectNode->mSavedPositionLocal * parent_xform->getWorldRotation()) + parent_xform->getWorldPosition();
-				old_position = (object->getPosition() * parent_xform->getWorldRotation()) + parent_xform->getWorldPosition();
+				old_position = (object->getPosition() * parent_xform->getWorldRotation()) + parent_xform->getWorldPosition();//object->getRenderPosition();
 			}
 			else
 			{
@@ -1111,6 +1115,31 @@ void LLManipRotate::renderSnapGuides()
 			}
 		}
 	}
+
+
+	// render help text
+	if (mObjectSelection->getSelectType() != SELECT_TYPE_HUD)
+	{
+		if (mHelpTextTimer.getElapsedTimeF32() < sHelpTextVisibleTime + sHelpTextFadeTime && sNumTimesHelpTextShown < sMaxTimesShowHelpText)
+		{
+			LLVector3 selection_center_start = LLSelectMgr::getInstance()->getSavedBBoxOfSelection().getCenterAgent();
+
+			LLVector3 offset_dir = LLViewerCamera::getInstance()->getUpAxis();
+
+			F32 line_alpha = gSavedSettings.getF32("GridOpacity");
+
+			LLVector3 help_text_pos = selection_center_start + (mRadiusMeters * 3.f * offset_dir);
+			const LLFontGL* big_fontp = LLFontGL::getFontSansSerif();
+
+			std::string help_text =  LLTrans::getString("manip_hint1");
+			LLColor4 help_text_color = LLColor4::white;
+			help_text_color.mV[VALPHA] = clamp_rescale(mHelpTextTimer.getElapsedTimeF32(), sHelpTextVisibleTime, sHelpTextVisibleTime + sHelpTextFadeTime, line_alpha, 0.f);
+			hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, false);
+			help_text =  LLTrans::getString("manip_hint2");
+			help_text_pos -= offset_dir * mRadiusMeters * 0.4f;
+			hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, false);
+		}
+	}
 }
 
 // Returns TRUE if center of sphere is visible.  Also sets a bunch of member variables that are used later (e.g. mCenterToCam)
@@ -1124,7 +1153,7 @@ BOOL LLManipRotate::updateVisiblity()
 	// JC - 03.26.2002
 	if (!hasMouseCapture())
 	{
-		mRotationCenter = gAgent.getPosGlobalFromAgent( getPivotPoint() );
+		mRotationCenter = gAgent.getPosGlobalFromAgent( getPivotPoint() );//LLSelectMgr::getInstance()->getSelectionCenterGlobal();
 	}
 
 	BOOL visible = FALSE;
@@ -1211,10 +1240,10 @@ LLQuaternion LLManipRotate::dragUnconstrained( S32 x, S32 y )
 	F32 dist_from_sphere_center = sqrt(delta_x * delta_x + delta_y * delta_y);
 
 	LLVector3 axis = mMouseDown % mMouseCur;
+	F32 angle = atan2(sqrtf(axis * axis), mMouseDown * mMouseCur);
 	axis.normVec();
-	F32 angle = acos(mMouseDown * mMouseCur);
 	LLQuaternion sphere_rot( angle, axis );
-
+	
 	if (is_approx_zero(1.f - mMouseDown * mMouseCur))
 	{
 		return LLQuaternion::DEFAULT;
@@ -1495,7 +1524,6 @@ LLQuaternion LLManipRotate::dragConstrained( S32 x, S32 y )
 				F32 mouse_angle = fmodf(atan2(projected_mouse * axis1, projected_mouse * axis2) * RAD_TO_DEG + 360.f, 360.f);
 				
 				F32 relative_mouse_angle = fmodf(mouse_angle + (SNAP_ANGLE_DETENTE / 2), SNAP_ANGLE_INCREMENT);
-				//fmodf(llround(mouse_angle * RAD_TO_DEG, 7.5f) + 360.f, 360.f);
 	
 				LLVector3 object_axis;
 				getObjectAxisClosestToMouse(object_axis);
@@ -1579,7 +1607,6 @@ LLQuaternion LLManipRotate::dragConstrained( S32 x, S32 y )
 			F32 mouse_angle = fmodf(atan2(projected_mouse * axis1, projected_mouse * axis2) * RAD_TO_DEG + 360.f, 360.f);
 			
 			F32 relative_mouse_angle = fmodf(mouse_angle + (SNAP_ANGLE_DETENTE / 2), SNAP_ANGLE_INCREMENT);
-			//fmodf(llround(mouse_angle * RAD_TO_DEG, 7.5f) + 360.f, 360.f);
 
 			LLVector3 object_axis;
 			getObjectAxisClosestToMouse(object_axis);
@@ -1609,9 +1636,9 @@ LLQuaternion LLManipRotate::dragConstrained( S32 x, S32 y )
 			mInSnapRegime = FALSE;
 		}
 
-		angle = acos(mMouseCur * mMouseDown);
-
-		F32 dir = (mMouseDown % mMouseCur) * constraint_axis;  // cross product
+		LLVector3 cross_product = mMouseDown % mMouseCur;
+		angle = atan2(sqrtf(cross_product * cross_product), mMouseCur * mMouseDown);
+		F32 dir = cross_product * constraint_axis;  // cross product
 		if( dir < 0.f )
 		{
 			angle *= -1.f;

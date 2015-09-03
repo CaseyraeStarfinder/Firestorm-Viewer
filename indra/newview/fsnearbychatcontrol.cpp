@@ -29,7 +29,6 @@
 
 // llui
 #include "lllineeditor.h"
-#include "llmenugl.h"
 #include "llspinctrl.h"
 
 // newview
@@ -39,14 +38,11 @@
 #include "llagent.h" 		// gAgent
 #include "llagentcamera.h"	// gAgentCamera
 #include "llfloaterimnearbychathandler.h"
-#include "llviewermenu.h"	//for gMenuHolder
 
 //AO - includes for textentry
 #include "llautoreplace.h"
-#include "llcommandhandler.h"
 #include "llgesturemgr.h"
 #include "llkeyboard.h"
-#include "llmultigesture.h"
 #include "llworld.h"	// <FS:CR> FIRE-3192 - Name Prediction
 #include "rlvhandler.h"
 
@@ -172,9 +168,8 @@ void FSNearbyChatControl::onKeystroke(LLLineEditor* caller,void* userdata)
 		if (cur_pos && (raw_text[cur_pos - 1] != ' '))
 		{
 			// Get a list of avatars within range
-			std::vector<LLUUID> avatar_ids;
-			std::vector<LLVector3d> positions;
-			LLWorld::getInstance()->getAvatars(&avatar_ids, &positions, gAgent.getPositionGlobal(), gSavedSettings.getF32("NearMeRange"));
+			uuid_vec_t avatar_ids;
+			LLWorld::getInstance()->getAvatars(&avatar_ids, NULL, gAgent.getPositionGlobal(), gSavedSettings.getF32("NearMeRange"));
 			
 			if (avatar_ids.empty()) return; // Nobody's in range!
 			
@@ -201,7 +196,7 @@ void FSNearbyChatControl::onKeystroke(LLLineEditor* caller,void* userdata)
 			std::string name;
 			bool found = false;
 			bool full_name = false;
-			std::vector<LLUUID>::iterator iter = avatar_ids.begin();
+			uuid_vec_t::iterator iter = avatar_ids.begin();
 			
 			if (last_space != std::string::npos && !prefix.empty())
 			{
@@ -216,7 +211,7 @@ void FSNearbyChatControl::onKeystroke(LLLineEditor* caller,void* userdata)
 				// Look for a match
 				while (iter != avatar_ids.end() && !found)
 				{
-					if ((bool)gCacheName->getFullName(*iter++, name))
+					if (gCacheName->getFullName(*iter++, name))
 					{
 						if (gRlvHandler.hasBehaviour(RLV_BHVR_SHOWNAMES))
 						{
@@ -242,7 +237,7 @@ void FSNearbyChatControl::onKeystroke(LLLineEditor* caller,void* userdata)
 				// Look for a match
 				while (iter != avatar_ids.end() && !found)
 				{
-					if ((bool)gCacheName->getFullName(*iter++, name))
+					if (gCacheName->getFullName(*iter++, name))
 					{
 						if (gRlvHandler.hasBehaviour(RLV_BHVR_SHOWNAMES))
 						{
@@ -277,7 +272,7 @@ void FSNearbyChatControl::onKeystroke(LLLineEditor* caller,void* userdata)
 					prefix += match + rest_of_match + " ";
 				}
 				caller->setText(prefix + suffix);
-				caller->setSelection(prefix.length(), cur_pos);
+				caller->setSelection(utf8str_to_wstring(prefix).length(), cur_pos);
 			}
 		}
 	}
@@ -357,25 +352,31 @@ BOOL FSNearbyChatControl::handleKeyHere(KEY key, MASK mask )
 	}
 	else if( KEY_RETURN == key )
 	{
-		if (mask == MASK_CONTROL)
+		if (mask == MASK_CONTROL && gSavedSettings.getBOOL("FSUseCtrlShout"))
 		{
 			// shout
 			type = CHAT_TYPE_SHOUT;
 			handled = TRUE;
 		}
-		else if (mask == MASK_SHIFT)
+		else if (mask == MASK_SHIFT && gSavedSettings.getBOOL("FSUseShiftWhisper"))
 		{
 			// whisper
 			type = CHAT_TYPE_WHISPER;
 			handled = TRUE;
 		}
-		else if (mask == MASK_ALT)
+		else if (mask == MASK_ALT && gSavedSettings.getBOOL("FSUseAltOOC"))
 		{
 			// OOC
 			type = CHAT_TYPE_OOC;
 			handled = TRUE;
 		}
-		else if (mask == MASK_NONE)
+		else if (mask == (MASK_SHIFT | MASK_CONTROL))
+		{
+			addChar(llwchar(182));
+
+			return TRUE;
+		}
+		else
 		{
 			// say
 			type = CHAT_TYPE_NORMAL;

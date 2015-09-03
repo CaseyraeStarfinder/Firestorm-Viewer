@@ -41,7 +41,7 @@
 	<text name="name_tags_textbox">
 		Avatarnamen:
 	</text>
-	<radio_group name="Name_Tag_Preference">
+	<radio_group name="Name_Tag_Preference" width="210">
 		<radio_item label="Aus" name="radio"/>
 		<radio_item label="An" name="radio2"/>
 		<radio_item label="Kurz anzeigen" name="radio3"/>
@@ -62,15 +62,9 @@
 	<check_box label="Freunde hervorheben" name="show_friends" tool_tip="Avatarnamen Ihrer Freunde hervorheben"/>
 	<check_box label="Im alten Namensformat „Resident“ abschneiden" name="legacy_trim_check" tool_tip="Schneidet den Nachnamen „Resident“ im alten Namensformat ab." />
 	<check_box label="Alte Position für Avatarnamen" name="FSLegacyNametagPosition" tool_tip="Falls aktiviert, wird die Position des Avatarnamens fest an der Position des Avatars angezeigt und folgt nicht der Bewegung des Kopfes bei Animationen." />
+	<check_box label="„Automatische Antwort“-Modus anzeigen" name="FSShowAutorespondInNameTag" tool_tip="Falls aktiviert, wird der Modus „Automatische Antwort“ im eigenen Avatarnamen angezeigt."/>
 
 	<check_box label="Viewer-UI-Tipps aktivieren" name="viewer_hints_check"/>
-	<text name="inworld_typing_rg_label">
-		Drücken von Buchstabentasten:
-	</text>
-	<radio_group name="inworld_typing_preference">
-		<radio_item label="Startet lokalen Chat" name="radio_start_chat"/>
-		<radio_item label="Beeinflusst Bewegung (z. B. WASD)" name="radio_move"/>
-	</radio_group>
 	<text name="title_afk_text" width="275">
 		Zeit bis zur Abwesenheit:
 	</text>
@@ -101,20 +95,4 @@ Privatsphäre, Automatische Antwort konfiguriert werden.
 		log_in_to_change
 	</text_editor>
 
-    <panel name="general_extras">
-        <text name="text_box3">
-           Extras:
-        </text>
-        <check_box name="FSUseWebProfiles" label="Webprofile als Standard nutzen" tool_tip="Zeigt profile als Webseite anstelle des Profilfensters im Viewer-1-Stil"/>
-
-<!-- This option is duplicated here for ease of locating and to replicate LLv3 -->
-        <text name="inworld_typing_rg_label">
-           Buchstabeneingabe:
-        </text>
-        <radio_group name="inworld_typing_preference">
-            <radio_item label="Startet Chat" name="radio_start_chat"/>
-            <radio_item label="Beeinflusst Bewegung" name="radio_move"/>
-        </radio_group>
-
-    </panel>
 </panel>

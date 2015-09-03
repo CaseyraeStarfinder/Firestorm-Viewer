@@ -3,9 +3,9 @@
 <panel name="firestorm">
 <tab_container name="tabs">
 
-<!--General-->
-	<panel name="tab-general"
-		label="Général">
+<!--Extras-->
+	<panel name="tab-extras"
+		label="Extras">
 		<check_box name="checkMiscRLVa"
 			label="Autoriser le contrôle à distance du viewer (RLVa)">
 		</check_box>
@@ -13,45 +13,21 @@
 			left_pad="20">
 			(Reconnexion)
 		</text>
-		<check_box name="FSWorldMapDoubleclickTeleport"
-			label="Activer la téléportation au double clic sur la carte du monde"
-			tool_tip="Téléportation directe à la destination lorsque vous faites un double clic sur la carte du monde."/>
-		<check_box name="tp_screen_toggle"
-			label="Désactiver l'écran de téléportation"
-			tool_tip="Lors de la téléportation, remplacer l'écran et la barre de progression par une image fixe."/>
-		<check_box name="tp_beam_toggle"
-			label="Désactiver les balises de destination après la téléportation"
-			tool_tip=""/>
+		<check_box name="grouplandrez"
+			label="Toujours attribuer aux objets le groupe propriétaire du terrain"
+			tool_tip="Sous condition que vôtre rôle le permette, attribuer à l'objet créé ou posé le groupe propriétaire du terrain, sans tenir compte de celui que vous portez. (Cela ne transfère pas l'objet au groupe)"/>
+		<check_box name="EffectScriptChatParticles"
+			label="Emettre des particules lorsqu'un script communique"
+			tool_tip="Activer l'émission d'un tourbillon de particules lorsqu'un objet scripté communique."/>
+        <check_box name="FSDisableAvatarTrackerAtCloseIn"
+			label="Désactiver la balise à l'approche de l'avatar tracé (-3m)"
+			tool_tip="Lorsque l'on trace un avatar depuis le radar (Ctl-Maj-A), une balise rouge indique la direction à suivre, à la manière d'une boussole. Il faut cliquer dessus pour l'effacer. Avec cette option, elle s'éteindra automatiquement lorsque vous arriverez à moins de 3m de l'avatar ciblé. (par défaut)."/>
 		<check_box name="login_screen_toggle"
 			label="Désactiver l'écran de connexion"
 			tool_tip="Lors de la connexion, remplacer l'écran et la barre de progression par une image fixe."/>
 		<check_box name="logout_screen_toggle"
 			label="Désactiver l'écran de déconnexion"
 			tool_tip="Lors de la déconnexion, remplacer l'écran et la barre de progression par une image fixe."/>
-		<check_box name="grouplandrez"
-			label="Toujours attribuer aux objets le groupe propriétaire du terrain"
-			tool_tip="Sous condition que vôtre rôle le permette, attribuer à l'objet créé ou posé le groupe propriétaire du terrain, sans tenir compte de celui que vous portez. (Cela ne transfère pas l'objet au groupe)"/>
-		<check_box name="sortcontactsbyun"
-			label="Trier les contacts par nom d'utilisateur même si 'Nom d'affichage' est sélectionné"
-			tool_tip="Forcer le tri par nom d'utilisateur dans les listes de contacts en ignorant les noms d'affichage (display names)."/>
-		<check_box name="ShowMutedAvatarsAsCloud"
-			label="Afficher un nuage de particules pour les avatars bloqués"
-			tool_tip="Afficher les avatars bloqués (mutés) en nuages de particules de couleur particulière."/>
-		<check_box name="DebugHideEmptySystemFolders"
-			label="Masquer les dossiers système vides dans l'inventaire"
-			tool_tip="Lorsqu'ils sont inutilisés, désactive l'affichage des dossiers système tels que Favoris, Repères, etc... dans la fenêtre de l'inventaire."/>
-        <check_box name="FSShowInboxFolder"
-			label="Afficher le dossier Objets Reçus dans l'inventaire normal"
-			tool_tip=""/>
-        <check_box name="FSSplitInventorySearchOverTabs"
-			label="Permettre des termes de recherches différents dans l'inventaire"
-			tool_tip="Donne la possibilité d'entrer des termes de recherche différents dans chacun des onglets de l'inventaire."/>
-        <check_box name="FSDisableAvatarTrackerAtCloseIn"
-			label="Désactiver la balise à l'approche de l'avatar tracé (-3m)"
-			tool_tip="Lorsque l'on trace un avatar depuis le radar (Ctl-Maj-A), une balise rouge indique la direction à suivre, à la manière d'une boussole. Il faut cliquer dessus pour l'effacer. Avec cette option, elle s'éteindra automatiquement lorsque vous arriverez à moins de 3m de l'avatar ciblé. (par défaut)."/>
-		<check_box name="EffectScriptChatParticles"
-			label="Emettre des particules lorsqu'un script communique"
-			tool_tip="Activer l'émission d'un tourbillon de particules lorsqu'un objet scripté communique."/>
 		<check_box name="FSRenderFarClipStepping"
 			label="Activer la distance progressive d'affichage"
 			tool_tip="Firestorm réduira la distance d'affichage avant le TP et la restaurera à l'identique après, mais par palliers successifs. Plus rapide et moins coûteux en ressource."/>
@@ -60,9 +36,9 @@
 		<check_box name="UseLSLBridge"
 			label="Activer le 'LSL-Client Bridge'"
 			tool_tip="Autoriser le viewer à créer et utiliser un attachement scripté améliorant notablement ses performances. Le brige ne peut pas être créé lorsque la Bibliothèque est désactivée."/>
-		<check_box name="UseLSLFlightAssist"
+		<!-- <check_box name="UseLSLFlightAssist"
 			label="Activer l'assistant de vol du Bridge"
-			tool_tip="Activer le script d'assistance au vol à haute altitude."/>
+			tool_tip="Activer le script d'assistance au vol à haute altitude."/> -->
 	</panel>
 
 <!--Protection-->
@@ -119,16 +95,6 @@
 			tool_tip="Nombre maximum de demandes successives à précharger un son. [Défaut : 4]"/>
         <button name="AntiSpamUnblock"
 			label="Débloquer toutes les sources"/>
-	<!--spec-->
-		<check_box name="FSRemoveScriptBlockButton"
-			label="Supprimer le bouton 'Bloquer' sur le menu interactif des scripts"/>
-        <check_box name="FSNotifyIncomingObjectSpam"
-			label="Notifier lors du blocage d'items arrivant trop vite via un objet"/>
-        <check_box name="FSNotifyIncomingObjectSpamFrom"
-			label="Notifier lors du blocage d'items arrivant trop vite via un résident"/>
-        <slider name="FSOfferThrottleMaxCount"
-			label="Seuil d'offres, sur 10 sec, des objets :"
-			tool_tip="Défini, sur 10 secondes, le seuil d'offres entrantes successives émanant des objets avant qu'elles ne soient étranglées. [Défaut : 5]"/>
 	</panel>
 
 <!--Avatar-->
@@ -194,129 +160,6 @@
         <slider name="FSBeamShapeScale"
 			label="Taille"
 			tool_tip="Changer la taille du faisceau." />
-	</panel>
-
-<!--CmdLine1-->
-	<panel name="tab-CmdLine1"
-		label="LigneCmd1">
-		<check_box name="chat_cmd_toggle"
-			label="Utiliser la ligne de chat comme ligne de commande"
-			tool_tip="Dans les champs de saisie des commandes, vous pouvez changer la commande par défaut en y entrant celle de votre choix. Lorsqu'elle a lieu, la confirmation de l'envoi d'une commande est silencieuse (vous seul pouvez la lire)."/>
-	<!--calc-->
-		<text name="FSCmdLineCalc_txt">
-			Express. math. (Taper cmd SIN(2+2))
-		</text>
-		<line_editor name="FSCmdLineCalc"
-			tool_tip="Utiliser la ligne de chat comme ligne d'entrée de calcul."/>
-	<!--drawdistance-->
-		<text name="FSCmdLineDrawDistance_txt">
-			Distance d'affichage (Taper cmd dist.)
-		</text>
-		<line_editor name="FSCmdLineDrawDistance"
-			tool_tip="Ajuste la distance d'affichage à celle entrée (en mètre). Ex : 'dd 128' ajustera la dd à 128m"/>
-	<!--bandwidth-->
-		<text name="FSCmdLineBandWidth_txt">
-			Bande Pass. max (Taper cmd kbps)
-		</text>
-		<line_editor name="FSCmdLineBandWidth"
-			tool_tip="Ajuste la limite de la bande passante"/>
-	<!--rezplat-->
-		<text name="FSCmdLineRezPlatform_txt">
-			Créer plateforme (Taper cmd 1 à 30)
-		</text>
-		<line_editor name="FSCmdLineRezPlatform"
-			tool_tip="Créé une plateforme au diamètre voulu juste sous vos pieds, peu importe l'altitude à laquelle vous vous trouvez."/>
-		<slider name="FSCmdLinePlatformSize"
-			label="Dia."
-			tool_tip="Diamètre de la plateforme à créer. (Maxi 30m)"/>
-	<!--key2name-->
-		<text name="FSCmdLineKeyToName_txt">
-			Nom depuis la clé UUID (Taper cmd clé)
-		</text>
-		<line_editor name="FSCmdLineKeyToName"
-			tool_tip="Donne le nom de l'avatar correspondant à la clé UUID entrée."/>
-	<!--cao-->
-		<text name="FSCmdLineAO_txt">
-			AO dés / activé (Taper cmd off / on)
-		</text>
-		<line_editor name="FSCmdLineAO"
-			tool_tip="Dés / active l'Animation Overrider intégré au viewer."/>
-	<!--clrchat-->
-		<text name="FSCmdLineClearChat_txt">
-			Purger l'historique de chat (Taper cmd)
-		</text>
-		<line_editor name="FSCmdLineClearChat"
-			tool_tip="Purge l'historique de chat pour vous prémunir du lag dû aux spammers de chat."/>
-	<!--media-->
-		<text name="FSCmdLineMedia_txt">
-			Changer l'URL média (Taper cmd url)
-		</text>
-		<line_editor name="FSCmdLineMedia"
-			tool_tip="Entre et joue un URL dans le stream média de la parcelle. Identique à menu Monde → A propos du terrain → Média"/>
-	<!--music-->	
-		<text name="FSCmdLineMusic_txt">
-			Changer l'URL musique (Taper cmd url)
-		</text>
-		<line_editor name="FSCmdLineMusic"
-			tool_tip="Entre et joue un URL dans le stream audio de la parcelle. Identique à menu Monde → A propos du terrain → Son"/>
-	</panel>
-	
-<!--CmdLine2-->
-	<panel name="tab-CmdLine2"
-		label="LigneCmd2">
-		<check_box name="chat_cmd_toggle2"
-			label="Utiliser la ligne de chat comme ligne de commande"
-			tool_tip="Dans les champs de saisie des commandes, vous pouvez changer la commande par défaut en y entrant celle de votre choix. Lorsqu'elle a lieu, la confirmation de l'envoi d'une commande est silencieuse (vous seul pouvez la lire)."/>
-	<!--gtp-->
-		<text name="FSCmdLinePos_txt">
-			TP interne au sim (taper cmd x y z)
-		</text>
-		<line_editor name="FSCmdLinePos"
-			tool_tip="Téléportation à l'intérieur du sim où vous vous trouvez, aux coordonnées entrées. Ne séparer les coordonnées que d'un espace."/>
-	<!--flr-->
-		<text name="FSCmdLineGround_txt">
-			TP au sol (taper cmd)
-		</text>
-		<line_editor name="FSCmdLineGround"
-			tool_tip="Téléportation vers le sol, à la verticale de votre position actuelle."/>
-	<!--gth-->
-		<text name="FSCmdLineHeight_txt">
-			TP en altitude (Taper cmd Z)
-		</text>
-		<line_editor name="FSCmdLineHeight"
-			tool_tip="Téléportation vers l'altitude entrée, à la verticale de votre position actuelle."/>
-	<!--mapto-->
-		<text name="FSCmdLineMapTo_txt">
-			TP vers le sim x (Taper cmd NomDuSim)
-		</text>
-		<line_editor name="FSCmdLineMapTo"
-			tool_tip="Téléportation vers le sim entré. Sans coordonnées précises, l'arrivée se fait au centre du sim, ou au point de TP s'il est bloqué."/>
-		<check_box name="toggle"
-			label="Conserver la pos. entre les régions"/>
-	<!--tp2cam-->
-		<text name="FSCmdTeleportToCam_txt">
-			TP à la pos. de la cam. (Taper cmd)
-		</text>
-		<line_editor name="FSCmdTeleportToCam"
-			tool_tip="Téléportation à la position de la caméra. Zoomer très près pour une meilleure précision."/>
-	<!--offertp-->
-		<text name="FSCmdLineOfferTp_txt">
-			Envoyer un TP à... (Taper cmd clé UUID)
-		</text>
-		<line_editor name="FSCmdLineOfferTp"
-			tool_tip="Inviter un avatar à se téléporter vers vous."/>
-	<!--tp2-->
-		<text name="FSCmdLineTP2_txt">
-			Vous TP vers... (Taper cmd nom)
-		</text>
-		<line_editor name="FSCmdLineTP2"
-			tool_tip="Vous téléporter vers quelqu'un. Cette commande accepte les noms partiels et est insensible à la casse (majuscule/minuscule). Un meilleur résultat s'obtient avec le radar ouvert (Ctl-Maj-A)."/>
-	<!--tph-->
-		<text name="FSCmdLineTeleportHome_txt">
-			TP au domicile (Taper cmd)
-		</text>
-		<line_editor name="FSCmdLineTeleportHome"
-			tool_tip="Vous téléporter à votre domicile."/>
 	</panel>
 
 <!--Windlight-->
@@ -424,30 +267,6 @@
 			tool_tip="Item actuellement intégré.">
 			Item actuel : [ITEM]
         </text>
-	<!--permissions-->
-		<text name="text_box_permissions">
-			Droits
-        </text>
-        <text name="text_box_permnextowner">
-			Proch. propriétaire :
-        </text>
-        <check_box name="next_owner_modify"
-			label="Modifier"
-			tool_tip="Le prochain propriétaire pourra modifier l'item"/>
-        <check_box name="next_owner_copy"
-			label="Copier"
-			tool_tip="Le prochain propriétaire pourra copier l'item">
-        </check_box>
-        <check_box name="next_owner_transfer"
-			label="Transférer"
-			tool_tip="Le prochain propriétaire pourra transférer l'item">
-		</check_box>
-        <text name="text_box_permnote1">
-			S'appliquera aussi à
-        </text>
-        <text name="text_box_permnote2">
-			tout nouv. télécharg.
-        </text>
 	<!--pivot point-->
 		<text name="text_box_pivotpoint">
 			Pivot
@@ -471,7 +290,7 @@
 			tool_tip="When checked, the LSL preprocessor is enabled."/>
         <check_box name="preprocoptimizer_checkbox"
 			label="Script optimizer"
-			tool_tip="When checked, the LSL preprocessor will optimize space used by scripts at the cost of readability."/>
+			tool_tip="When checked, the LSL preprocessor will optimize space used by scripts."/>
         <check_box name="preprocswitch_checkbox"
 			label="switch() statement"
 			tool_tip="When checked, the LSL preprocessor will allow the use of the switch() statement for script flow control."/>

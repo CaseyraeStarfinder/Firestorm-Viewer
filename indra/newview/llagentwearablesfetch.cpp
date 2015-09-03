@@ -33,9 +33,6 @@
 #include "llinventoryfunctions.h"
 #include "llstartup.h"
 #include "llvoavatarself.h"
-// [SL:KB] - Patch: Appearance-MixedViewers | Checked: 2011-09-10 (Catznip-3.0.0a)
-#include "llviewercontrol.h"
-// [/SL:KB]
 // [RLVa:KB] - Checked: 2010-12-15 (RLVa-1.2.2c)
 #include "rlvhelper.h"
 // [/RLVa:KB]
@@ -138,40 +135,8 @@ void LLInitialWearablesFetch::processContents()
 	gInventory.collectDescendentsIf(mComplete.front(), cat_array, wearable_array, 
 									LLInventoryModel::EXCLUDE_TRASH, is_wearable);
 
-// [SL:KB] - Patch: Appearance-MixedViewers | Checked: 2010-05-18 (Catznip-3.0.0a) | Modified: Catznip-2.0.0h
-	// NOTE: don't use the current COF contents if 'wearable_array' is empty (ie first logon with 2.0 or some other problem)
-	bool fUpdateFromCOF = !wearable_array.empty();
-	if ( (fUpdateFromCOF) && (gSavedSettings.getBOOL("VerifyInitialWearables")) )
-	{
-		LLAppearanceMgr::wearables_by_type_t items_by_type(LLWearableType::WT_COUNT);
-		LLAppearanceMgr::sortItemsByActualDescription(wearable_array);
-		LLAppearanceMgr::divvyWearablesByType(wearable_array, items_by_type);
-
-		// Compare the COF wearables against the initial wearables
-		for (initial_wearable_data_vec_t::const_iterator itWearableData = mAgentInitialWearables.begin();
-				(itWearableData != mAgentInitialWearables.end()) && (fUpdateFromCOF);  ++itWearableData)
-		{
-			const LLUUID& idItem = itWearableData->mItemID; bool fFound = false;
-			for (S32 idxItem = 0, cntItem = items_by_type[itWearableData->mType].size(); idxItem < cntItem; idxItem++)
-			{
-				const LLViewerInventoryItem* pCOFItem = items_by_type[itWearableData->mType].at(idxItem);
-				if (idItem == pCOFItem->getLinkedUUID())
-				{
-					fFound = true;
-					break;
-				}
-			}
-			if (!fFound)
-				fUpdateFromCOF = false;
-		}
-	}
-// [/SL:KB]
-
 	LLAppearanceMgr::instance().setAttachmentInvLinkEnable(true);
-//	if (wearable_array.size() > 0)
-// [SL:KB] - Patch: Appearance-MixedViewers | Checked: 2010-04-28 (Catznip-3.0.0a) | Modified: Catznip-2.0.0e
-	if (fUpdateFromCOF)
-// [/SL:KB]
+	if (wearable_array.size() > 0)
 	{
 		gAgentWearables.notifyLoadingStarted();
 		LLAppearanceMgr::instance().updateAppearanceFromCOF();
@@ -199,54 +164,25 @@ public:
 	{
 		gInventory.removeObserver(this);
 
-//		// Link to all fetched items in COF.
-//		LLPointer<LLInventoryCallback> link_waiter = new LLUpdateAppearanceOnDestroy;
-//		for (uuid_vec_t::iterator it = mIDs.begin();
-//			 it != mIDs.end();
-//			 ++it)
-//		{
-//			LLUUID id = *it;
-//			LLViewerInventoryItem *item = gInventory.getItem(*it);
-//			if (!item)
-//			{
-//				LL_WARNS() << "fetch failed!" << LL_ENDL;
-//				continue;
-//			}
-//
-//			link_inventory_item(gAgent.getID(),
-//								item->getLinkedUUID(),
-//								LLAppearanceMgr::instance().getCOF(),
-//								item->getName(),
-//								item->getDescription(),
-//								LLAssetType::AT_LINK,
-//								link_waiter);
-//		}
-// [SL:KB] - Patch: Appearance-MixedViewers | Checked: 2010-08-14 (Catznip-3.0.0a) | Added: Catznip-2.1.1d
-		doOnIdleOneTime(boost::bind(&LLFetchAndLinkObserver::doneIdle, this));
-// [/SL:KB]
-	}
-
-// [SL:KB] - Patch: Appearance-MixedViewers | Checked: 2010-04-02 (Catznip-3.0.0a) | Added: Catznip-2.0.0a
-	void doneIdle()
-	{
-		// NOTE: the code above makes the assumption that COF is empty which won't be the case the way it's used now
-		LLInventoryModel::item_array_t initial_items;
-		for (uuid_vec_t::iterator itItem = mIDs.begin(); itItem != mIDs.end(); ++itItem)
+		// Link to all fetched items in COF.
+		LLPointer<LLInventoryCallback> link_waiter = new LLUpdateAppearanceOnDestroy;
+		LLInventoryObject::const_object_list_t item_array;
+		for (uuid_vec_t::iterator it = mIDs.begin();
+			 it != mIDs.end();
+			 ++it)
 		{
-			LLViewerInventoryItem* pItem = gInventory.getItem(*itItem);
-			if (!pItem)
+			LLUUID id = *it;
+			LLConstPointer<LLInventoryObject> item = gInventory.getItem(*it);
+			if (!item)
 			{
-				LL_WARNS() << "fetch failed!" << LL_ENDL;
+				LL_WARNS() << "fetch failed for item " << (*it) << "!" << LL_ENDL;
 				continue;
 			}
-			initial_items.push_back(pItem);
+
+			item_array.push_back(item);
 		}
-
-		LLAppearanceMgr::instance().updateAppearanceFromInitialWearables(initial_items);
-
-		delete this;
+		link_inventory_array(LLAppearanceMgr::instance().getCOF(), item_array, link_waiter);
 	}
-// [/SL:KB]
 };
 
 void LLInitialWearablesFetch::processWearablesMessage()
@@ -258,11 +194,7 @@ void LLInitialWearablesFetch::processWearablesMessage()
 		for (U8 i = 0; i < mAgentInitialWearables.size(); ++i)
 		{
 			// Populate the current outfit folder with links to the wearables passed in the message
-//			InitialWearableData *wearable_data = new InitialWearableData(mAgentInitialWearables[i]); // This will be deleted in the callback.
-// [SL:KB] - Patch: Appearance-MixedViewers | Checked: 2010-05-02 (Catznip-3.0.0a) | Added: Catznip-2.0.0f
-			// Fixes minor leak: since COF is used onInitialWearableAssetArrived() will never get called and "wearable_data" leaks
-			InitialWearableData* wearable_data = &mAgentInitialWearables[i];
-// [/SL:KB]
+			InitialWearableData *wearable_data = new InitialWearableData(mAgentInitialWearables[i]); // This will be deleted in the callback.
 			
 			if (wearable_data->mAssetID.notNull())
 			{
@@ -272,7 +204,7 @@ void LLInitialWearablesFetch::processWearablesMessage()
 			{
 				LL_INFOS() << "Invalid wearable, type " << wearable_data->mType << " itemID "
 				<< wearable_data->mItemID << " assetID " << wearable_data->mAssetID << LL_ENDL;
-//				delete wearable_data;
+				delete wearable_data;
 			}
 		}
 
@@ -653,19 +585,16 @@ void LLLibraryOutfitsFetch::contentsDone()
 		gInventory.collectDescendents(folder_id, cat_array, wearable_array, 
 									  LLInventoryModel::EXCLUDE_TRASH);
 		
+		LLInventoryObject::const_object_list_t item_array;
 		for (LLInventoryModel::item_array_t::const_iterator wearable_iter = wearable_array.begin();
 			 wearable_iter != wearable_array.end();
 			 ++wearable_iter)
 		{
-			const LLViewerInventoryItem *item = wearable_iter->get();
-			link_inventory_item(gAgent.getID(),
-								item->getLinkedUUID(),
-								new_outfit_folder_id,
-								item->getName(),
-								item->getDescription(),
-								LLAssetType::AT_LINK,
-								order_myoutfits_on_destroy);
+			LLConstPointer<LLInventoryObject> item = wearable_iter->get();
+			item_array.push_back(item);
 		}
+
+		link_inventory_array(LLAppearanceMgr::instance().getCOF(), item_array, order_myoutfits_on_destroy);
 	}
 
 	mOutfitsPopulated = true;

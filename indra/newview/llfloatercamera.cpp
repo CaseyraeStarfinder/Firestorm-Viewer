@@ -32,6 +32,7 @@
 #include "llfloaterreg.h"
 
 // Viewer includes
+#include "llagent.h"
 #include "llagentcamera.h"
 #include "lljoystickbutton.h"
 #include "llviewercontrol.h"
@@ -47,9 +48,7 @@ static LLDefaultChildRegistry::Register<LLPanelCameraItem> r("panel_camera_item"
 const F32 NUDGE_TIME = 0.25f;		// in seconds
 const F32 ORBIT_NUDGE_RATE = 0.05f; // fraction of normal speed
 
-// Constants
-const F32 CAMERA_BUTTON_DELAY = 0.0f;
-
+// constants
 #define ORBIT "cam_rotate_stick"
 #define PAN "cam_track_stick"
 #define ZOOM "zoom"
@@ -374,6 +373,8 @@ void LLFloaterCamera::onClose(bool app_quitting)
 
 	switchMode(CAMERA_CTRL_MODE_PAN);
 	mClosed = TRUE;
+
+	gAgent.setMovementLocked(FALSE);
 }
 
 LLFloaterCamera::LLFloaterCamera(const LLSD& val)
@@ -661,15 +662,18 @@ void LLFloaterCamera::onClickCameraItem(const LLSD& param)
 // 		if (camera_floater)
 // 			camera_floater->switchMode(CAMERA_CTRL_MODE_FREE_CAMERA);
 // 	}
-	else if ("object_view" == name && camera_floater)
+	else if ("object_view" == name)
 	{
-		if (camera_floater->mUseFlatUI)
+		if (camera_floater)
 		{
-			camera_floater->mCurrMode == CAMERA_CTRL_MODE_FREE_CAMERA ? camera_floater->switchMode(CAMERA_CTRL_MODE_PAN) : camera_floater->switchMode(CAMERA_CTRL_MODE_FREE_CAMERA);
-		}
-		else
-		{
-			camera_floater->switchMode(CAMERA_CTRL_MODE_FREE_CAMERA);
+			if (camera_floater->mUseFlatUI)
+			{
+				camera_floater->mCurrMode == CAMERA_CTRL_MODE_FREE_CAMERA ? camera_floater->switchMode(CAMERA_CTRL_MODE_PAN) : camera_floater->switchMode(CAMERA_CTRL_MODE_FREE_CAMERA);
+			}
+			else
+			{
+				camera_floater->switchMode(CAMERA_CTRL_MODE_FREE_CAMERA);
+			}
 		}
 	}
 // </AW: Flat cam floater>
@@ -699,15 +703,18 @@ void LLFloaterCamera::onClickCameraItem(const LLSD& param)
 	{
 		gAgentCamera.changeCameraToMouselook();
 	}
-	else if ("object_view" == name && camera_floater)
+	else if ("object_view" == name)
 	{
-		if (camera_floater->mUseFlatUI)
+		if (camera_floater)
 		{
-			camera_floater->mCurrMode == CAMERA_CTRL_MODE_FREE_CAMERA ? camera_floater->switchMode(CAMERA_CTRL_MODE_PAN) : camera_floater->switchMode(CAMERA_CTRL_MODE_FREE_CAMERA);
-		}
-		else
-		{
-			camera_floater->switchMode(CAMERA_CTRL_MODE_FREE_CAMERA);
+			if (camera_floater->mUseFlatUI)
+			{
+				camera_floater->mCurrMode == CAMERA_CTRL_MODE_FREE_CAMERA ? camera_floater->switchMode(CAMERA_CTRL_MODE_PAN) : camera_floater->switchMode(CAMERA_CTRL_MODE_FREE_CAMERA);
+			}
+			else
+			{
+				camera_floater->switchMode(CAMERA_CTRL_MODE_FREE_CAMERA);
+			}
 		}
 	}
 	else

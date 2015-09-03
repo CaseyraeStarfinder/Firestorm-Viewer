@@ -30,21 +30,27 @@
 
 #include "fsdroptarget.h"
 #include "llagent.h"
-#include "llinventoryfunctions.h"
+#include "llappearancemgr.h"
 #include "lllineeditor.h"
 #include "lltextbox.h"
-#include "llviewerinventory.h"
+#include "llviewercontrol.h"
 
 FSFloaterLinkReplace::FSFloaterLinkReplace(const LLSD& key)
 	: LLFloater(key),
+	LLEventTimer(gSavedSettings.getF32("FSLinkReplaceBatchPauseTime")),
 	mRemainingItems(0),
 	mSourceUUID(LLUUID::null),
-	mTargetUUID(LLUUID::null)
+	mTargetUUID(LLUUID::null),
+	mInstance(NULL),
+	mBatchSize(gSavedSettings.getU32("FSLinkReplaceBatchSize"))
 {
+	mEventTimer.stop();
+	mInstance = this;
 }
 
 FSFloaterLinkReplace::~FSFloaterLinkReplace()
 {
+	mInstance = NULL;
 }
 
 BOOL FSFloaterLinkReplace::postBuild()
@@ -52,7 +58,8 @@ BOOL FSFloaterLinkReplace::postBuild()
 	mStartBtn = getChild<LLButton>("btn_start");
 	mStartBtn->setCommitCallback(boost::bind(&FSFloaterLinkReplace::onStartClicked, this));
 
-	getChild<LLButton>("btn_refresh")->setCommitCallback(boost::bind(&FSFloaterLinkReplace::checkEnableStart, this));
+	mRefreshBtn = getChild<LLButton>("btn_refresh");
+	mRefreshBtn->setCommitCallback(boost::bind(&FSFloaterLinkReplace::checkEnableStart, this));
 
 	mSourceEditor = getChild<FSInventoryLinkReplaceDropTarget>("source_uuid_editor");
 	mTargetEditor = getChild<FSInventoryLinkReplaceDropTarget>("target_uuid_editor");
@@ -94,7 +101,7 @@ void FSFloaterLinkReplace::onTargetItemDrop(const LLUUID& target_item_id)
 
 void FSFloaterLinkReplace::updateFoundLinks()
 {
-	LLInventoryModel::item_array_t items = gInventory.collectLinkedItems(mSourceUUID, gInventory.getRootFolderID());
+	LLInventoryModel::item_array_t items = gInventory.collectLinkedItems(mSourceUUID);
 	mRemainingItems = (U32)items.size();
 
 	LLStringUtil::format_map_t args;
@@ -132,38 +139,25 @@ void FSFloaterLinkReplace::onStartClicked()
 		return;
 	}
 
-	LLInventoryModel::item_array_t items = gInventory.collectLinkedItems(mSourceUUID, gInventory.getRootFolderID());
-	LL_INFOS() << "Found " << items.size() << " inventory links that need to be replaced." << LL_ENDL;
+	mRemainingInventoryItems = gInventory.collectLinkedItems(mSourceUUID);
+	LL_INFOS() << "Found " << mRemainingInventoryItems.size() << " inventory links that need to be replaced." << LL_ENDL;
 
-	if (items.size() > 0)
+	if (mRemainingInventoryItems.size() > 0)
 	{
 		LLViewerInventoryItem* target_item = gInventory.getItem(mTargetUUID);
 		if (target_item)
 		{
-			mRemainingItems = (U32)items.size();
+			mRemainingItems = (U32)mRemainingInventoryItems.size();
 
 			LLStringUtil::format_map_t args;
 			args["NUM"] = llformat("%d", mRemainingItems);
 			mStatusText->setText(getString("ItemsRemaining", args));
 
-			const LLUUID cof_folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_CURRENT_OUTFIT, false);
-			for (LLInventoryModel::item_array_t::iterator it = items.begin(); it != items.end(); ++it)
-			{
-				if ((*it)->getParentUUID() != cof_folder_id)
-				{
-					link_inventory_item(gAgentID,
-										target_item->getUUID(),
-										(*it)->getParentUUID(),
-										target_item->getName(),
-										target_item->getDescription(),
-										LLAssetType::AT_LINK,
-										new LLBoostFuncInventoryCallback(boost::bind(&FSFloaterLinkReplace::linkCreatedCallback, this, (*it)->getUUID())));
-				}
-				else
-				{
-					decreaseOpenItemCount();
-				}
-			}
+			mStartBtn->setEnabled(FALSE);
+			mRefreshBtn->setEnabled(FALSE);
+
+			mEventTimer.start();
+			tick();
 		}
 		else
 		{
@@ -171,13 +165,78 @@ void FSFloaterLinkReplace::onStartClicked()
 			LL_WARNS() << "Link replace target not found." << LL_ENDL;
 		}
 	}
+
 }
 
-void FSFloaterLinkReplace::linkCreatedCallback(const LLUUID& old_item_id)
+void FSFloaterLinkReplace::linkCreatedCallback(const LLUUID& old_item_id,
+												const LLUUID& target_item_id,
+												bool needs_wearable_ordering_update,
+												bool needs_description_update,
+												const LLUUID& outfit_folder_id)
 {
-	LL_DEBUGS() << "Inventory link replace: old_item_id = " << old_item_id.asString() << LL_ENDL;
-	gInventory.purgeObject(old_item_id);
-	decreaseOpenItemCount();
+	LL_DEBUGS() << "Inventory link replace:" << LL_NEWLINE
+		<< " - old_item_id = " << old_item_id.asString() << LL_NEWLINE
+		<< " - target_item_id = " << target_item_id.asString() << LL_NEWLINE
+		<< " - order update = " << (needs_wearable_ordering_update ? "true" : "false") << LL_NEWLINE
+		<< " - description update = " << (needs_description_update ? "true" : "false") << LL_NEWLINE
+		<< " - outfit_folder_id = " << outfit_folder_id.asString() << LL_ENDL;
+
+	// If we are replacing an object, bodypart or gesture link within an outfit folder,
+	// we need to change the actual description of the link itself. LLAppearanceMgr *should*
+	// have created COF links that will be used to save the outfit with an empty description.
+	// Since link_inventory_array() will set the description of the linked item for the link
+	// itself, this will lead to a dirty outfit state when the outfit with the replaced
+	// link is worn. So we have to correct this.
+	if (needs_description_update && outfit_folder_id.notNull())
+	{
+		LLInventoryModel::item_array_t items;
+		LLInventoryModel::cat_array_t cats;
+		LLLinkedItemIDMatches is_target_link(target_item_id);
+		gInventory.collectDescendentsIf(outfit_folder_id,
+										cats,
+										items,
+										LLInventoryModel::EXCLUDE_TRASH,
+										is_target_link);
+
+		for (LLInventoryModel::item_array_t::iterator it = items.begin(); it != items.end(); ++it)
+		{
+			LLPointer<LLViewerInventoryItem> item = *it;
+
+			if ((item->getType() == LLAssetType::AT_BODYPART ||
+				item->getType() == LLAssetType::AT_OBJECT ||
+				item->getType() == LLAssetType::AT_GESTURE)
+				&& !item->getActualDescription().empty())
+			{
+				LL_DEBUGS() << "Updating description for " << item->getName() << LL_ENDL;
+
+				LLSD updates;
+				updates["desc"] = "";
+				update_inventory_item(item->getUUID(), updates, LLPointer<LLInventoryCallback>(NULL));
+			}
+		}
+	}
+
+	if (needs_wearable_ordering_update && outfit_folder_id.notNull())
+	{
+		// If a wearable item was involved in the link replace operation and replaced
+		// a link in an outfit folder, we need to update the clothing ordering information
+		// *after* the original link has been removed. LLAppearanceMgr abuses the actual link
+		// description to store the clothing ordering information it. We will have to update
+		// the clothing ordering information or the outfit will be in dirty state when worn.
+		remove_inventory_object(old_item_id, new LLBoostFuncInventoryCallback(boost::bind(&LLAppearanceMgr::updateClothingOrderingInfo,
+																												LLAppearanceMgr::getInstance(),
+																												outfit_folder_id,
+																												LLPointer<LLInventoryCallback>(NULL))));
+	}
+	else
+	{
+		remove_inventory_object(old_item_id, NULL);
+	}
+
+	if (mInstance)
+	{
+		decreaseOpenItemCount();
+	}
 }
 
 void FSFloaterLinkReplace::decreaseOpenItemCount()
@@ -187,6 +246,9 @@ void FSFloaterLinkReplace::decreaseOpenItemCount()
 	if (mRemainingItems == 0)
 	{
 		mStatusText->setText(getString("ReplaceFinished"));
+		mStartBtn->setEnabled(TRUE);
+		mRefreshBtn->setEnabled(TRUE);
+		mEventTimer.stop();
 		LL_INFOS() << "Inventory link replace finished." << LL_ENDL;
 	}
 	else
@@ -195,6 +257,69 @@ void FSFloaterLinkReplace::decreaseOpenItemCount()
 		args["NUM"] = llformat("%d", mRemainingItems);
 		mStatusText->setText(getString("ItemsRemaining", args));
 		LL_DEBUGS() << "Inventory link replace: " << mRemainingItems << " links remaining..." << LL_ENDL;
+	}
+}
+
+BOOL FSFloaterLinkReplace::tick()
+{
+	LL_DEBUGS() << "Calling tick - remaining items = " << mRemainingInventoryItems.size() << LL_ENDL;
+
+	LLInventoryModel::item_array_t current_batch;
+
+	for (U32 i = 0; i < mBatchSize; ++i)
+	{
+		if (!mRemainingInventoryItems.size())
+		{
+			mEventTimer.stop();
+			break;
+		}
+
+		current_batch.push_back(mRemainingInventoryItems.back());
+		mRemainingInventoryItems.pop_back();
+	}
+	processBatch(current_batch);
+
+	return FALSE;
+}
+
+void FSFloaterLinkReplace::processBatch(LLInventoryModel::item_array_t items)
+{
+	const LLViewerInventoryItem* target_item = gInventory.getItem(mTargetUUID);
+	const LLUUID cof_folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_CURRENT_OUTFIT, false);
+	const LLUUID outfit_folder_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_MY_OUTFITS, false);
+
+	for (LLInventoryModel::item_array_t::iterator it = items.begin(); it != items.end(); ++it)
+	{
+		LLPointer<LLInventoryItem> source_item = *it;
+
+		if (source_item->getParentUUID() != cof_folder_id)
+		{
+			bool is_outfit_folder = gInventory.isObjectDescendentOf(source_item->getParentUUID(), outfit_folder_id);
+			// If either the new or old item in the COF is a wearable, we need to update wearable ordering after the link has been replaced
+			bool needs_wearable_ordering_update = is_outfit_folder && source_item->getType() == LLAssetType::AT_CLOTHING || target_item->getType() == LLAssetType::AT_CLOTHING;
+			// Other items in the COF need a description update (description of the actual link item must be empty)
+			bool needs_description_update = is_outfit_folder && target_item->getType() != LLAssetType::AT_CLOTHING;
+
+			LL_DEBUGS() << "is_outfit_folder = " << (is_outfit_folder ? "true" : "false") << LL_NEWLINE
+				<< "needs_wearable_ordering_update = " << (needs_wearable_ordering_update ? "true" : "false") << LL_NEWLINE
+				<< "needs_description_update = " << (needs_description_update ? "true" : "false") << LL_ENDL;
+
+			LLInventoryObject::const_object_list_t obj_array;
+			obj_array.push_back(LLConstPointer<LLInventoryObject>(target_item));
+			link_inventory_array(source_item->getParentUUID(),
+									obj_array,
+									new LLBoostFuncInventoryCallback(boost::bind(&FSFloaterLinkReplace::linkCreatedCallback,
+																											this,
+																											source_item->getUUID(),
+																											target_item->getUUID(),
+																											needs_wearable_ordering_update,
+																											needs_description_update,
+																											(is_outfit_folder ? source_item->getParentUUID() : LLUUID::null) )));
+		}
+		else
+		{
+			decreaseOpenItemCount();
+		}
 	}
 }
 

@@ -34,6 +34,7 @@
 #include "llagentcamera.h"
 #include "llagentwearables.h"
 #include "llappearancemgr.h"
+#include "llavatarnamecache.h"
 #include "lldictionary.h"
 #include "llfloaterreg.h"
 #include "llfloatertools.h"
@@ -521,6 +522,7 @@ void LLToolDragAndDrop::onMouseCaptureLost()
 	mSource = SOURCE_AGENT;
 	mSourceID.setNull();
 	mObjectID.setNull();
+	mCustomMsg.clear();
 }
 
 BOOL LLToolDragAndDrop::handleMouseUp( S32 x, S32 y, MASK mask )
@@ -563,6 +565,12 @@ ECursorType LLToolDragAndDrop::acceptanceToCursor( EAcceptance acceptance )
 	case ACCEPT_NO_LOCKED:
 		mCursor = UI_CURSOR_NOLOCKED;
 		break;
+
+	case ACCEPT_NO_CUSTOM:
+		mToolTipMsg = mCustomMsg;
+		mCursor = UI_CURSOR_NO;
+		break;
+
 
 	case ACCEPT_NO:
 		mCursor = UI_CURSOR_NO;
@@ -638,6 +646,7 @@ BOOL LLToolDragAndDrop::handleToolTip(S32 x, S32 y, MASK mask)
 void LLToolDragAndDrop::handleDeselect()
 {
 	mToolTipMsg.clear();
+	mCustomMsg.clear();
 
 	LLToolTipMgr::instance().blockToolTips();
 }
@@ -820,6 +829,7 @@ void LLToolDragAndDrop::dragOrDrop( S32 x, S32 y, MASK mask, BOOL drop,
 
 	if (!handled)
 	{
+        // *TODO: Suppress the "outbox" case once "marketplace" is used everywhere for everyone
 		// Disallow drag and drop to 3D from the outbox
 		const LLUUID outbox_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_OUTBOX, false);
 		if (outbox_id.notNull())
@@ -827,6 +837,20 @@ void LLToolDragAndDrop::dragOrDrop( S32 x, S32 y, MASK mask, BOOL drop,
 			for (S32 item_index = 0; item_index < (S32)mCargoIDs.size(); item_index++)
 			{
 				if (gInventory.isObjectDescendentOf(mCargoIDs[item_index], outbox_id))
+				{
+					*acceptance = ACCEPT_NO;
+					mToolTipMsg = LLTrans::getString("TooltipOutboxDragToWorld");
+					return;
+				}
+			}
+		}
+		// Disallow drag and drop to 3D from the marketplace
+        const LLUUID marketplacelistings_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_MARKETPLACE_LISTINGS, false);
+		if (marketplacelistings_id.notNull())
+		{
+			for (S32 item_index = 0; item_index < (S32)mCargoIDs.size(); item_index++)
+			{
+				if (gInventory.isObjectDescendentOf(mCargoIDs[item_index], marketplacelistings_id))
 				{
 					*acceptance = ACCEPT_NO;
 					mToolTipMsg = LLTrans::getString("TooltipOutboxDragToWorld");
@@ -846,7 +870,7 @@ void LLToolDragAndDrop::dragOrDrop3D( S32 x, S32 y, MASK mask, BOOL drop, EAccep
 	{
 		// don't allow drag and drop onto transparent objects
 // [SL:KB] - Patch: UI-PickRiggedAttachment | Checked: 2012-07-12 (Catznip-3.3)
-		pick(gViewerWindow->pickImmediate(x, y, FALSE, FALSE));
+		pick(gViewerWindow->pickImmediate(x, y, FALSE, FALSE, FALSE));
 // [/SL:KB]
 //		pick(gViewerWindow->pickImmediate(x, y, FALSE));
 	}
@@ -854,7 +878,7 @@ void LLToolDragAndDrop::dragOrDrop3D( S32 x, S32 y, MASK mask, BOOL drop, EAccep
 	{
 		// don't allow drag and drop onto transparent objects
 // [SL:KB] - Patch: UI-PickRiggedAttachment | Checked: 2012-07-12 (Catznip-3.3)
-		gViewerWindow->pickAsync(x, y, mask, pickCallback, FALSE, FALSE);
+		gViewerWindow->pickAsync(x, y, mask, pickCallback, FALSE, FALSE, FALSE);
 // [/SL:KB]
 //		gViewerWindow->pickAsync(x, y, mask, pickCallback, FALSE);
 	}
@@ -953,8 +977,7 @@ void LLToolDragAndDrop::pick(const LLPickInfo& pick_info)
 				const S32 item_index = mCurItemIndex;
 				const EDragAndDropType dad_type = mCargoTypes[item_index];
 				// Call the right implementation function
-				(U32)callMemberFunction(*this,
-										LLDragAndDropDictionary::instance().get(dad_type, target))
+				callMemberFunction(*this, LLDragAndDropDictionary::instance().get(dad_type, target))
 					(hit_obj, hit_face, pick_info.mKeyMask, TRUE);
 			}
 		}
@@ -1000,9 +1023,15 @@ BOOL LLToolDragAndDrop::handleDropTextureProtections(LLViewerObject* hit_obj,
 		return TRUE;
 	}
 
-	// In case the inventory has not been updated (e.g. due to some recent operation
-	// causing a dirty inventory), stall the user while fetching the inventory.
-	if (hit_obj->isInventoryDirty())
+	// In case the inventory has not been loaded (e.g. due to some recent operation
+	// causing a dirty inventory) and we can do an update, stall the user
+	// while fetching the inventory.
+	//
+	// Note: fetch only if inventory is both dirty and not present since previously checked faces
+	// could have requested new fetch for same item (removed inventory and marked as dirty=false).
+	// Objects without listeners (dirty==true and inventory!=NULL. In this specific case - before
+	// first fetch) shouldn't be updated either since we won't receive any changes.
+	if (hit_obj->isInventoryDirty() && hit_obj->getInventoryRoot() == NULL)
 	{
 		hit_obj->fetchInventoryFromServer();
 		LLSD args;
@@ -1642,13 +1671,22 @@ static void give_inventory_cb(const LLSD& notification, const LLSD& response)
 	const LLUUID& session_id = payload["session_id"];
 	const LLUUID& agent_id = payload["agent_id"];
 	LLViewerInventoryItem * inv_item =  gInventory.getItem(payload["item_id"]);
-	if (NULL == inv_item)
+	LLViewerInventoryCategory * inv_cat =  gInventory.getCategory(payload["item_id"]);
+	if (NULL == inv_item && NULL == inv_cat)
 	{
-		llassert(NULL != inv_item);
+		llassert( FALSE );
 		return;
 	}
-
-	if (LLGiveInventory::doGiveInventoryItem(agent_id, inv_item, session_id))
+	bool successfully_shared;
+	if (inv_item)
+	{
+		successfully_shared = LLGiveInventory::doGiveInventoryItem(agent_id, inv_item, session_id);
+	}
+	else
+	{
+		successfully_shared = LLGiveInventory::doGiveInventoryCategory(agent_id, inv_cat, session_id);
+	}
+	if (successfully_shared)
 	{
 		if ("avatarpicker" == payload["d&d_dest"].asString())
 		{
@@ -1658,8 +1696,8 @@ static void give_inventory_cb(const LLSD& notification, const LLSD& response)
 	}
 }
 
-static void show_item_sharing_confirmation(const std::string name,
-					   LLViewerInventoryItem* inv_item,
+static void show_object_sharing_confirmation(const std::string name,
+					   LLInventoryObject* inv_item,
 					   const LLSD& dest,
 					   const LLUUID& dest_agent,
 					   const LLUUID& session_id = LLUUID::null)
@@ -1669,32 +1707,28 @@ static void show_item_sharing_confirmation(const std::string name,
 		llassert(NULL != inv_item);
 		return;
 	}
-	if(gInventory.getItem(inv_item->getUUID())
-		&& LLGiveInventory::isInventoryGiveAcceptable(inv_item))
-	{
-		LLSD substitutions;
-		substitutions["RESIDENTS"] = name;
-		substitutions["ITEMS"] = inv_item->getName();
-		LLSD payload;
-		payload["agent_id"] = dest_agent;
-		payload["item_id"] = inv_item->getUUID();
-		payload["session_id"] = session_id;
-		payload["d&d_dest"] = dest.asString();
-		LLNotificationsUtil::add("ShareItemsConfirmation", substitutions, payload, &give_inventory_cb);
-	}
+	LLSD substitutions;
+	substitutions["RESIDENTS"] = name;
+	substitutions["ITEMS"] = inv_item->getName();
+	LLSD payload;
+	payload["agent_id"] = dest_agent;
+	payload["item_id"] = inv_item->getUUID();
+	payload["session_id"] = session_id;
+	payload["d&d_dest"] = dest.asString();
+	LLNotificationsUtil::add("ShareItemsConfirmation", substitutions, payload, &give_inventory_cb);
 }
 
 static void get_name_cb(const LLUUID& id,
 						const std::string& full_name,
-						LLViewerInventoryItem* inv_item,
+						LLInventoryObject* inv_obj,
 						const LLSD& dest,
 						const LLUUID& dest_agent)
 {
-	show_item_sharing_confirmation(full_name,
-								   inv_item,
-								   dest,
-								   id,
-								   LLUUID::null);
+	show_object_sharing_confirmation(full_name,
+								     inv_obj,
+								     dest,
+						  		     id,
+								     LLUUID::null);
 }
 
 // function used as drag-and-drop handler for simple agent give inventory requests
@@ -1720,10 +1754,11 @@ bool LLToolDragAndDrop::handleGiveDragAndDrop(LLUUID dest_agent, LLUUID session_
 	case DAD_GESTURE:
 	case DAD_CALLINGCARD:
 	case DAD_MESH:
+	case DAD_CATEGORY:
 	{
-		LLViewerInventoryItem* inv_item = (LLViewerInventoryItem*)cargo_data;
-		if(gInventory.getItem(inv_item->getUUID())
-			&& LLGiveInventory::isInventoryGiveAcceptable(inv_item))
+		LLInventoryObject* inv_obj = (LLInventoryObject*)cargo_data;
+		if(gInventory.getCategory(inv_obj->getUUID()) || (gInventory.getItem(inv_obj->getUUID())
+			&& LLGiveInventory::isInventoryGiveAcceptable(dynamic_cast<LLInventoryItem*>(inv_obj))))
 		{
 			// *TODO: get multiple object transfers working
 			*accept = ACCEPT_YES_COPY_SINGLE;
@@ -1740,40 +1775,23 @@ bool LLToolDragAndDrop::handleGiveDragAndDrop(LLUUID dest_agent, LLUUID session_
 					// Otherwise set up a callback to show the dialog when the name arrives.
 					if (gCacheName->getFullName(dest_agent, fullname))
 					{
-						show_item_sharing_confirmation(fullname, inv_item, dest, dest_agent, LLUUID::null);
+						show_object_sharing_confirmation(fullname, inv_obj, dest, dest_agent, LLUUID::null);
 					}
 					else
 					{
-						gCacheName->get(dest_agent, false, boost::bind(&get_name_cb, _1, _2, inv_item, dest, dest_agent));
+						gCacheName->get(dest_agent, false, boost::bind(&get_name_cb, _1, _2, inv_obj, dest, dest_agent));
 					}
 
 					return true;
 				}
-
+				std::string dest_name = session->mName;
+				LLAvatarName av_name;
+				if(LLAvatarNameCache::get(dest_agent, &av_name))
+				{
+					dest_name = av_name.getCompleteName();
+				}
 				// If an IM session with destination agent is found item offer will be logged in this session.
-				show_item_sharing_confirmation(session->mName, inv_item, dest, dest_agent, session_id);
-			}
-		}
-		else
-		{
-			// It's not in the user's inventory (it's probably
-			// in an object's contents), so disallow dragging
-			// it here.  You can't give something you don't
-			// yet have.
-			*accept = ACCEPT_NO;
-		}
-		break;
-	}
-	case DAD_CATEGORY:
-	{
-		LLViewerInventoryCategory* inv_cat = (LLViewerInventoryCategory*)cargo_data;
-		if( gInventory.getCategory( inv_cat->getUUID() ) )
-		{
-			// *TODO: get multiple object transfers working
-			*accept = ACCEPT_YES_COPY_SINGLE;
-			if(drop)
-			{
-				LLGiveInventory::doGiveInventoryCategory(dest_agent, inv_cat, session_id);
+				show_object_sharing_confirmation(dest_name, inv_obj, dest, dest_agent, session_id);
 			}
 		}
 		else
@@ -2283,6 +2301,23 @@ EAcceptance LLToolDragAndDrop::dad3dWearCategory(
 	if (drop)
 	{
 		// TODO: investigate wearables may not be loaded at this point EXT-8231
+	}
+
+	U32 max_items = gSavedSettings.getU32("WearFolderLimit");
+	LLInventoryModel::cat_array_t cats;
+	LLInventoryModel::item_array_t items;
+	LLFindWearablesEx not_worn(/*is_worn=*/ false, /*include_body_parts=*/ false);
+	gInventory.collectDescendentsIf(category->getUUID(),
+		cats,
+		items,
+		LLInventoryModel::EXCLUDE_TRASH,
+		not_worn);
+	if (items.size() > max_items)
+	{
+		LLStringUtil::format_map_t args;
+		args["AMOUNT"] = llformat("%d", max_items);
+		mCustomMsg = LLTrans::getString("TooltipTooManyWearables",args);
+		return ACCEPT_NO_CUSTOM;
 	}
 
 	if(mSource == SOURCE_AGENT)

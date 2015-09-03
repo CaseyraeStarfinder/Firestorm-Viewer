@@ -36,6 +36,7 @@
 #include "llsdserialize.h"
 #include "llui.h"
 #include "llkeyboard.h"
+#include "llagent.h"
 
 const F32 LLVoiceClient::OVERDRIVEN_POWER_LEVEL = 0.7f;
 
@@ -169,7 +170,12 @@ void LLVoiceClient::setHidden(bool hidden)
 {
     if (mVoiceModule)
     {
+        //mVoiceModule->setHidden(hidden);
+		#ifdef OPENSIM
+			mVoiceModule->setHidden(hidden && LLGridManager::getInstance()->isInSecondLife());
+		#else
         mVoiceModule->setHidden(hidden);
+		#endif
     }
 }
 
@@ -653,7 +659,7 @@ void LLVoiceClient::keyDown(KEY key, MASK mask)
 		return;
 	}
 	
-	if(!mPTTIsMiddleMouse)
+	if(!mPTTIsMiddleMouse && LLAgent::isActionAllowed("speak"))
 	{
 		bool down = (mPTTKey != KEY_NONE)
 		&& gKeyboard->getKeyDown(mPTTKey);
@@ -672,12 +678,9 @@ void LLVoiceClient::keyUp(KEY key, MASK mask)
 }
 void LLVoiceClient::middleMouseState(bool down)
 {
-	if(mPTTIsMiddleMouse)
+	if(mPTTIsMiddleMouse && LLAgent::isActionAllowed("speak"))
 	{
-        if(mPTTIsMiddleMouse)
-        {
-			inputUserControlState(down);
-        }		
+		inputUserControlState(down);
 	}
 }
 
@@ -799,6 +802,17 @@ void LLVoiceClient::setUserVolume(const LLUUID& id, F32 volume)
 {
 	if (mVoiceModule) mVoiceModule->setUserVolume(id, volume);
 }
+
+// <FS:Ansariel> Add callback for user volume change
+boost::signals2::connection LLVoiceClient::setUserVolumeUpdateCallback(const user_voice_volume_change_callback_t::slot_type& cb)
+{
+	if (mVoiceModule)
+	{
+		return mVoiceModule->setUserVolumeUpdateCallback(cb);
+	}
+	return boost::signals2::connection();
+}
+// </FS:Ansariel>
 
 // <FS:Ansariel> Centralized voice power level
 EVoicePowerLevel LLVoiceClient::getPowerLevel(const LLUUID& id)
@@ -1068,10 +1082,15 @@ void LLSpeakerVolumeStorage::load()
 
 	LLSD settings_llsd;
 	llifstream file;
-	file.open(filename);
+	file.open(filename.c_str());
 	if (file.is_open())
 	{
-		LLSDSerialize::fromXML(settings_llsd, file);
+		if (LLSDParser::PARSE_FAILURE == LLSDSerialize::fromXML(settings_llsd, file))
+        {
+            LL_WARNS("Voice") << "failed to parse " << filename << LL_ENDL;
+            
+        }
+            
 	}
 
 	for (LLSD::map_const_iterator iter = settings_llsd.beginMap();
@@ -1106,7 +1125,7 @@ void LLSpeakerVolumeStorage::save()
 		}
 
 		llofstream file;
-		file.open(filename);
+		file.open(filename.c_str());
 		LLSDSerialize::toPrettyXML(settings_llsd, file);
 	}
 }

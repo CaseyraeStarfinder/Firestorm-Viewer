@@ -60,12 +60,14 @@ Voice Server Version: [VOICE_VERSION]
   <string name="AboutSettings">
 Settings mode: [MODE]
 Viewer Skin: [SKIN] ([THEME])
-Font Used: [FONT] ([FONT_SCREEN_DPI])
-Draw distance: [DRAW_DISTANCE]
-Bandwidth: [BANDWIDTH]
+Font Used: [FONT] ([FONT_SCREEN_DPI] dpi)
+Font Size Adjustment: [FONT_SIZE] pt
+UI Scaling: [UI_SCALE_FACTOR]
+Draw distance: [DRAW_DISTANCE] m
+Bandwidth: [BANDWIDTH] kbit/s
 LOD factor: [LOD]
 Render quality: [RENDERQUALITY]
-Advanced Lightning Model: [ALMSTATUS]
+Advanced Lighting Model: [ALMSTATUS]
 Texture memory: [TEXTUREMEMORY] MB ([TEXTUREMEMORYMULTIPLIER])
 VFS (cache) creation time (UTC): [VFS_DATE]
   </string>
@@ -112,7 +114,10 @@ VFS (cache) creation time (UTC): [VFS_DATE]
 	<string name="LoginFailed">Login failed.</string>
 	<string name="Quit">Quit</string>
 	<string name="create_account_url">http://join.secondlife.com/?sourceid=[sourceid]</string>
-
+	
+	<string name="AgniGridLabel">Second Life Main Grid (Agni)</string>
+	<string name="AditiGridLabel">Second Life Beta Test Grid (Aditi)</string>
+	
 	<string name="ViewerDownloadURL">http://www.firestormviewer.org/downloads/</string>
 	<string name="LoginFailedViewerNotPermitted">
 The viewer you are using can no longer access Second Life. Please visit the following page to download a new viewer:
@@ -200,15 +205,61 @@ Please try logging in again in a minute.</string>
 	<string name="SentToInvalidRegion">You were sent to an invalid region.</string>
 	<string name="TestingDisconnect">Testing viewer disconnect</string>
 
-	<!-- Facebook Connect and, eventually, other Social Network -->
-	<string name="SocialFacebookConnecting">Connecting to Facebook...</string>
-	<string name="SocialFacebookPosting">Posting...</string>
-	<string name="SocialFacebookDisconnecting">Disconnecting from Facebook...</string>
-	<string name="SocialFacebookErrorConnecting">Problem connecting to Facebook</string>
-	<string name="SocialFacebookErrorPosting">Problem posting to Facebook</string>
-	<string name="SocialFacebookErrorDisconnecting">Problem disconnecting from Facebook</string>
+	<!-- SLShare: Facebook, Flickr, and Twitter -->
+  <string name="SocialFacebookConnecting">Connecting to Facebook...</string>
+  <string name="SocialFacebookPosting">Posting...</string>
+  <string name="SocialFacebookDisconnecting">Disconnecting from Facebook...</string>
+  <string name="SocialFacebookErrorConnecting">Problem connecting to Facebook</string>
+  <string name="SocialFacebookErrorPosting">Problem posting to Facebook</string>
+  <string name="SocialFacebookErrorDisconnecting">Problem disconnecting from Facebook</string>
+  <string name="SocialFlickrConnecting">Connecting to Flickr...</string>
+  <string name="SocialFlickrPosting">Posting...</string>
+  <string name="SocialFlickrDisconnecting">Disconnecting from Flickr...</string>
+  <string name="SocialFlickrErrorConnecting">Problem connecting to Flickr</string>
+  <string name="SocialFlickrErrorPosting">Problem posting to Flickr</string>
+  <string name="SocialFlickrErrorDisconnecting">Problem disconnecting from Flickr</string>
+  <string name="SocialTwitterConnecting">Connecting to Twitter...</string>
+  <string name="SocialTwitterPosting">Posting...</string>
+  <string name="SocialTwitterDisconnecting">Disconnecting from Twitter...</string>
+  <string name="SocialTwitterErrorConnecting">Problem connecting to Twitter</string>
+  <string name="SocialTwitterErrorPosting">Problem posting to Twitter</string>
+  <string name="SocialTwitterErrorDisconnecting">Problem disconnecting from Twitter</string>
     
-	<!-- Tooltip -->
+	<!-- SLShare: User Friendly Filter Names Translation -->
+    <string name="BlackAndWhite">Black &amp; White</string>
+    <string name="Colors1970">1970&apos;s Colors</string>
+    <string name="Intense">Intense</string>
+    <string name="Newspaper">Newsprint</string>
+    <string name="Sepia">Sepia</string>
+    <string name="Spotlight">Spotlight</string>
+    <string name="Video">Video</string>
+    <string name="Autocontrast">Autocontrast</string>
+    <string name="LensFlare">Lens Flare</string>
+    <string name="Miniature">Miniature</string>
+    <string name="Toycamera">Toy Camera</string>
+    <string name="Antique">Antique</string>
+    <string name="Badtrip">Bad Trip</string>
+    <string name="Blownhighlights">Blown Highlights</string>
+    <string name="Softfocus">Soft Focus</string>
+    <string name="Brighten">Brighten</string>
+    <string name="Cartoon">Cartoon</string>
+    <string name="Darken">Darken</string>
+    <string name="Edges">Glowing Edges</string>
+    <string name="Focus">Center Focus</string>
+    <string name="Heatwave">Heatwave</string>
+    <string name="Julesverne">Jules Verne</string>
+    <string name="Lightleak">Light Leak</string>
+    <string name="Linearize">Linearize</string>
+    <string name="Negative">Negative</string>
+    <string name="Overcast">Overcast</string>
+    <string name="Posterize">Posterize</string>
+    <string name="Rotatecolors180">Color Shift</string>
+    <string name="Sharpen">Sharpen</string>
+    <string name="Thematrix">The Matrix</string>
+	
+	
+	
+    <!-- Tooltip -->
 	<string name="TooltipPerson">Person</string><!-- Object under mouse pointer is an avatar -->
 	<string name="TooltipNoName">(no name)</string> <!-- No name on an object -->
 	<string name="TooltipOwner">Owner:</string> <!-- Owner name follows -->
@@ -224,6 +275,7 @@ Please try logging in again in a minute.</string>
 	<string name="TooltipFlagNoScripts">No Scripts</string>
 	<string name="TooltipLand">Land:</string>
 	<string name="TooltipMustSingleDrop">Only a single item can be dragged here</string>
+	<string name="TooltipTooManyWearables">You can't wear a folder containing more than [AMOUNT] items.  You can change this limit in Advanced &gt; Show Debug Settings &gt; WearFolderLimit.</string>
 	<string name="TooltipPrice" value="L$[AMOUNT]: "/>
 	<string name="TooltipFlagScript">Script</string>
 	<string name="TooltipFlagPhysics">Physics</string>
@@ -239,14 +291,20 @@ Please try logging in again in a minute.</string>
 	<string name="TooltipDistance">Distance: [DISTANCE] m</string>
 	<string name="TooltipPosition">Position: [POSITION]</string>
 
-	<string name="TooltipOutboxDragToWorld">You can not rez items in your merchant outbox</string>
-	<string name="TooltipOutboxNoTransfer">One or more of these objects cannot be sold or transferred.</string>
-	<string name="TooltipOutboxNotInInventory">Your merchant outbox can only accept items directly from your inventory</string>
-	<string name="TooltipOutboxWorn">You can not put items you are wearing into your merchant outbox</string>
-	<string name="TooltipOutboxCallingCard">You can not put calling cards into your merchant outbox</string>
-	<string name="TooltipOutboxFolderLevels">Depth of nested folders exceeds 3</string>
-	<string name="TooltipOutboxTooManyFolders">Subfolder count in top-level folder exceeds 20</string>
-	<string name="TooltipOutboxTooManyObjects">Item count in top-level folder exceeds 200</string>
+    <string name="TooltipOutboxDragToWorld">You can't rez items from the Marketplace Listings folder</string>
+    <string name="TooltipOutboxWorn">You can't put items you are wearing in the Marketplace Listings folder</string>
+    <string name="TooltipOutboxFolderLevels">Depth of nested folders exceeds [AMOUNT]. Decrease the depth of folders-within-folders; box items if necessary.</string>
+    <string name="TooltipOutboxTooManyFolders">Subfolder count exceeds [AMOUNT]. Decrease the number of folders in your listing; box items if necessary.</string>
+    <string name="TooltipOutboxTooManyObjects">Item count exceeds [AMOUNT]. In order to sell more than [AMOUNT] items in one listing, you must box some of them.</string>
+    <string name="TooltipOutboxTooManyStockItems">Stock items count exceeds [AMOUNT].</string>
+    <string name="TooltipOutboxCannotDropOnRoot">You can only drop items or folders in the ALL or UNASSOCIATED tabs. Please select one of those tabs and move your item(s) or folder(s) again.</string>
+	<string name="TooltipOutboxNoTransfer">One or more of these objects cannot be sold or transferred</string>
+	<string name="TooltipOutboxNotInInventory">You can only put items from your inventory on the marketplace</string>
+	<string name="TooltipOutboxLinked">You can't put linked items or folders on the marketplace</string>
+	<string name="TooltipOutboxCallingCard">You can't put calling cards on the marketplace</string>
+	<string name="TooltipOutboxDragActive">You can't move a listed listing</string>
+	<string name="TooltipOutboxCannotMoveRoot">You can't move the marketplace listings root folder</string>
+	<string name="TooltipOutboxMixedStock">All items in a stock folder must have the same type and permission</string>
 	
 	<string name="TooltipDragOntoOwnChild">You can't move a folder into its child</string>
 	<string name="TooltipDragOntoSelf">You can't move a folder into itself</string>
@@ -294,6 +352,7 @@ Please try logging in again in a minute.</string>
 	<string name="BUTTON_TEAR_OFF">Tear Off</string>
 	<string name="BUTTON_DOCK">Dock</string>
 	<string name="BUTTON_HELP">Show Help</string>
+	<string name="BUTTON_SNOOZE">Snooze</string>
 
 	<!-- searching - generic -->
 	<string name="Searching">Searching...</string>
@@ -318,7 +377,7 @@ Please try logging in again in a minute.</string>
 	<string name="AvatarNameNobody">(nobody)</string>
 
 	<!-- Avatar name: text shown while fetching name -->
-	<string name="AvatarNameWaiting">(waiting)</string>
+	<string name="AvatarNameWaiting">(Loading...)</string>
 
   <!-- Avatar name: More than one avatar is selected/used here -->
   <string name="AvatarNameMultiple">(multiple)</string>
@@ -375,6 +434,7 @@ Please try logging in again in a minute.</string>
 	<string name="AvatarAway">Away</string>
 	<string name="AvatarDoNotDisturb">Unavailable</string>
 	<string name="AvatarMuted">Blocked</string>
+	<string name="AvatarAutoResponse">Auto-Response</string>
 
 	<!-- animations -->
 	<string name="anim_express_afraid">Afraid</string>
@@ -451,6 +511,8 @@ Please try logging in again in a minute.</string>
 	<string name="multiple_textures">Multiple</string>
 
 <string name="use_texture">Use texture</string>
+    <string name="manip_hint1">Move mouse cursor over ruler</string>
+    <string name="manip_hint2">to snap to grid</string>
 
 	<!-- world map -->
 	<string name="texture_loading">Loading...</string>
@@ -498,7 +560,7 @@ Please try logging in again in a minute.</string>
 	<string name="ChangeYourDefaultAnimations">Change your default animations</string>
 	<string name="SnapshotSavedToDisk">Snapshot saved: [FILENAME]</string>
 	
-	<string name="JoinAnExperience">Join an experience</string> <!-- not used -->
+	<string name="JoinAnExperience"/><!-- intentionally blank -->
 	<string name="SilentlyManageEstateAccess">Suppress alerts when managing estate access lists</string>
 	<string name="OverrideYourAnimations">Replace your default animations</string>
 	<string name="ScriptReturnObjects">Return objects on your behalf</string>
@@ -545,6 +607,7 @@ Please try logging in again in a minute.</string>
 	<string name="backup_files">Object Backups</string>
 	<string name="collada_files">COLLADA Models</string>
 	<string name="csv_files">Comma separated values</string>
+	<string name="recompile_script_verb">Recompile</string>
 
   <!-- LSL Usage Hover Tips -->
 	<string name="LSLTipSleepTime" translate="false">Sleeps script for [SLEEP_TIME] seconds.</string>
@@ -647,6 +710,7 @@ Please try logging in again in a minute.</string>
 	<string name="InventoryNoMatchingItems">Didn't find what you're looking for? Try [secondlife:///app/search/all/[SEARCH_TERM] Search].</string>
 	<string name="PlacesNoMatchingItems">Didn't find what you're looking for? Try [secondlife:///app/search/places/[SEARCH_TERM] Search].</string>
 	<string name="FavoritesNoMatchingItems">Drag a landmark here to add it to your favorites.</string>
+	<string name="MarketplaceNoMatchingItems">No items found. Check the spelling of your search string and try again.</string>
 	<string name="InventoryNoTexture">You do not have a copy of this texture in your inventory</string>
 	<string name="InventoryInboxNoItems">Your Marketplace purchases will appear here. You may then drag them into your inventory to use them.</string>
 	<string name="MarketplaceURL">https://marketplace.[MARKETPLACE_DOMAIN_NAME]/</string>
@@ -674,16 +738,45 @@ We are accessing your account on the [[MARKETPLACE_CREATE_STORE_URL] Marketplace
 	<string name="InventoryOutboxError">
 The [[MARKETPLACE_CREATE_STORE_URL] Marketplace store] is returning errors.
 	</string>
+	<string name="InventoryMarketplaceError">
+This feature is currently in Beta. Please add your name to this [http://goo.gl/forms/FCQ7UXkakz Google form] if you would like to participate.
+	</string>
+	<string name="InventoryMarketplaceListingsNoItemsTitle">Your Marketplace Listings folder is empty.</string>
+	<string name="InventoryMarketplaceListingsNoItemsTooltip"></string>
+	<string name="InventoryMarketplaceListingsNoItems">
+        Drag folders to this area to list them for sale on the [[MARKETPLACE_DASHBOARD_URL] Marketplace].
+	</string>
 
+	<string name="Marketplace Validation Log"></string>
+	<string name="Marketplace Validation Warning Stock">stock folder must be contained by a version folder</string>
+	<string name="Marketplace Validation Error Mixed Stock">: Error: all items in a stock folder must be no-copy and of the same type</string>
+	<string name="Marketplace Validation Error Subfolder In Stock">: Error: stock folder cannot contain subfolders</string>
+	<string name="Marketplace Validation Warning Empty">: Warning: folder doesn't contain any items</string>
+	<string name="Marketplace Validation Warning Create Stock">: Warning: creating stock folder</string>
+	<string name="Marketplace Validation Warning Create Version">: Warning: creating version folder</string>
+	<string name="Marketplace Validation Warning Move">: Warning : moving items</string>
+	<string name="Marketplace Validation Warning Delete">: Warning: folder content transfered to stock folder, removing empty folder</string>
+	<string name="Marketplace Validation Error Stock Item">: Error: no-copy items must be contained by a stock folder</string>
+	<string name="Marketplace Validation Warning Unwrapped Item">: Warning: items must be contained by a version folder</string>
+	<string name="Marketplace Validation Error">: Error: </string>
+	<string name="Marketplace Validation Warning">: Warning: </string>
+	<string name="Marketplace Validation Error Empty Version">: Warning: version folder must contain at least 1 item</string>
+	<string name="Marketplace Validation Error Empty Stock">: Warning: stock folder must contain at least 1 item</string>
+
+    <string name="Marketplace Validation No Error">No errors or warnings to report</string>
 	<string name="Marketplace Error None">No errors</string>
-	<string name="Marketplace Error Not Merchant">Error: Before sending items to the Marketplace you will need to set yourself up as a merchant (free of charge).</string>
-	<string name="Marketplace Error Empty Folder">Error: This folder has no contents.</string>
-	<string name="Marketplace Error Unassociated Products">Error: This item failed to upload because your merchant account has too many items unassociated with products.  To fix this error, log in to the marketplace website and reduce your unassociated item count.</string>
+	<string name="Marketplace Error Prefix">Error: </string>
+	<string name="Marketplace Error Not Merchant">Before sending items to the Marketplace you will need to set yourself up as a merchant (free of charge).</string>
+	<string name="Marketplace Error Not Accepted">Cannot move item in that folder.</string>
+	<string name="Marketplace Error Unsellable Item">This item cannot be sold on the Marketplace.</string>
 
-	<string name="Marketplace Error Object Limit">Error: This item contains too many objects.  Fix this error by placing objects together in boxes to reduce the total count to less than 200.</string>
-	<string name="Marketplace Error Folder Depth">Error: This item contains too many levels of nested folders.  Reorganize it to a maximum of 3 levels of nested folders.</string>
-	<string name="Marketplace Error Unsellable Item">Error: This item can not be sold on the marketplace.</string>
-	<string name="Marketplace Error Internal Import">Error: There was a problem with this item.  Try again later.</string>
+	<string name="MarketplaceNoID">no Mkt ID</string>
+	<string name="MarketplaceLive">listed</string>
+	<string name="MarketplaceActive">active</string>
+	<string name="MarketplaceMax">max</string>
+	<string name="MarketplaceStock">stock</string>
+	<string name="MarketplaceNoStock">out of stock</string>
+	<string name="MarketplaceUpdating">updating...</string>
 
 	<string name="Open landmarks">Open landmarks</string>
   <string name="Unconstrained">Unconstrained</string>
@@ -698,6 +791,7 @@ The [[MARKETPLACE_CREATE_STORE_URL] Marketplace store] is returning errors.
 	<string name="LoadingContents">Loading contents...</string>
 	<string name="NoContents">No contents</string>
 	<string name="WornOnAttachmentPoint" value=" (worn on [ATTACHMENT_POINT])" />
+	<string name="AttachmentErrorMessage" value=" ([ATTACHMENT_ERROR])" />
 	<string name="ActiveGesture" value="[GESLABEL] (active)"/>
 	<!-- Inventory permissions -->
 	<string name="PermYes">Yes</string>
@@ -828,10 +922,12 @@ The [[MARKETPLACE_CREATE_STORE_URL] Marketplace store] is returning errors.
 	<string name="Stomach">Stomach</string>
 	<string name="Left Pec">Left Pec</string>
 	<string name="Right Pec">Right Pec</string>
-	<string name="Bridge">Bridge</string>
-	<string name="Neck">Neck</string>
-	<string name="Avatar Center">Avatar Center</string>
+        <string name="Neck">Neck</string>
+        <string name="Avatar Center">Avatar Center</string>
 	<string name="Invalid Attachment">Invalid Attachment Point</string>
+	<string name="ATTACHMENT_MISSING_ITEM">Error: missing item</string>
+	<string name="ATTACHMENT_MISSING_BASE_ITEM">Error: missing base item</string>
+	<string name="ATTACHMENT_NOT_ATTACHED">Error: object is in current outfit but not attached</string>
 
   <!-- Avatar age computation, see LLDateUtil::ageFromDate -->
   <string name="YearsMonthsOld">[AGEYEARS] [AGEMONTHS]</string>
@@ -893,6 +989,7 @@ The [[MARKETPLACE_CREATE_STORE_URL] Marketplace store] is returning errors.
 	<string name="CompileQueueInsufficientPermDownload">Insufficient permissions to download a script.</string>
 	<string name="CompileQueueInsufficientPermFor">Insufficient permissions for</string>
 	<string name="CompileQueueUnknownFailure">Unknown failure to download</string>
+	<string name="CompileNoExperiencePerm">Skipping script [SCRIPT] with Experience [EXPERIENCE].</string>
 	<string name="CompileQueueTitle">Recompilation Progress</string>
 	<string name="CompileQueueStart">recompile</string>
 	<string name="ResetQueueTitle">Reset Progress</string>
@@ -909,6 +1006,7 @@ The [[MARKETPLACE_CREATE_STORE_URL] Marketplace store] is returning errors.
 	<string name="CompileSuccessful">Compile successful!</string>
 	<string name="CompileSuccessfulSaving">Compile successful, saving...</string>
 	<string name="SaveComplete">Save complete.</string>
+	<string name="UploadFailed">File upload failed: [REASON]</string>
 	<string name="ObjectOutOfRange">Script (object out of range)</string>
 
 	<!-- god tools -->
@@ -1010,7 +1108,6 @@ The [[MARKETPLACE_CREATE_STORE_URL] Marketplace store] is returning errors.
 	<string name="ATTACH_HUD_BOTTOM_RIGHT">HUD Bottom Right</string>
 	<string name="ATTACH_NECK">Neck</string>
 	<string name="ATTACH_AVATAR_CENTER">Avatar Center</string>
-	<string name="ATTACH_BRIDGE">Bridge</string>
 			
   <!-- script editor -->
 	<string name="CursorPos">Line [LINE], Column [COLUMN]</string>
@@ -1043,7 +1140,7 @@ The [[MARKETPLACE_CREATE_STORE_URL] Marketplace store] is returning errors.
 
 	<!-- Region/Estate Covenant -->
 	<string name="RegionNoCovenant">There is no Covenant provided for this Estate.</string>
-	<string name="RegionNoCovenantOtherOwner">There is no Covenant provided for this Estate. The land on this estate is being sold by the Estate owner, not Linden Lab.  Please contact the Estate Owner for sales details.</string>
+	<string name="RegionNoCovenantOtherOwner">There is no Covenant provided for this Estate. The land on this estate is being sold by the Estate owner.  Please contact the Estate Owner for sales details.</string>
 	<string name="covenant_last_modified" value="Last Modified: " /> <!-- use value="" to keep the trailing space -->
 	<string name="none_text"  value=" (none) " />
 	<string name="never_text" value=" (never) " />
@@ -1949,6 +2046,12 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
   <string name="facebook_post_success">
     You posted to Facebook.
   </string>
+  <string name="flickr_post_success">
+    You posted to Flickr.
+  </string>
+  <string name="twitter_post_success">
+    You posted to Twitter.
+  </string>
 
   <string name="no_session_message">
     (IM Session Doesn't Exist)
@@ -2372,11 +2475,14 @@ Try enclosing path to the editor with double quotes.
   <string name="Command_Conversations_Label">Conversations</string>
   <string name="Command_Compass_Label">Compass</string>
   <string name="Command_Destinations_Label">Destinations</string>
+  <string name="Command_Facebook_Label">Facebook</string>
+  <string name="Command_Flickr_Label">Flickr</string>
   <string name="Command_Gestures_Label">Gestures</string>
   <string name="Command_HowTo_Label">How to</string>
   <string name="Command_Inventory_Label">Inventory</string>
   <string name="Command_Map_Label">Map</string>
   <string name="Command_Marketplace_Label">Marketplace</string>
+  <string name="Command_MarketplaceListings_Label">Marketplace</string>
   <string name="Command_MiniMap_Label">Mini-map</string>
   <string name="Command_Move_Label">Walk / run / fly</string>
   <string name="Command_Outbox_Label">Merchant outbox</string>
@@ -2387,8 +2493,8 @@ Try enclosing path to the editor with double quotes.
   <string name="Command_Profile_Label">Profile</string>
   <string name="Command_Search_Label">Search</string>
   <string name="Command_Snapshot_Label">Snapshot</string>
-  <string name="Command_Social_Label">Facebook</string>
   <string name="Command_Speak_Label">Speak</string>
+  <string name="Command_Twitter_Label">Twitter</string>
   <string name="Command_View_Label">Camera controls</string>
 <!-- Ansariel: Renamed for FS (FIRE-5019)
   <string name="Command_Voice_Label">Voice settings</string>-->
@@ -2419,6 +2525,8 @@ Try enclosing path to the editor with double quotes.
   <string name="Command_Move_Lock_Label">Move Lock</string>
   <string name="Command_Blocklist_Label">Block List</string>
   <string name="Command_ResyncAnimations_Label">Resync animations</string>
+  <string name="Command_RegionTracker_Label">Region Tracker</string>
+  <string name="Command_Group_Titles_Label">Group Titles</string>
 
   <string name="Command_AboutLand_Tooltip">Information about the land you're visiting</string>
   <string name="Command_Appearance_Tooltip">Change your avatar</string>
@@ -2428,11 +2536,14 @@ Try enclosing path to the editor with double quotes.
   <string name="Command_Conversations_Tooltip">Converse with everyone (CTRL+T)</string>
   <string name="Command_Compass_Tooltip">Compass</string>
   <string name="Command_Destinations_Tooltip">Destinations of interest</string>
+  <string name="Command_Facebook_Tooltip">Post to Facebook</string>
+  <string name="Command_Flickr_Tooltip">Upload to Flickr</string>
   <string name="Command_Gestures_Tooltip">Gestures for your avatar (CTRL+G)</string>
   <string name="Command_HowTo_Tooltip">How to do common tasks</string>
   <string name="Command_Inventory_Tooltip">View and use your belongings (CTRL+I)</string>
   <string name="Command_Map_Tooltip">Map of the world (CTRL+M)</string>
   <string name="Command_Marketplace_Tooltip">Go shopping</string>
+  <string name="Command_MarketplaceListings_Tooltip">Sell your creation</string>
   <string name="Command_MiniMap_Tooltip">Show nearby people (CTRL+SHIFT+M)</string>
   <string name="Command_Move_Tooltip">Moving your avatar</string>
   <string name="Command_Outbox_Tooltip">Transfer items to your marketplace for sale</string>
@@ -2443,8 +2554,8 @@ Try enclosing path to the editor with double quotes.
   <string name="Command_Profile_Tooltip">Edit or view your profile</string>
   <string name="Command_Search_Tooltip">Find places, events, people (CTRL+F)</string>
   <string name="Command_Snapshot_Tooltip">Take a picture (CTRL+SHIFT+S)</string>
-  <string name="Command_Social_Tooltip">Post to Facebook</string>
   <string name="Command_Speak_Tooltip">Speak with people nearby using your microphone</string>
+  <string name="Command_Twitter_Tooltip">Twitter</string>
   <string name="Command_View_Tooltip">Changing camera angle</string>
   <string name="Command_Voice_Tooltip">Volume controls for calls and people near you in world</string>
 <!-- Firestorm commands -->
@@ -2472,6 +2583,8 @@ Try enclosing path to the editor with double quotes.
   <string name="Command_Move_Lock_Tooltip">Locks your avatar in its current position (CTRL+ALT+P)</string>
   <string name="Command_Blocklist_Tooltip">Opens the block/mute list</string>
   <string name="Command_ResyncAnimations_Tooltip">Synchronizes avatar animations</string>
+  <string name="Command_RegionTracker_Tooltip">Track various regions status</string>
+  <string name="Command_Group_Titles_Tooltip">Change active group tag</string>
 
   <string name="Toolbar_Bottom_Tooltip">currently in your bottom toolbar</string>
   <string name="Toolbar_Left_Tooltip"  >currently in your left toolbar</string>
@@ -2506,14 +2619,13 @@ Try enclosing path to the editor with double quotes.
 
   <!-- Settings sanity checks -->
   <string name="SanityCheckEquals">The settings control &quot;[CONTROL_NAME]&quot; should be at [VALUE_1].</string>
-  <string name="SanityCheckNotEquals">The settings control&quot;[CONTROL_NAME]&quot; should not be set to [VALUE_1].</string>
+  <string name="SanityCheckNotEquals">The settings control &quot;[CONTROL_NAME]&quot; should not be set to [VALUE_1].</string>
   <string name="SanityCheckLessThan">The settings control &quot;[CONTROL_NAME]&quot; should be lower than [VALUE_1].</string>
   <string name="SanityCheckGreaterThan">The settings control &quot;[CONTROL_NAME]&quot; should be higher than [VALUE_1].</string>
+  <string name="SanityCheckLessThanEquals">The settings control &quot;[CONTROL_NAME]&quot; should be lower than or equal [VALUE_1].</string>
+  <string name="SanityCheckGreaterThanEquals">The settings control &quot;[CONTROL_NAME]&quot; should be higher than or equal [VALUE_1].</string>
   <string name="SanityCheckBetween">The settings control &quot;[CONTROL_NAME]&quot; should be between [VALUE_1] and [VALUE_2].</string>
   <string name="SanityCheckNotBetween">The settings control &quot;[CONTROL_NAME]&quot; should not be between [VALUE_1] and [VALUE_2].</string>
-
-  <string name="RlvEnabled">RestrainedLove Support will be enabled after you restart.</string>
-  <string name="RlvDisabled">RestrainedLove Support will be disabled after you restart.</string>
 
   <!-- Media filter options -->
   <string name="MediaFilterActionAllow">Allow</string>
@@ -2547,11 +2659,6 @@ Try enclosing path to the editor with double quotes.
   <string name="UnknownRegion">(unknown region)</string>
   <string name="UnknownPosition">(unknown position)</string>
 
-  <!-- CmdLine Response Strings-->
-  <!--<FS:HG> FIRE-6340, FIRE-6567 - Setting Bandwidth issues-->
-  <string name="FSCmdLineRSP">Maximum bandwidth set to [VALUE] KBPS.</string>
-  <!--</FS:HG> FIRE-6340, FIRE-6567 - Setting Bandwidth issues-->
-  
   <!-- NetMap double click action tooltip messages -->
   <string name="NetMapDoubleClickShowWorldMapToolTipMsg">[AGENT][REGION](Double-click to open Map, shift-drag to pan)</string>
   <string name="NetMapDoubleClickTeleportToolTipMsg">[REGION](Double-click to teleport, shift-drag to pan)</string>
@@ -2577,6 +2684,36 @@ Try enclosing path to the editor with double quotes.
   <!-- Spell check settings floater -->
   <string name="UserDictionary">[User]</string>
   
+  <!-- Experience Tools strings -->
+  <string name="experience_tools_experience">Experience</string>
+  <string name="ExperienceNameNull">(no experience)</string>
+  <string name="ExperienceNameUntitled">(untitled experience)</string>
+  <string name="Land-Scope">Land-Scope</string>
+  <string name="Grid-Scope">Grid-Scope</string>
+  <string name="Allowed_Experiences_Tab">Allowed</string>
+  <string name="Blocked_Experiences_Tab">Blocked</string>
+  <string name="Contrib_Experiences_Tab">Contributor</string>
+  <string name="Admin_Experiences_Tab">Admin</string>
+  <string name="Recent_Experiences_Tab">Recent</string>
+  <string name="Owned_Experiences_Tab">Owned</string>
+  <string name="ExperiencesCounter">([EXPERIENCES], max [MAXEXPERIENCES])</string>
+  <string name="ExperiencePermission1">take over your controls</string>
+  <string name="ExperiencePermission3">trigger animations on your avatar</string>
+  <string name="ExperiencePermission4">attach to your avatar</string>
+  <string name="ExperiencePermission9">track your camera</string>
+  <string name="ExperiencePermission10">control your camera</string>
+  <string name="ExperiencePermission11">teleport you</string>
+  <string name="ExperiencePermission12">automatically accept experience permissions</string>
+  <string name="ExperiencePermissionShortUnknown">perform an unknown operation: [Permission]</string>
+  <string name="ExperiencePermissionShort1">Take Controls</string>
+  <string name="ExperiencePermissionShort3">Trigger Animations</string>
+  <string name="ExperiencePermissionShort4">Attach</string>
+  <string name="ExperiencePermissionShort9">Track Camera</string>
+  <string name="ExperiencePermissionShort10">Control Camera</string>
+  <string name="ExperiencePermissionShort11">Teleport</string>
+  <string name="ExperiencePermissionShort12">Permission</string>
+  <string name="ExperiencePermissionShortUnknown">Unknown: [Permission]</string>
+  
   <!-- Conversation log messages -->
   <string name="logging_calls_disabled_log_empty">
     Conversations are not being logged. To begin keeping a log, choose "Save: Log only" or "Save: Log and transcripts" under Preferences > Privacy.
@@ -2590,14 +2727,26 @@ Try enclosing path to the editor with double quotes.
   <string name="loading_chat_logs">
     Loading...
   </string>
-  
+
+  <string name="Mav_Details_MAV_FOUND_DEGENERATE_TRIANGLES">
+      The physics shape contains triangles which are too small. Try simplifying the physics model.
+  </string>
+
+  <string name="Mav_Details_MAV_CONFIRMATION_DATA_MISMATCH">
+      The physics shape contains bad confirmation data. Try to correct the physics model.
+  </string>
+
+  <string name="Mav_Details_MAV_UNKNOWN_VERSION">
+      The physics shape does not have correct version. Set the correct version for the physics model.
+  </string>
+
   <string name="LoadCameraPositionNoneSaved">No camera view has been saved yet.</string>
   <string name="LoadCameraPositionOutsideDrawDistance">Can't restore camera view because the camera position is beyond draw distance.</string>
 
   <string name="DrawDistanceSteppingGestureObsolete">Due to the changes in code, it is no longer necessary to use this gesture. Progressive Draw Distance stepping has been enabled.</string>
-  <string name="FSCmdLineDrawDistanceSet">Draw Distance set to [DISTANCE]m.</string>
   <string name="FSCameraPositionCopied">Camera position [POS] copied to clipboard.</string>
 
+  <string name="FSCmdLineDrawDistanceSet">Draw Distance set to [DISTANCE]m.</string>
   <string name="FSCmdLineRollDiceTotal">Total result for [DICE]d[FACES][MODIFIER]: [RESULT].</string>
   <string name="FSCmdLineRollDiceLimits">You must provide positive values for dice (max 100) and faces (max 1000).</string>
   <string name="FSCmdLineRollDiceModifiersInvalid">If you want to use a modifier, then you must provide valid modifier number and the type of modifier. Modifier must be in range from -1000 to 1000. Valid modifier types are "+" (bonuses), "-" (penalties), "&gt;", "&lt;" (successes), "r&gt;", "r&lt;", "r" (rerolls), "!p&gt;", "!p&lt;", "!p" (penetrations), "!&gt;", "!&lt;" and "!" (explosions). You can use only one modifier type per roll. Examples: "[COMMAND] 1 20 + 5", "[COMMAND] 5 40 &gt; 15", "[COMMAND] 10 25 ! 25", "[COMMAND] 15 25 !&lt; 10".</string>
@@ -2606,9 +2755,10 @@ Try enclosing path to the editor with double quotes.
   <string name="FSCmdLineRollDiceSuccess">Success</string>
   <string name="FSCmdLineRollDiceReroll">Reroll</string>
   <string name="FSCmdLineRollDiceFreezeGuard">This operation cannot be completed because the viewer would freeze in an infinite rolling loop. Please change the criteria.</string>
-
   <string name="FSCmdLineCalcRandError">'[RAND]' is not a valid expression for RAND(min,max). MAX must be higher than MIN, both in range from -10000 to 10000.</string>
-
+  <string name="FSCmdLineRSP">Maximum bandwidth set to [VALUE] KBPS.</string>
+  <string name="FSCmdLineTpOffered">Offered teleport to [NAME].</string>
+  
   <!-- Build types for about floater -->
   <string name="FSWithHavok">with Havok support</string>
   <string name="FSWithOpensim">with OpenSimulator support</string>
@@ -2703,6 +2853,43 @@ Try enclosing path to the editor with double quotes.
   <string name="TotalScriptCountChangeDecrease">Total scripts in region dropped from [OLD_VALUE] to [NEW_VALUE] ([DIFFERENCE]).</string>
   <string name="preproc_toggle_warning">Toggling the preprocessor will not take full effect until you close and reopen this editor.</string>
 
+  <!-- <FS:Cron> FIRE-9335 -->
+  <!-- <LSL Preprocessor -->
+  <string name="fs_preprocessor_starting">[APP_NAME] preprocessor starting...</string>
+  <string name="fs_preprocessor_not_supported">Warning: Preprocessor not supported in this build. ([WHERE])</string>
+  <string name="fs_preprocessor_disabled_by_script_marker">[APP_NAME] preprocessor disabled by directive at line [LINENUMBER].</string>
+  <string name="fs_preprocessor_settings_list_prefix">Settings:</string>
+  <string name="fs_preprocessor_wave_exception">[ERR_NAME] ([LINENUMBER]): [ERR_DESC]</string>
+  <string name="fs_preprocessor_exception">[ERR_NAME] ([LINENUMBER]): exception caught: [ERR_DESC]</string>
+  <string name="fs_preprocessor_error">[ERR_NAME] ([LINENUMBER]): unexpected exception caught.</string>
+  <!-- LSL Optimizer -->
+  <string name="fs_preprocessor_optimizer_start">Optimizing out unreferenced user-defined functions and global variables.</string>
+  <string name="fs_preprocessor_optimizer_regex_err">Not a valid regular expression: '[WHAT]'; LSL optimization skipped.</string>
+  <string name="fs_preprocessor_optimizer_exception">Exception caught: '[WHAT]'; LSL optimization skipped.</string>
+  <string name="fs_preprocessor_optimizer_unexpected_exception">Unexpected exception in LSL optimizer; not applied.</string>
+  <!-- LSL Compressor -->
+  <string name="fs_preprocessor_compress_start">Compressing script text by removing unnecessary space.</string>
+  <string name="fs_preprocessor_compress_regex_err">Not a valid regular expression: '[WHAT]'; LSL compression skipped.</string>
+  <string name="fs_preprocessor_compress_exception">Exception caught: '[WHAT]'; LSL compression skipped.</string>
+  <string name="fs_preprocessor_compress_unexpected_exception">Unexpected exception in LSL compressor; not applied.</string>
+  <!-- LSL Lazy lists -->
+  <string name="fs_preprocessor_lazylist_start">Applying lazy list conversion.</string>
+  <string name="fs_preprocessor_lazylist_regex_err">Not a valid regular expression: '[WHAT]'; Lazy list converter skipped.</string>
+  <string name="fs_preprocessor_lazylist_exception">Exception caught: '[WHAT]'; Lazy list converter skipped.</string>
+  <string name="fs_preprocessor_lazylist_unexpected_exception">Unexpected exception in lazy list converter; not applied.</string>
+  <!-- LSL switch statement -->
+  <string name="fs_preprocessor_switchstatement_start">Applying switch statement conversion.</string>
+  <string name="fs_preprocessor_switchstatement_regex_err">Not a valid regular expression: '[WHAT]'; Switch statement converter skipped.</string>
+  <string name="fs_preprocessor_switchstatement_exception">Exception caught: '[WHAT]'; Switch statement converter skipped.</string>
+  <string name="fs_preprocessor_switchstatement_unexpected_exception">Unexpected exception in switch statement converter; not applied.</string>
+  <!-- LSL Cache -->
+  <string name="fs_preprocessor_cache_miss">Caching included file: '[FILENAME]'</string>
+  <string name="fs_preprocessor_cache_invalidated">Included file '[FILENAME]' has changed, recaching.</string>
+  <string name="fs_preprocessor_cache_completed">Caching completed for '[FILENAME]'</string>
+  <string name="fs_preprocessor_cache_unsafe">Error: script named '[FILENAME]' isn't safe to copy to the filesystem. This include will fail.</string>
+  <string name="fs_preprocessor_caching_err">Error caching included file '[FILENAME]'</string>
+  <!-- </FS:Cron> -->
+
   <!-- <FS:Zi> Notify user about preferences settings changes to skin defaults -->
   <string name="skin_defaults_starlight_location">Showing your current location in the menu bar was disabled as a default for the Starlight skin series.</string>
   <string name="skin_defaults_starlight_navbar">Showing the navigation bar was enabled as a default for the Starlight skin series.</string>
@@ -2723,11 +2910,18 @@ Try enclosing path to the editor with double quotes.
 
   <string name="SLGridStatusInvalidMsg">SL Grid Status error: Invalid message format. Try again later.</string>
   <string name="SLGridStatusTimedOut">SL Grid Status error: Request timed out.</string>
-  <string name="SLGridStatusOtherError">SL Grid Status error: [STATUS] (https://en.wikipedia.org/wiki/List_of_HTTP_status_codes).</string>
+  <string name="SLGridStatusOtherError">SL Grid Status error: [STATUS] ( https://en.wikipedia.org/wiki/List_of_HTTP_status_codes ).</string>
 
   <string name="DoubleClickTeleportEnabled">DoubleClick Teleport enabled.</string>
   <string name="DoubleClickTeleportDisabled">DoubleClick Teleport disabled.</string>
 
   <string name="FSRegionRestartInLocalChat">The region you are in now is about to restart. If you stay in this region you will be logged out.</string>
 
+  <string name="Mute_Add">'[NAME]' has been added to the blocklist.</string>
+  <string name="Mute_Remove">'[NAME]' has been removed from the blocklist.</string>
+  <string name="Reqsysinfo_Chat_NoReason">I am requesting information about your system setup.</string>
+  <string name="Reqsysinfo_Chat_Reason">I am requesting information about your system setup for this reason: [REASON]</string>
+  <string name="Reqsysinfo_Chat_Information_sent">Information Sent: [DATA]</string>
+  <string name="Reqsysinfo_Chat_Request_Denied">Request denied.</string>
+  <string name="Reqsysinfo_Reason">The reason provided was: [REASON]</string>
 </strings>

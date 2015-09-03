@@ -1,8 +1,10 @@
 # -*- cmake -*-
 include(Prebuilt)
 
-if (NOT STANDALONE)
-  use_prebuilt_binary(glext)
-  use_prebuilt_binary(glh_linear)
+if (NOT USESYSTEMLIBS)
+  if (WINDOWS OR LINUX)
+    use_prebuilt_binary(glext)
+  endif (WINDOWS OR LINUX)
+  use_prebuilt_binary(glh-linear)
   set(GLEXT_INCLUDE_DIR ${LIBS_PREBUILT_DIR}/include)
-endif (NOT STANDALONE)
+endif (NOT USESYSTEMLIBS)

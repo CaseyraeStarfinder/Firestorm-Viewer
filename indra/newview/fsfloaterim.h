@@ -21,6 +21,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  * 
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
+ * http://www.firestormviewer.org
  * $/LicenseInfo$
  */
 
@@ -29,21 +30,24 @@
 #ifndef FS_FLOATERIM_H
 #define FS_FLOATERIM_H
 
+#include "llchat.h"
 #include "llinstantmessage.h"
 #include "lllogchat.h"
 #include "lltooldraganddrop.h"
 #include "lltransientdockablefloater.h"
 #include "llvoicechannel.h"
-#include "lllayoutstack.h"
 
+class FSChatHistory;
+class FSPanelChatControlPanel;
 class LLAvatarName;
 class LLButton;		// support sysinfo button -Zi
 class LLChatEntry;
-class LLTextEditor;
-class FSPanelChatControlPanel;
-class FSChatHistory;
-class LLInventoryItem;
 class LLInventoryCategory;
+class LLInventoryItem;
+class LLLayoutPanel;
+class LLLayoutStack;
+class LLTextBox;
+class LLTextEditor;
 
 typedef boost::signals2::signal<void(const LLUUID& session_id)> floater_showed_signal_t;
 
@@ -51,7 +55,7 @@ typedef boost::signals2::signal<void(const LLUUID& session_id)> floater_showed_s
  * Individual IM window that appears at the bottom of the screen,
  * optionally "docked" to the bottom tray.
  */
-class FSFloaterIM : public LLTransientDockableFloater, LLVoiceClientStatusObserver, LLFriendObserver
+class FSFloaterIM : public LLTransientDockableFloater, LLVoiceClientStatusObserver, LLFriendObserver, LLEventTimer
 {
 	LOG_CLASS(FSFloaterIM);
 public:
@@ -69,6 +73,9 @@ public:
 	// LLFloater overrides
 	/*virtual*/ void onClose(bool app_quitting);
 	/*virtual*/ void setDocked(bool docked, bool pop_on_undock = true);
+	/*virtual*/ void onSnooze();
+
+	/*virtual*/ BOOL tick();
 
 	// Make IM conversion visible and update the message history
 	static FSFloaterIM* show(const LLUUID& session_id);
@@ -86,8 +93,7 @@ public:
 	// get new messages from LLIMModel
 	void updateMessages();
 	void reloadMessages(bool clean_messages = false);
-	static void onSendMsg( LLUICtrl*, void*);
-	void sendMsgFromInputEditor();
+	void sendMsgFromInputEditor(EChatType type);
 	void sendMsg(const std::string& msg);
 
 	// callback for LLIMModel on new messages
@@ -102,9 +108,6 @@ public:
 	void changed(U32 mask);
 	// ## Zi: overridden to fix the IM focus bug - FIRE-3989 etc.
 	BOOL focusFirstItem(BOOL prefer_text_fields = FALSE, BOOL focus_flash = TRUE );
-
-	// called when docked floater's position has been set by chiclet
-	// void setPositioned(bool b) { mPositioned = b; };		// dead code -Zi
 
 	void onVisibilityChange(BOOL new_visibility);
 	void processIMTyping(const LLIMInfo* im_info, BOOL typing);
@@ -121,6 +124,8 @@ public:
 							   void *cargo_data, EAcceptance *accept,
 							   std::string& tooltip_msg);
 
+	virtual BOOL handleKeyHere( KEY key, MASK mask );
+
 	/**
 	 * Returns true if chat is displayed in multi tabbed floater
 	 *         false if chat is displayed in multiple windows
@@ -136,9 +141,6 @@ public:
 	static void onNewIMReceived(const LLUUID& session_id);
 
 	virtual LLTransientFloaterMgr::ETransientGroup getGroup() { return LLTransientFloaterMgr::IM; }
-
-	// <FS:Ansariel> FIRE-3248: Disable add friend button on IM floater if friendship request accepted
-	void setEnableAddFriendButton(BOOL enabled);
 	
 	static boost::signals2::connection setIMFloaterShowedCallback(const floater_showed_signal_t::slot_type& cb);
 	static floater_showed_signal_t sIMFloaterShowedSignal;
@@ -146,6 +148,10 @@ public:
 	S32 getLastChatMessageIndex() {return mLastMessageIndex;}
 
 	LLVoiceChannel* getVoiceChannel() { return mVoiceChannel; }
+
+	void updateUnreadMessageNotification(S32 unread_messages);
+
+	void loadInitialInvitedIDs();
 
 protected:
 	/* virtual */
@@ -171,8 +177,9 @@ private:
 	void onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name);
 	void fetchAvatarName(LLUUID& agent_id);
 	
-	BOOL dropCallingCard(LLInventoryItem* item, BOOL drop);
-	BOOL dropCategory(LLInventoryCategory* category, BOOL drop);
+	bool dropCallingCard(LLInventoryItem* item, bool drop);
+	bool dropCategory(LLInventoryCategory* category, bool drop);
+	bool dropPerson(LLUUID* person_id, bool drop);
 
 	BOOL isInviteAllowed() const;
 	BOOL inviteToSession(const uuid_vec_t& agent_ids);
@@ -210,6 +217,15 @@ private:
 	
 	void sendParticipantsAddedNotification(const uuid_vec_t& uuids);
 
+	void confirmSnooze();
+	void snoozeDurationCallback(const LLSD& notification, const LLSD& response);
+	void snooze(S32 duration = -1);
+
+	void onAddButtonClicked();
+	bool canAddSelectedToChat(const uuid_vec_t& uuids);
+	void addSessionParticipants(const uuid_vec_t& uuids);
+	void addP2PSessionParticipants(const LLSD& notification, const LLSD& response, const uuid_vec_t& uuids);
+
 	FSPanelChatControlPanel* mControlPanel;
 	LLUUID mSessionID;
 	S32 mLastMessageIndex;
@@ -220,6 +236,8 @@ private:
 	LLChatEntry* mInputEditor;
 	LLLayoutPanel* mChatLayoutPanel;
 	LLLayoutStack* mInputPanels;
+	LLLayoutPanel* mUnreadMessagesNotificationPanel;
+	LLTextBox* mUnreadMessagesNotificationTextBox;
 	// bool mPositioned;		// dead code -Zi
 
 	std::string mSavedTitle;
@@ -235,14 +253,18 @@ private:
 	bool mSessionInitialized;
 	LLSD mQueuedMsgsForInit;
 
+	bool mIsP2PChat;
+
 	LLVoiceChannel* mVoiceChannel;
 	
 	S32 mInputEditorPad;
 	S32 mChatLayoutPanelHeight;
 	S32 mFloaterHeight;
-	
+
+	uuid_vec_t mInvitedParticipants;
+	uuid_vec_t mPendingParticipants;
+
 	boost::signals2::connection mAvatarNameCacheConnection;
 };
-
 
 #endif  // FS_FLOATERIM_H

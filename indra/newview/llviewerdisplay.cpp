@@ -327,6 +327,10 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 			stop_glerror();
 		}
 
+		// <FS:ND> FIRE-15789; Make sure there's not backlog for thousands and thousands of beam objects
+		LLHUDObject::renderAllForTimer();
+		// </FS:ND>
+
 		stop_glerror();
 		gViewerWindow->returnEmptyPicks();
 		stop_glerror();
@@ -1037,8 +1041,8 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 			// </FS:Ansariel>
 			{
 				gGL.setColorMask(false, false);
-				
-				U32 types[] = { 
+
+				static const U32 types[] = { 
 					LLRenderPass::PASS_SIMPLE, 
 					LLRenderPass::PASS_FULLBRIGHT, 
 					LLRenderPass::PASS_SHINY 
@@ -1300,8 +1304,8 @@ LLRect get_whole_screen_region()
 	if (zoom_factor > 1.f)
 	{
 		S32 num_horizontal_tiles = llceil(zoom_factor);
-		S32 tile_width = llround((F32)gViewerWindow->getWorldViewWidthScaled() / zoom_factor);
-		S32 tile_height = llround((F32)gViewerWindow->getWorldViewHeightScaled() / zoom_factor);
+		S32 tile_width = ll_round((F32)gViewerWindow->getWorldViewWidthScaled() / zoom_factor);
+		S32 tile_height = ll_round((F32)gViewerWindow->getWorldViewHeightScaled() / zoom_factor);
 		int tile_y = sub_region / num_horizontal_tiles;
 		int tile_x = sub_region - (tile_y * num_horizontal_tiles);
 			
@@ -1599,8 +1603,8 @@ void render_ui_2d()
 		int pos_y = sub_region / llceil(zoom_factor);
 		int pos_x = sub_region - (pos_y*llceil(zoom_factor));
 		// offset for this tile
-		LLFontGL::sCurOrigin.mX -= llround((F32)gViewerWindow->getWindowWidthScaled() * (F32)pos_x / zoom_factor);
-		LLFontGL::sCurOrigin.mY -= llround((F32)gViewerWindow->getWindowHeightScaled() * (F32)pos_y / zoom_factor);
+		LLFontGL::sCurOrigin.mX -= ll_round((F32)gViewerWindow->getWindowWidthScaled() * (F32)pos_x / zoom_factor);
+		LLFontGL::sCurOrigin.mY -= ll_round((F32)gViewerWindow->getWindowHeightScaled() * (F32)pos_y / zoom_factor);
 	}
 
 	stop_glerror();

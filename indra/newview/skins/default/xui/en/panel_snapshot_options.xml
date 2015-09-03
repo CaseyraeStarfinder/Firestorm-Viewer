@@ -1,108 +1,187 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
-
-<!-- <FS:Zi> This file is unused in Firestorm -->
-
 <panel
  follows="all"
  height="240"
  layout="topleft"
  name="panel_snapshot_options"
- width="490">
-  <button
-   follows="left|top|right"
+ width="208">
+ <layout_stack
+  animate="false"
+  name="option_buttons"
+  orientation="vertical"
+  height="186"
+  width="208"
+  left="0"
+  top="9"
+  follows="all"
+  layout="topleft">
+  <layout_panel
+   auto_resize="false"
+   user_resize="false"
+   top_pad="0"
+   height="22"
+   name="lp_download">
+ <button
+   follows="left|top"
    font="SansSerif"
    halign="left"
-   height="38"
-   image_overlay="Snapshot_Profile"
-   image_overlay_alignment="left"
-   image_top_pad="-2"
-   imgoverlay_label_space="10"
-   label="Post to My Profile Feed"
-   layout="topleft"
-   left_delta="0"
-   name="save_to_profile_btn"
-   pad_left="10"
-   right="-10"
-   top_pad="10">
-    <button.commit_callback
-     function="Snapshot.SaveToProfile" />
-  </button>
-  <button
-   follows="left|top|right"
-   font="SansSerif"
-   halign="left"
-   height="38"
-   image_overlay="Snapshot_Email"
-   image_overlay_alignment="left"
-   image_top_pad="-2"
-   imgoverlay_label_space="10"
-   label="Email"
-   layout="topleft"
-   left_delta="0"
-   name="save_to_email_btn"
-   pad_left="10"
-   right="-10"
-   top_pad="10">
-    <button.commit_callback
-     function="Snapshot.SaveToEmail" />
-  </button>
-  <button
-   follows="left|top|right"
-   font="SansSerif"
-   halign="left"
-   height="38"
-   image_overlay="Snapshot_Inventory"
-   image_overlay_alignment="left"
-   image_top_pad="-2"
-   imgoverlay_label_space="10"
-   label="Save to My Inventory (L$[AMOUNT])"
-   layout="topleft"
-   left_delta="0"
-   name="save_to_inventory_btn"
-   pad_left="10"
-   right="-10"
-   top_pad="10">
-    <button.commit_callback
-     function="Snapshot.SaveToInventory" />
-  </button>
-  <button
-   follows="left|top|right"
-   font="SansSerif"
-   halign="left"
-   height="38"
+   height="22"
    image_overlay="Snapshot_Download"
    image_overlay_alignment="left"
-   image_top_pad="-2"
+   image_top_pad="-0"
    imgoverlay_label_space="10"
-   label="Save to My Computer"
+   label="Save to Disk"
    layout="topleft"
-   left_delta="0"
+   left="9"
    name="save_to_computer_btn"
-   pad_left="10"
-   right="-10"
-   top_pad="10">
+   top_pad="0">
     <button.commit_callback
      function="Snapshot.SaveToComputer" />
   </button>
-  <!-- <exodus> -->
+  </layout_panel>
+  <layout_panel
+   auto_resize="false"
+   user_resize="false"
+   top_pad="0"
+   height="22"
+   name="lp_inventory">
   <button
-   follows="left|top|right"
+   follows="left|top"
    font="SansSerif"
    halign="left"
-   height="38"
-   image_overlay="Snapshot_Exodus_Flickr"
+   height="22"
+   image_overlay="Snapshot_Inventory"
    image_overlay_alignment="left"
    image_top_pad="-1"
    imgoverlay_label_space="10"
+   label="Save to Inventory (L$[AMOUNT])"
+   layout="topleft"
+   left="9"
+   name="save_to_inventory_btn"
+   top_pad="0">
+    <button.commit_callback
+     function="Snapshot.SaveToInventory" />
+  </button>
+  </layout_panel>
+  <layout_panel
+   auto_resize="false"
+   user_resize="false"
+   top_pad="0"
+   height="22"
+   name="lp_profile">
+  <button
+   follows="left|top"
+   font="SansSerif"
+   halign="left"
+   height="22"
+   image_overlay="Snapshot_Profile"
+   image_overlay_alignment="left"
+   image_top_pad="-1"
+   imgoverlay_label_space="10"
+   label="Upload to Profile"
+   layout="topleft"
+   name="save_to_profile_btn"
+   left="9"
+   top_pad="0">
+    <button.commit_callback
+     function="Snapshot.SaveToProfile" />
+  </button>
+  </layout_panel>
+  <layout_panel
+   auto_resize="false"
+   user_resize="false"
+   top_pad="0"
+   height="22"
+   name="lp_facebook">
+  <button
+   follows="left|top"
+   font="SansSerif"
+   halign="left"
+   height="22"
+   image_overlay="Snapshot_Facebook"
+   image_overlay_alignment="left"
+   image_top_pad="0"
+   imgoverlay_label_space="10"
+   label="Upload to Facebook"
+   layout="topleft"
+   left="9"
+   name="send_to_facebook_btn"
+   top_pad="0">
+    <button.commit_callback
+     function="Snapshot.SendToFacebook"/>
+  </button>
+  </layout_panel>
+  <layout_panel
+   auto_resize="false"
+   user_resize="false"
+   top_pad="0"
+   height="22"
+   name="lp_twitter">
+  <button
+   follows="left|top"
+   font="SansSerif"
+   halign="left"
+   height="22"
+   image_overlay="Command_Twitter_Icon"
+   image_overlay_alignment="left"
+   image_top_pad="0"
+   imgoverlay_label_space="10"
+   label="Upload to Twitter"
+   layout="topleft"
+   left="9"
+   name="send_to_twitter_btn"
+   top_pad="0">
+    <button.commit_callback
+     function="Snapshot.SendToTwitter"/>
+  </button>
+  </layout_panel>
+  <layout_panel
+   auto_resize="false"
+   user_resize="false"
+   top_pad="0"
+   height="22"
+   name="lp_flickr">
+  <button
+   follows="left|top"
+   font="SansSerif"
+   halign="left"
+   height="22"
+   image_overlay="Command_Flickr_Icon"
+   image_overlay_alignment="left"
+   image_top_pad="0"
+   imgoverlay_label_space="10"
    label="Upload to Flickr"
    layout="topleft"
-   left_delta="0"
-   name="save_to_flickr_btn"
-   pad_left="10"
-   right="-10"
-   top_pad="10">
+   left="9"
+   name="send_to_flickr_btn"
+   top_pad="0">
     <button.commit_callback
-     function="Snapshot.SaveToFlickr" />
+     function="Snapshot.SendToFlickr"/>
   </button>
-  <!-- </exodus> -->
+  </layout_panel>
+  <layout_panel
+   auto_resize="false"
+   user_resize="false"
+   top_pad="0"
+   height="22"
+   name="lp_email">
+  <button
+   follows="left|top"
+   font="SansSerif"
+   halign="left"
+   height="22"
+   image_overlay="Snapshot_Email"
+   image_overlay_alignment="left"
+   image_top_pad="0"
+   imgoverlay_label_space="10"
+   label="Send via E-mail"
+   layout="topleft"
+   left="9"
+   name="save_to_email_btn"
+   top_pad="0">
+    <button.commit_callback
+     function="Snapshot.SaveToEmail" />
+  </button>
+  </layout_panel>
+  </layout_stack>
 </panel>

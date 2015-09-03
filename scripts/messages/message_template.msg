@@ -3594,6 +3594,10 @@ version 2.0
 		{	CofVersion			S32	}
 		{	Flags				U32	}
 	}
+	{
+		AppearanceHover		Variable
+		{	HoverHeight	LLVector3	}
+	}
 }
 
 // AvatarSitResponse - response to a request to sit on an object
@@ -4240,6 +4244,10 @@ version 2.0
 		{	ObjectName		Variable	1	}
 		{	ObjectOwner		Variable	1	}
 		{	Questions		S32	}
+	}
+	{
+		Experience	Single
+		{	ExperienceID	LLUUID	}
 	}
 }
 

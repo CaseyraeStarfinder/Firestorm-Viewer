@@ -276,21 +276,23 @@ bool LLSpeakersDelayActionsStorage::isTimerStarted(const LLUUID& speaker_id)
 
 class ModerationResponder : public LLHTTPClient::Responder
 {
+	LOG_CLASS(ModerationResponder);
 public:
 	ModerationResponder(const LLUUID& session_id)
 	{
 		mSessionID = session_id;
 	}
 	
-	virtual void error(U32 status, const std::string& reason)
+protected:
+	virtual void httpFailure()
 	{
-		LL_WARNS() << status << ": " << reason << LL_ENDL;
+		LL_WARNS() << dumpResponse() << LL_ENDL;
 		
 		if ( gIMMgr )
 		{
 			//403 == you're not a mod
 			//should be disabled if you're not a moderator
-			if ( 403 == status )
+			if ( HTTP_FORBIDDEN == getStatus() )
 			{
 				gIMMgr->showSessionEventError(
 											  "mute",
@@ -548,10 +550,18 @@ void LLSpeakerMgr::updateSpeakerList()
 			LLIMModel::LLIMSession* session = LLIMModel::getInstance()->findIMSession(session_id);
 			if (session->isGroupSessionType() && (mSpeakers.size() <= 1))
 			{
-                const F32 load_group_timeout = gSavedSettings.getF32("ChatLoadGroupTimeout");
 				// For groups, we need to hit the group manager.
 				// Note: The session uuid and the group uuid are actually one and the same. If that was to change, this will fail.
 				LLGroupMgrGroupData* gdatap = LLGroupMgr::getInstance()->getGroupData(session_id);
+                F32 large_group_delay = 0.f;
+                if (gdatap)
+                {
+                    //This is a viewer-side bandaid for maint-4414 it does not fix the core issue.
+                    large_group_delay = (F32)(gdatap->mMemberCount / 5000);
+                }
+                
+                const F32 load_group_timeout = gSavedSettings.getF32("ChatLoadGroupTimeout") + large_group_delay;
+
 				if (!gdatap && (mGetListTime.getElapsedTimeF32() >= load_group_timeout))
 				{
 					// Request the data the first time around
@@ -607,11 +617,14 @@ void LLSpeakerMgr::updateSpeakerList()
 	setSpeaker(gAgentID, "", LLSpeaker::STATUS_VOICE_ACTIVE, LLSpeaker::SPEAKER_AGENT);
 }
 
-void LLSpeakerMgr::setSpeakerNotInChannel(LLSpeaker* speakerp)
+void LLSpeakerMgr::setSpeakerNotInChannel(LLPointer<LLSpeaker> speakerp)
 {
-	speakerp->mStatus = LLSpeaker::STATUS_NOT_IN_CHANNEL;
-	speakerp->mDotColor = INACTIVE_COLOR;
-	mSpeakerDelayRemover->setActionTimer(speakerp->mID);
+	if  (speakerp.notNull())
+	{
+		speakerp->mStatus = LLSpeaker::STATUS_NOT_IN_CHANNEL;
+		speakerp->mDotColor = INACTIVE_COLOR;
+		mSpeakerDelayRemover->setActionTimer(speakerp->mID);
+	}
 }
 
 bool LLSpeakerMgr::removeSpeaker(const LLUUID& speaker_id)
@@ -791,7 +804,7 @@ void LLIMSpeakerMgr::updateSpeakers(const LLSD& update)
 
 			if (agent_data.isMap() && agent_data.has("transition"))
 			{
-				if (agent_data["transition"].asString() == "LEAVE" && speakerp.notNull())
+				if (agent_data["transition"].asString() == "LEAVE")
 				{
 					setSpeakerNotInChannel(speakerp);
 				}
@@ -802,7 +815,7 @@ void LLIMSpeakerMgr::updateSpeakers(const LLSD& update)
 				}
 				else
 				{
-					LL_WARNS() << "bad membership list update " << ll_print_sd(agent_data["transition"]) << LL_ENDL;
+					LL_WARNS() << "bad membership list update from 'agent_updates' for agent " << agent_id << ", transition " << ll_print_sd(agent_data["transition"]) << LL_ENDL;
 				}
 			}
 
@@ -844,7 +857,7 @@ void LLIMSpeakerMgr::updateSpeakers(const LLSD& update)
 			LLPointer<LLSpeaker> speakerp = findSpeaker(agent_id);
 
 			std::string agent_transition = update_it->second.asString();
-			if (agent_transition == "LEAVE" && speakerp.notNull())
+			if (agent_transition == "LEAVE")
 			{
 				setSpeakerNotInChannel(speakerp);
 			}
@@ -855,16 +868,12 @@ void LLIMSpeakerMgr::updateSpeakers(const LLSD& update)
 			}
 			else
 			{
-				LL_WARNS() << "bad membership list update "
-						<< agent_transition << LL_ENDL;
+				LL_WARNS() << "bad membership list update from 'updates' for agent " << agent_id << ", transition " << agent_transition << LL_ENDL;
 			}
 		}
 	}
 }
-/*prep#
-	virtual void errorWithContent(U32 status, const std::string& reason, const LLSD& content)
-		LL_WARNS() << "ModerationResponder error [status:" << status << "]: " << content << LL_ENDL;
-		*/
+
 void LLIMSpeakerMgr::toggleAllowTextChat(const LLUUID& speaker_id)
 {
 	LLPointer<LLSpeaker> speakerp = findSpeaker(speaker_id);
@@ -1043,8 +1052,8 @@ void LLLocalSpeakerMgr::updateSpeakerList()
 	for (speaker_map_t::iterator speaker_it = mSpeakers.begin(); speaker_it != mSpeakers.end(); ++speaker_it)
 	{
 		LLUUID speaker_id = speaker_it->first;
-		LLSpeaker* speakerp = speaker_it->second;
-		if (speakerp->mStatus == LLSpeaker::STATUS_TEXT_ONLY)
+		LLPointer<LLSpeaker> speakerp = speaker_it->second;
+		if (speakerp.notNull() && speakerp->mStatus == LLSpeaker::STATUS_TEXT_ONLY)
 		{
 			LLVOAvatar* avatarp = (LLVOAvatar*)gObjectList.findObject(speaker_id);
 // <FS:CR> Opensim

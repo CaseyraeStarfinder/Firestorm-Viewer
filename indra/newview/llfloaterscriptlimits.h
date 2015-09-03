@@ -85,49 +85,49 @@ protected:
 
 class fetchScriptLimitsRegionInfoResponder: public LLHTTPClient::Responder
 {
-	public:
-		fetchScriptLimitsRegionInfoResponder(const LLSD& info) : mInfo(info) {};
+	LOG_CLASS(fetchScriptLimitsRegionInfoResponder);
+public:
+	fetchScriptLimitsRegionInfoResponder(const LLSD& info) : mInfo(info) {};
 
-		void result(const LLSD& content);
-		void errorWithContent(U32 status, const std::string& reason, const LLSD& content);
-	public:
-	protected:
-		LLSD mInfo;
+private:
+	/* virtual */ void httpSuccess();
+	/* virtual */ void httpFailure();
+	LLSD mInfo;
 };
 
 class fetchScriptLimitsRegionSummaryResponder: public LLHTTPClient::Responder
 {
-	public:
-		fetchScriptLimitsRegionSummaryResponder(const LLSD& info) : mInfo(info) {};
+	LOG_CLASS(fetchScriptLimitsRegionSummaryResponder);
+public:
+	fetchScriptLimitsRegionSummaryResponder(const LLSD& info) : mInfo(info) {};
 
-		void result(const LLSD& content);
-		void errorWithContent(U32 status, const std::string& reason, const LLSD& content);
-	public:
-	protected:
-		LLSD mInfo;
+private:
+	/* virtual */ void httpSuccess();
+	/* virtual */ void httpFailure();
+	LLSD mInfo;
 };
 
 class fetchScriptLimitsRegionDetailsResponder: public LLHTTPClient::Responder
 {
-	public:
-		fetchScriptLimitsRegionDetailsResponder(const LLSD& info) : mInfo(info) {};
+	LOG_CLASS(fetchScriptLimitsRegionDetailsResponder);
+public:
+	fetchScriptLimitsRegionDetailsResponder(const LLSD& info) : mInfo(info) {};
 
-		void result(const LLSD& content);
-		void errorWithContent(U32 status, const std::string& reason, const LLSD& content);
-	public:
-	protected:
-		LLSD mInfo;
+private:
+	/* virtual */ void httpSuccess();
+	/* virtual */ void httpFailure();
+	LLSD mInfo;
 };
 
 class fetchScriptLimitsAttachmentInfoResponder: public LLHTTPClient::Responder
 {
-	public:
-		fetchScriptLimitsAttachmentInfoResponder() {};
+	LOG_CLASS(fetchScriptLimitsAttachmentInfoResponder);
+public:
+	fetchScriptLimitsAttachmentInfoResponder() {};
 
-		void result(const LLSD& content);
-		void errorWithContent(U32 status, const std::string& reason, const LLSD& content);
-	public:
-	protected:
+private:
+	/* virtual */ void httpSuccess();
+	/* virtual */ void httpFailure();
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -170,27 +170,23 @@ private:
 	LLSD mContent;
 	LLUUID mParcelId;
 	bool mGotParcelMemoryUsed;
-	bool mGotParcelMemoryUsedDetails;
 	bool mGotParcelMemoryMax;
 	S32 mParcelMemoryMax;
 	S32 mParcelMemoryUsed;
-	S32 mParcelMemoryUsedDetails;
-	
+
 	bool mGotParcelURLsUsed;
-	bool mGotParcelURLsUsedDetails;
 	bool mGotParcelURLsMax;
 	S32 mParcelURLsMax;
 	S32 mParcelURLsUsed;
-	S32 mParcelURLsUsedDetails;
-	
+
 	std::vector<LLSD> mObjectListItems;
-		
+
 protected:
 
 // LLRemoteParcelInfoObserver interface:
 /*virtual*/ void processParcelInfo(const LLParcelData& parcel_data);
 /*virtual*/ void setParcelID(const LLUUID& parcel_id);
-/*virtual*/ void setErrorStatus(U32 status, const std::string& reason);
+/*virtual*/ void setErrorStatus(S32 status, const std::string& reason);
 	
 	static void onClickRefresh(void* userdata);
 	static void onClickHighlight(void* userdata);
@@ -208,17 +204,11 @@ public:
 	LLPanelScriptLimitsAttachment()
 		:	LLPanelScriptLimitsInfo(),
 		mGotAttachmentMemoryUsed(false),
-		mGotAttachmentMemoryUsedDetails(false),
-		mGotAttachmentMemoryMax(false),
 		mAttachmentMemoryMax(0),
 		mAttachmentMemoryUsed(0),
-		mAttachmentMemoryUsedDetails(0),
 		mGotAttachmentURLsUsed(false),
-		mGotAttachmentURLsUsedDetails(false),
-		mGotAttachmentURLsMax(false),
 		mAttachmentURLsMax(0),
-		mAttachmentURLsUsed(0),
-		mAttachmentURLsUsedDetails(0)
+		mAttachmentURLsUsed(0)
 		{};
 
 	~LLPanelScriptLimitsAttachment()
@@ -237,18 +227,12 @@ public:
 private:
 
 	bool mGotAttachmentMemoryUsed;
-	bool mGotAttachmentMemoryUsedDetails;
-	bool mGotAttachmentMemoryMax;
 	S32 mAttachmentMemoryMax;
 	S32 mAttachmentMemoryUsed;
-	S32 mAttachmentMemoryUsedDetails;
-	
+
 	bool mGotAttachmentURLsUsed;
-	bool mGotAttachmentURLsUsedDetails;
-	bool mGotAttachmentURLsMax;
 	S32 mAttachmentURLsMax;
 	S32 mAttachmentURLsUsed;
-	S32 mAttachmentURLsUsedDetails;
 
 protected:
 	

@@ -6,17 +6,17 @@
 	<combo_box name="language_combobox">
 		<combo_box.item label="Domyślny" name="System Default Language"/>
 		<combo_box.item label="English (Angielski)" name="English"/>
-		<combo_box.item label="Dansk (Duński) - Beta" name="Danish"/>
+		<!-- <combo_box.item label="Dansk (Duński) - Beta" name="Danish"/> -->
 		<combo_box.item label="Deutsch (Niemiecki)" name="Deutsch(German)"/>
 		<combo_box.item label="Español (Hiszpański) - Beta" name="Spanish"/>
-		<combo_box.item label="Français (Francuski) - Beta" name="French"/>
+		<!-- <combo_box.item label="Français (Francuski) - Beta" name="French"/> -->
 		<combo_box.item label="Italiano (Włoski) - Beta" name="Italian"/>
 		<combo_box.item label="Polski" name="Polish"/>
-		<combo_box.item label="Português (Portugalski) - Beta" name="Portugese"/>
+		<!-- <combo_box.item label="Português (Portugalski) - Beta" name="Portugese"/> -->
 		<combo_box.item label="Русский (Rosyjski) - Beta" name="Russian"/>
-		<combo_box.item label="Türkçe (Turecki) - Beta" name="Turkish"/>
+		<!-- <combo_box.item label="Türkçe (Turecki) - Beta" name="Turkish"/> -->
 		<combo_box.item label="日本語 (Japoński) - Beta" name="(Japanese)"/>
-		<combo_box.item label="正體中文 (Tradycyjny chiński) - Beta" name="Traditional Chinese"/>
+		<!-- <combo_box.item label="正體中文 (Tradycyjny chiński) - Beta" name="Traditional Chinese"/> -->
 	</combo_box>
 	<text name="language_textbox2">
 		(Restart wymagany)
@@ -25,9 +25,9 @@
 		Chcę mieć dostęp do miejsc:
 	</text>
 	<combo_box name="maturity_desired_combobox">
-		<combo_box.item label="General, Moderate oraz Adult" name="Desired_Adult"/>
-		<combo_box.item label="General oraz Moderate" name="Desired_Mature"/>
-		<combo_box.item label="General" name="Desired_PG"/>
+		<combo_box.item label="General (dla wszystkich), Moderate (umiarkowanych) i Adult (dla dorosłych)" name="Desired_Adult"/>
+		<combo_box.item label="General (dla wszystkich) i Moderate (umiarkowanych)" name="Desired_Mature"/>
+		<combo_box.item label="General (dla wszystkich)" name="Desired_PG"/>
 	</combo_box>
 	<text name="start_location_textbox">
 		Miejsce Startu:
@@ -40,9 +40,9 @@
 	<text name="name_tags_textbox">
 		Imiona:
 	</text>
-	<radio_group name="Name_Tag_Preference">
-		<radio_item label="Wyłącz" name="radio"/>
-		<radio_item label="Włącz" name="radio2"/>
+	<radio_group name="Name_Tag_Preference" width="220">
+		<radio_item width="65" label="Wyłącz" name="radio"/>
+		<radio_item width="65" label="Włącz" name="radio2"/>
 		<radio_item label="Pokaż na chwilę" name="radio3"/>
 	</radio_group>
 	<text name="RenderNameShowTime_LabelPrefix" left_pad="25">
@@ -59,7 +59,8 @@
 	<check_box label="Stary sposób wyświetlania imion" name="FSshow_legacyun" tool_tip="Prezentuj imiona w stary sposób (Imię Nazwisko) zamiast w sposób kont użytkownika (imię.nazwisko)"/>
 	<check_box label="Podświetl znajomych" name="show_friends" tool_tip="Podświetlaj imiona Twoich znajomych."/>
 	<check_box label="Usuwaj 'Resident' z imion starego typu" name="legacy_trim_check" tool_tip="Usuwaj 'Resident' z imion starego typu."/>
-	<check_box label="Pozycje tagów imion w stary sposób" name="FSLegacyNametagPosition" tool_tip="Gdy włączysz tą opcję, to tag imienia będzie zawieszony na stałej wysokości ponad awatarem i nie będzie podążać za jego głową, jeśli poruszy się ona np. w wyniku animacji."/>
+	<check_box label="Pozycje imion w stary sposób" name="FSLegacyNametagPosition" tool_tip="Gdy włączysz tą opcję, to tag imienia będzie zawieszony na stałej wysokości ponad awatarem i nie będzie podążać za jego głową, jeśli poruszy się ona np. w wyniku animacji."/>
+	<check_box label="Pokaż tryb autoodpowiedzi w moim tagu imienia" name="FSShowAutorespondInNameTag" tool_tip="Status będzie widoczny, gdy włączysz autoodpowiedź."/>
 	<text name="title_afk_text">
 		Zasypiaj po czasie:
 	</text>
@@ -85,17 +86,4 @@
 	<text name="text_box3">
 		Wiadomości automatyczne możesz znaleźć w Prywatność / Autoodpowiedzi
 	</text>
-	<panel name="general_extras">
-		<text name="text_box3">
-			Dodatki:
-		</text>
-		<check_box name="FSUseWebProfiles" label="Profile sieciowe jako domyślne" tool_tip="Pokazuj profile jako strony internetowe zamiast panelów w stylu Viewera 1.x"/>
-		<text name="inworld_typing_rg_label">
-			Naciskanie liter:
-		</text>
-		<radio_group name="inworld_typing_preference">
-			<radio_item label="Rozpoczyna czat" name="radio_start_chat"/>
-			<radio_item label="Wpływa na ruch (tzn. WASD)" name="radio_move"/>
-		</radio_group>
-	</panel>
 </panel>

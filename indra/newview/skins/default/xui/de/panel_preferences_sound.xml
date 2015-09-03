@@ -4,27 +4,63 @@
 	Mittlere Maustaste
 </panel.string>
 <tab_container label="Firestorm Prefs" name="tabs">
-    <!-- General -->
-    <panel label="Allgemein" name="Media General Panel">
+    <!-- Sounds -->
+    <panel label="Klänge" name="Media Sounds Panel">
 		<slider label="Master-Lautstärke" name="System Volume"/>
 		<check_box name="mute_when_minimized" label="Stummschalten, wenn minimiert"/>
 		<slider label="Schaltflächen" name="UI Volume"/>
 		<slider label="Umgebung" name="Wind Volume"/>
-		<check_box label="Sounds bei Kollisionen abspielen" name="collisions_audio_play_btn" tool_tip="Markieren, um Sounds bei Kollisionen zu hören"/>
-		<slider label="Sounds" name="SFX Volume"/>
-		<check_box label="Sounds von Gesten aktivieren" name="gesture_audio_play_btn" tool_tip="Markieren, um Sounds von Gesten zu hören"/>
+		<check_box label="Klänge bei Kollisionen abspielen" name="collisions_audio_play_btn" tool_tip="Markieren, um Klänge bei Kollisionen zu hören"/>
+		<slider label="Klänge" name="SFX Volume"/>
+		<check_box label="Klänge von Gesten aktivieren" name="gesture_audio_play_btn" tool_tip="Markieren, um Klänge von Gesten zu hören"/>
 		<slider label="Musik" name="Music Volume"/>
 		<check_box label="Aktiviert" name="enable_music"/>
 		<slider label="Medien" name="Media Volume"/>
 		<check_box label="Aktiviert" name="enable_media"/>
 		<slider label="Voice-Chat" name="Voice Volume"/>
 		<check_box label="Aktiviert" name="enable_voice_check_volume"/>
-		<check_box label="Automatische Audio-Wiedergabe zulassen" name="audio_auto_play_btn" tool_tip="Hier aktivieren, um Audio-Streams automatisch wiederzugeben."/>
+		<text name="friends_logon_sounds_label">
+			Klang abspielen wenn sich Freunde:
+		</text>
+		<check_box label="Einloggen" name="friends_notify_online_sound"/>
+		<check_box label="Ausloggen" name="friends_notify_offline_sound"/>
+		<text name="money_change_threshold_label" tool_tip="Spielt einen Soundbenachrichtung ab, wenn der angegebene Geldbetrag empfangen oder ausgegeben wird." width="160">
+			Schwellwert für L$-Änderung:
+		</text>
+    </panel>
+	
+	<!-- Media -->
+	<panel label="Medien" name="Media Media Panel">
 		<check_box label="Automatische Medien-Wiedergabe zulassen" name="media_auto_play_btn" tool_tip="Hier aktivieren, um Medien automatisch wiederzugeben."/>
 		<check_box name="media_allowscript_btn" tool_tip="Erlaubt bzw. verbietet Scripten die Kontrolle über die Medienwiedergabe" label="Skripte erlauben Medien abzuspielen" />
 		<check_box label="Medien, die an andere Avatare angehängt sind, wiedergeben." name="media_show_on_others_btn" tool_tip="Diese Option deaktivieren, um Medien für andere Avataren, die sich in der Nähe befinden, auszublenden."/>
 		<check_box name="media_filter" tool_tip="Aktiviert den Medienfilter, der abhängig der Medien-URL die Wiedergabe erlaubt oder verbietet." label="Medienfilter aktivieren (erhöhte Sicherheit)"/>
-		<button label="Listen bearbeiten..." name="edit_media_lists_button" left_pad="45"/>
+		<button label="Listen bearbeiten..." name="edit_media_lists_button"/>
+        <text name="Media Rolloff">
+            Lautstärkeabfall-Distanz für Medien-Quellen:
+        </text>
+        <slider label="Wird leiser ab:" name="MediaRollOffMin" tool_tip="Minimale Distanz von der Soundquelle, ab der die Lautstärke abzufallen beginnt."/>
+        <text name="MinMeters">
+            Meter
+        </text>
+        <slider label="Wird lauter ab:" name="MediaRollOffMax" tool_tip="Maximale Distanz von der Soundquelle, ab der sie stummgeschaltet wird."/>
+        <text name="MaxMeters">
+            Meter
+        </text>
+    </panel>
+	
+	<!-- Music -->
+	<panel label="Musik" name="Media Music Panel">
+		<check_box label="Automatische Audio-Wiedergabe zulassen" name="audio_auto_play_btn" tool_tip="Hier aktivieren, um Audio-Streams automatisch wiederzugeben."/>
+        <check_box name="FSFadeAudioStream" tool_tip="Aktiviert Fading, wenn sich der Parzellen-Audiostream ändert" label="Parzellen-Audiostream-Fading aktivieren:"/>
+		<slider label="Einblenden:" width="270" label_width="70" name="FSAudioMusicFadeIn" tool_tip="Einblenddauer für Parzellen-Audiostream."/>
+		<text left_delta="275" name="FSAudioMusicFadeInSeconds">
+			Sekunden
+		</text>
+		<slider label="Ausblenden:" width="270" label_width="70" name="FSAudioMusicFadeOut" tool_tip="Ausblenddauer für Parzellen-Audiostream."/>
+		<text left_delta="275" name="FSAudioMusicFadeOutSeconds">
+			Sekunden
+		</text>
 		<text name="show_stream_metadata_text">
 			Musikstream-Titel anzeigen:
 		</text>
@@ -34,33 +70,10 @@
 			<radio_item label="Chat in der Nähe" name="radio_chat"/>
 		</radio_group>
         <check_box name="StreamMetadataAnnounceToChat" label="Stream-Titel an diesen Kanal senden:" width="230"/>
-        <check_box name="FSFadeAudioStream" tool_tip="Aktiviert Fading, wenn sich der Parzellen-Audiostream ändert" label="Parzellen-Audiostream-Fading aktivieren:"/>
-		<slider label="Einblenden" label_width="70" name="FSAudioMusicFadeIn" tool_tip="Einblenddauer für Parzellen-Audiostream."/>
-		<text name="FSAudioMusicFadeInSeconds">
-			Sekunden
-		</text>
-		<slider label="Ausblenden" label_width="70" name="FSAudioMusicFadeOut" tool_tip="Ausblenddauer für Parzellen-Audiostream."/>
-		<text name="FSAudioMusicFadeOutSeconds">
-			Sekunden
-		</text>
-        <text name="Media Rolloff">
-            Lautstärkeabfall-Distanz:
-        </text>
-        <slider name="MediaRollOffMin" tool_tip="Minimale Distanz von der Soundquelle, ab der die Lautstärke abzufallen beginnt."/>
-        <text name="MinMeters">
-            Meter
-        </text>
-        <slider name="MediaRollOffMax" tool_tip="Maximale Distanz von der Soundquelle, ab der sie stummgeschaltet wird."/>
-        <text name="MaxMeters">
-            Meter
-        </text>
-		<text name="money_change_threshold_label" tool_tip="Spielt einen Soundbenachrichtung ab, wenn der angegebene Geldbetrag empfangen oder ausgegeben wird." width="160">
-			Schwellwert für L$-Änderung:
-		</text>
     </panel>
 
 	<!-- Voice -->
-	<panel label="Voice-Chat-Einstellungen" name="Media Voice tab">
+	<panel label="Voice-Chat" name="Media Voice tab">
 		<check_box label="Voice-Chat aktivieren" name="enable_voice_check" width="140"/>
 		<button name="reset_voice_button" tool_tip="Voice-Chat zurücksetzen"/>
 		<check_box label="Voice-Chat in mehreren Viewer-Instanzen gleichzeitig erlauben" name="VoiceMultiInstance"/>
@@ -108,7 +121,7 @@
 	</panel>
 	
 	<!-- UI Sounds 1 -->
-	<panel label="UI Sounds 1" name="UI Sounds tab 1">
+	<panel label="UI-Klänge 1" name="UI Sounds tab 1">
 		<text name="textFSExplanation_tab1">
 			Hier können die Klänge der Benutzeroberfläche geändert, aktiviert oder deaktiviert werden.
 Der jeweilige Standardwert wird im Hovertip des UUID-Feldes angezeigt.
@@ -116,63 +129,63 @@ Der jeweilige Standardwert wird im Hovertip des UUID-Feldes angezeigt.
 		<text tool_tip="UUID des Klangs bei Standardwarnungen in Firestorm." name="textFSSndAlert">
 			Warnung (Standard):
 		</text>
-		<button label="V" name="Prev_UISndAlert" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndAlert" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndAlert" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndAlert"/>
 
 		<text tool_tip="UUID des Klangs bei ungültiger Tastatureingabe." name="textFSBadKeystroke">
 			Ungültige Tastatureingabe:
 		</text>
-		<button label="V" name="Prev_UISndBadKeystroke" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndBadKeystroke" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndBadKeystroke" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndBadKeystroke"/>
 
 		<text tool_tip="UUID des Klangs bei einem Mausklick." name="textFSClick">
 			Mausklick:
 		</text>
-		<button label="V" name="Prev_UISndClick" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndClick" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndClick" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndClick"/>
 
 		<text tool_tip="UUID des Klangs beim Loslassen eines Mausknopfs." name="textFSClickRelease">
             Loslassen Mausknopf:
 		</text>
-		<button label="V" name="Prev_UISndClickRelease" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndClickRelease" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndClickRelease" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndClickRelease"/>
 
 		<text tool_tip="UUID des Klangs, wenn ein weiblicher Avatar Schaden nimmt." name="textFSHealthReductionF">
 			Treffer weiblicher Avatar:
 		</text>
-		<button label="V" name="Prev_UISndHealthReductionF" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndHealthReductionF" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndHealthReductionF" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndHealthReductionF"/>
 
 		<text tool_tip="UUID des Klangs, wenn ein männlicher Avatar Schaden nimmt." name="textFSHealthReductionM">
 			Treffer männlicher Avatar:
 		</text>
-		<button label="V" name="Prev_UISndHealthReductionM" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndHealthReductionM" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndHealthReductionM" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndHealthReductionM"/>
 
 		<text tool_tip="UUID des Klangs bei Geldausgang." name="textFSMoneyChangeDown">
 			Geldausgang:
 		</text>
-		<button label="V" name="Prev_UISndMoneyChangeDown" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndMoneyChangeDown" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndMoneyChangeDown" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndMoneyChangeDown"/>
 
 		<text tool_tip="UUID des Klangs bei Geldeingang." name="textFSMoneyChangeUp">
 			Geldeingang:
 		</text>
-		<button label="V" name="Prev_UISndMoneyChangeUp" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndMoneyChangeUp" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndMoneyChangeUp" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndMoneyChangeUp"/>
 
 		<text tool_tip="UUID des Klangs bei eingehenden Instant Messages. Diese Einstellung ist gekoppelt mit Chat &gt; Benachrichtigungen &gt; 'Beim Eintreffen von Instant Messages:'." name="textFSNewIncomingIMSession">
             Eingeh. Instant Messages:
 		</text>
-		<button label="V" name="Prev_UISndNewIncomingIMSession" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndNewIncomingIMSession" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndNewIncomingIMSession" tool_tip="Auf Standardwert zurücksetzen."/>
 		<combo_box name="PlayModeUISndNewIncomingIMSession">
 			<combo_box.item label="Bei neuer IM" name="1"/>
@@ -184,7 +197,7 @@ Der jeweilige Standardwert wird im Hovertip des UUID-Feldes angezeigt.
 		<text tool_tip="UUID des Klangs bei eingehenden Gruppenchats. Diese Einstellung ist gekoppelt mit Chat &gt; Benachrichtigungen &gt; 'Beim Eintreffen von Gruppenchats:'." name="textFSNewGroupIncomingIMSession">
             Eingeh. Gruppenchats:
 		</text>
-		<button label="V" name="Prev_UISndNewIncomingGroupIMSession" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndNewIncomingGroupIMSession" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndNewIncomingGroupIMSession" tool_tip="Auf Standardwert zurücksetzen."/>
 		<combo_box name="PlayModeUISndNewIncomingGroupIMSession">
 			<combo_box.item label="Bei neuer Nachr." name="1"/>
@@ -196,7 +209,7 @@ Der jeweilige Standardwert wird im Hovertip des UUID-Feldes angezeigt.
 		<text tool_tip="UUID des Klangs bei eingehenden Gruppenchats. Diese Einstellung ist gekoppelt mit Chat &gt; Benachrichtigungen &gt; 'Beim Eintreffen von AdHoc-Messages:'." name="textFSNewConferenceIncomingIMSession">
 			AdHoc-Messages:
 		</text>
-		<button label="V" name="Prev_UISndNewIncomingConfIMSession" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndNewIncomingConfIMSession" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndNewIncomingConfIMSession" tool_tip="Auf Standardwert zurücksetzen."/>
 		<combo_box name="PlayModeUISndNewIncomingConfIMSession">
 			<combo_box.item label="Bei neuer Nachr." name="1"/>
@@ -208,56 +221,56 @@ Der jeweilige Standardwert wird im Hovertip des UUID-Feldes angezeigt.
 		<text tool_tip="UUID des Klangs beim Starten einer neuen Instant-Messaging-Sitzung." name="textFSStartIM">
 			Start IM-Sitzung:
 		</text>
-		<button label="V" name="Prev_UISndStartIM" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndStartIM" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndStartIM" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndStartIM"/>
 
 		<text tool_tip="UUID des Klangs beim Erzeugen eines neuen Objektes." name="textFSObjectCreate">
 			Objekterstellung:
 		</text>
-		<button label="V" name="Prev_UISndObjectCreate" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndObjectCreate" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndObjectCreate" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndObjectCreate"/>
 
 		<text tool_tip="UUID des Klangs beim Löschen eines Objektes." name="textFSObjectDelete">
 			Objektlöschung:
 		</text>
-		<button label="V" name="Prev_UISndObjectDelete" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndObjectDelete" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndObjectDelete" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndObjectDelete"/>
 
 		<text tool_tip="UUID des Klangs beim Rezzen eines Objektes." name="textFSObjectRezIn">
             Objekt rezzen:
 		</text>
-		<button label="V" name="Prev_UISndObjectRezIn" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndObjectRezIn" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndObjectRezIn" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndObjectRezIn"/>
 
 		<text tool_tip="UUID des Klangs beim Derezzen eines Objektes." name="textFSObjectRezOut">
 			Objekt derezzen:
 		</text>
-		<button label="V" name="Prev_UISndObjectRezOut" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndObjectRezOut" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndObjectRezOut" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndObjectRezOut"/>
 
 		<text tool_tip="UUID des Klangs beim Erzeugen eines Fotos. Diese Einstellung ist gekoppelt an die Option 'Fotos leise speichern' im 'Erweitert'-Menü." name="textFSSnapshot">
             Erstellen Schnappschuß:
 		</text>
-		<button label="V" name="Prev_UISndSnapshot" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndSnapshot" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndSnapshot" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Stummschalten" name="QuietSnapshotsToDiskCheckBox"/>
 
 		<text tool_tip="UUID des Klangs beim Teleportieren. Diese Einstellung ist gekoppelt an die Option Bewegen/Anzeigen &gt; Bewegung &gt; 'Soundeffekte beim Teleportieren abspielen'." name="textFSTeleportOut">
 			Teleportieren:
 		</text>
-		<button label="V" name="Prev_UISndTeleportOut" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndTeleportOut" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndTeleportOut" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndTeleportOut"/>
 
     </panel>
 
 	<!-- UI Sounds 2 -->
-	<panel label="UI Sounds 2" name="UI Sounds tab 2">
+	<panel label="UI-Klänge 2" name="UI Sounds tab 2">
 		<text name="textFSExplanation_tab2">
 			Hier können die Klänge der Benutzeroberfläche geändert, aktiviert oder deaktiviert werden.
 Der jeweilige Standardwert wird im Hovertip des UUID-Feldes angezeigt.
@@ -266,132 +279,132 @@ Der jeweilige Standardwert wird im Hovertip des UUID-Feldes angezeigt.
 		<text tool_tip="UUID des Klangs beim Öffnen des Pie-Menüs." name="textFSPieMenuAppear">
             Öffnen Pie-Menü:
 		</text>
-		<button label="V" name="Prev_UISndPieMenuAppear" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndPieMenuAppear" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndPieMenuAppear" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndPieMenuAppear"/>
 
 		<text tool_tip="UUID des Klangs beim Schließen des Pie-Menüs." name="textFSPieMenuHide">
             Schließen Pie-Menü:
 		</text>
-		<button label="V" name="Prev_UISndPieMenuHide" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndPieMenuHide" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndPieMenuHide" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndPieMenuHide"/>
 
 		<text tool_tip="UUID des Klangs bei Auswahl von Option 1 im Pie-Menü." name="textFSPieMenuSliceHighlight0">
 			Pie-Menü Option 1:
 		</text>
-		<button label="V" name="Prev_UISndPieMenuSliceHighlight0" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndPieMenuSliceHighlight0" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndPieMenuSliceHighlight0" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndPieMenuSliceHighlight0"/>
 
 		<text tool_tip="UUID des Klangs bei Auswahl von Option 2 im Pie-Menü." name="textFSPieMenuSliceHighlight1">
 			Pie-Menü Option 2:
 		</text>
-		<button label="V" name="Prev_UISndPieMenuSliceHighlight1" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndPieMenuSliceHighlight1" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndPieMenuSliceHighlight1" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndPieMenuSliceHighlight1"/>
 
 		<text tool_tip="UUID des Klangs bei Auswahl von Option 3 im Pie-Menü." name="textFSPieMenuSliceHighlight2">
 			Pie-Menü Option 3:
 		</text>
-		<button label="V" name="Prev_UISndPieMenuSliceHighlight2" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndPieMenuSliceHighlight2" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndPieMenuSliceHighlight2" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndPieMenuSliceHighlight2"/>
 
 		<text tool_tip="UUID des Klangs bei Auswahl von Option 4 im Pie-Menü." name="textFSPieMenuSliceHighlight3">
 			Pie-Menü Option 4:
 		</text>
-		<button label="V" name="Prev_UISndPieMenuSliceHighlight3" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndPieMenuSliceHighlight3" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndPieMenuSliceHighlight3" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndPieMenuSliceHighlight3"/>
 
 		<text tool_tip="UUID des Klangs bei Auswahl von Option 5 im Pie-Menü." name="textFSPieMenuSliceHighlight4">
 			Pie-Menü Option 5:
 		</text>
-		<button label="V" name="Prev_UISndPieMenuSliceHighlight4" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndPieMenuSliceHighlight4" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndPieMenuSliceHighlight4" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndPieMenuSliceHighlight4"/>
 
 		<text tool_tip="UUID des Klangs bei Auswahl von Option 6 im Pie-Menü." name="textFSPieMenuSliceHighlight5">
 			Pie-Menü Option 6:
 		</text>
-		<button label="V" name="Prev_UISndPieMenuSliceHighlight5" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndPieMenuSliceHighlight5" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndPieMenuSliceHighlight5" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndPieMenuSliceHighlight5"/>
 
 		<text tool_tip="UUID des Klangs bei Auswahl von Option 7 im Pie-Menü." name="textFSPieMenuSliceHighlight6">
 			Pie-Menü Option 7:
 		</text>
-		<button label="V" name="Prev_UISndPieMenuSliceHighlight6" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndPieMenuSliceHighlight6" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndPieMenuSliceHighlight6" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndPieMenuSliceHighlight6"/>
 
 		<text tool_tip="UUID des Klangs bei Auswahl von Option 8 im Pie-Menü." name="textFSPieMenuSliceHighlight7">
 			Pie-Menü Option 8:
 		</text>
-		<button label="V" name="Prev_UISndPieMenuSliceHighlight7" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndPieMenuSliceHighlight7" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndPieMenuSliceHighlight7" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndPieMenuSliceHighlight7"/>
 
-		<text tool_tip="UUID des Klangs beim Tippen einer Chat-Nachricht. Diese Einstellung ist gekoppelt an Chat &gt; Allgemein &gt; 'Tipp-Sound abspielen wenn Personen im Chat in der Nähe tippen'." name="textFSTyping">
+		<text tool_tip="UUID des Klangs beim Tippen einer Chat-Nachricht. Diese Einstellung ist gekoppelt an Chat &gt; Allgemein &gt; 'Tipp-Klang abspielen wenn Personen im Chat in der Nähe tippen'." name="textFSTyping">
 			Nachricht schreiben:
 		</text>
-		<button label="V" name="Prev_UISndTyping" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndTyping" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndTyping" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="FSPlayTypingSoundCheckBox"/>
 
 		<text tool_tip="UUID des Klangs beim Schließen eines Fensters." name="textFSWindowClose">
 			Schließen eines Fensters:
 		</text>
-		<button label="V" name="Prev_UISndWindowClose" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndWindowClose" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndWindowClose" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndWindowClose"/>
 
 		<text tool_tip="UUID des Klangs beim Öffnen eines Fensters." name="textFSWindowOpen">
 			Öffnen eines Fensters:
 		</text>
-		<button label="V" name="Prev_UISndWindowOpen" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndWindowOpen" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndWindowOpen" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndWindowOpen"/>
 
 		<text tool_tip="UUID des Klangs beim Öffnen eines Skript-Dialogs." name="textFSScriptFloaterOpen">
 			Skript-Dialog:
 		</text>
-		<button label="V" name="Prev_UISndScriptFloaterOpen" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndScriptFloaterOpen" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndScriptFloaterOpen" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndScriptFloaterOpen"/>
 
 		<text tool_tip="UUID des Klangs beim Einloggen eines Freundes." name="textFSFriendOnline">
 			Einloggen Freund:
 		</text>
-		<button label="V" name="Prev_UISndFriendOnline" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndFriendOnline" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndFriendOnline" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndFriendOnline"/>
 
 		<text tool_tip="UUID des Klangs beim Ausloggen eines Freundes." name="textFSFriendOffline">
 			Ausloggen Freund:
 		</text>
-		<button label="V" name="Prev_UISndFriendOffline" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndFriendOffline" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndFriendOffline" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndFriendOffline"/>
 
 		<text tool_tip="UUID des Klangs für Freundschafts-Angebote." name="textFSFriendshipOffer">
 			Freundschafts-Angebote:
 		</text>
-		<button label="V" name="Prev_UISndFriendshipOffer" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndFriendshipOffer" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndFriendshipOffer" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndFriendshipOffer"/>
 
 		<text tool_tip="UUID des Klangs für Teleport-Angebote." name="textFSTeleportOffer">
 			Teleport-Angebote:
 		</text>
-		<button label="V" name="Prev_UISndTeleportOffer" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndTeleportOffer" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndTeleportOffer" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndTeleportOffer"/>
     </panel>
 
 	<!-- UI Sounds 3 -->
-	<panel label="UI Sounds 3" name="UI Sounds tab 3">
+	<panel label="UI-Klänge 3" name="UI Sounds tab 3">
 		<text name="textFSExplanation_tab3">
 			Hier können die Klänge der Benutzeroberfläche geändert, aktiviert oder deaktiviert werden.
 Der jeweilige Standardwert wird im Hovertip des UUID-Feldes angezeigt.
@@ -400,63 +413,70 @@ Der jeweilige Standardwert wird im Hovertip des UUID-Feldes angezeigt.
 		<text tool_tip="UUID des Klangs für Inventarangebote" name="textFSInventoryOffer">
 			Inventarangebote:
 		</text>
-		<button label="V" name="Prev_UISndInventoryOffer" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndInventoryOffer" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndInventoryOffer" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndInventoryOffer"/>
 
 		<text tool_tip="UUID des Klangs für eingehene Voice-Anrufe" name="textFSIncomingVoiceCall">
 			Eingehende Voice-Anrufe:
 		</text>
-		<button label="V" name="Prev_UISndIncomingVoiceCall" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndIncomingVoiceCall" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndIncomingVoiceCall" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndIncomingVoiceCall"/>
 
 		<text tool_tip="UUID des Klangs für Gruppeneinladungen." name="textFSGroupInvitation">
 			Gruppeneinladungen:
 		</text>
-		<button label="V" name="Prev_UISndGroupInvitation" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndGroupInvitation" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndGroupInvitation" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndGroupInvitation"/>
 
 		<text tool_tip="UUID des Klangs für Gruppennachrichten." name="textFSGroupNotice">
 			Gruppennachrichten:
 		</text>
-		<button label="V" name="Prev_UISndGroupNotice" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndGroupNotice" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndGroupNotice" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndGroupNotice"/>
+
+		<text tool_tip="UUID des Klangs für neue Erlebnisnachrichten." name="textFSQuestionExperience">
+			Erlebnisnachrichten:
+		</text>
+		<button label="V" name="Prev_UISndQuestionExperience" tool_tip="Vorschau zu diesem Klang."/>
+		<button label="S" name="Def_UISndQuestionExperience" tool_tip="Auf Standardwert zurücksetzen."/>
+		<check_box label="Abspielen" name="PlayModeUISndQuestionExperience"/>
 
 		<text tool_tip="UUID des Klangs bei einer ungültigen Aktion." name="textFSInvalidOp">
 			Ungültige Aktion:
 		</text>
-		<button label="V" name="Prev_UISndInvalidOp" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndInvalidOp" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndInvalidOp" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndInvalidOp"/>
 
 		<text tool_tip="UUID des Klangs beim Ein-/Ausschalten von Movelock." name="textFSMovelockToggle">
 			Movelock ein-/ausschalten:
 		</text>
-		<button label="V" name="Prev_UISndMovelockToggle" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndMovelockToggle" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndMovelockToggle" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndMovelockToggle"/>
 
 		<text tool_tip="UUID des Klangs für Schritte. Erfordert Neustart" name="textFSFootsteps">
 			Schritte:
 		</text>
-		<button label="V" name="Prev_UISndFootsteps" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndFootsteps" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndFootsteps" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndFootsteps"/>
 
 		<text tool_tip="UUID des Klangs bei der Warnung vor einem Neustart der Region." name="textFSRestart">
 			Regionsneustart:
 		</text>
-		<button label="V" name="Prev_UISndRestart" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndRestart" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndRestart" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndRestart"/>
 		
 		<text tool_tip="UUID des Klangs bei der Warnung vor einem Neustart der Region (OpenSim)." name="textFSRestartOpenSim">
 			Regionsneustart (OpenSim):
 		</text>
-		<button label="V" name="Prev_UISndRestartOpenSim" tool_tip="Vorschau zu diesem Sound."/>
+		<button label="V" name="Prev_UISndRestartOpenSim" tool_tip="Vorschau zu diesem Klang."/>
 		<button label="S" name="Def_UISndRestartOpenSim" tool_tip="Auf Standardwert zurücksetzen."/>
 		<check_box label="Abspielen" name="PlayModeUISndRestartOpenSim"/>
     </panel>

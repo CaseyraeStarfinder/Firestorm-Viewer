@@ -90,6 +90,7 @@ public:
 										spellcheck,
 										commit_on_focus_lost,
 										ignore_tab,
+										bg_image_always_focused,
 										is_password;
 
 		// colors
@@ -279,15 +280,21 @@ public:
 
 	void			setContextMenu(LLContextMenu* new_context_menu);
 
+	// <FS:Ansariel> Make these protected
+	void			removeChar();
+	void			removeWord(bool prev);
+	void			addChar(const llwchar c);
+	// </FS:Ansariel>
+
 private:
 	// private helper methods
 
 	void                    pasteHelper(bool is_primary);
 
-	void			removeChar();
-	// <FS> Ctrl-Backspace remove word
-	void			removeWord(bool prev);
-	void			addChar(const llwchar c);
+	// <FS:Ansariel> Make these protected
+	//void			removeChar();
+	//void			addChar(const llwchar c);
+	// </FS:Ansariel>
 	void			setCursorAtLocalPos(S32 local_mouse_x);
 	S32				findPixelNearestPos(S32 cursor_offset = 0) const;
 	S32				calcCursorPos(S32 mouse_x);
@@ -383,12 +390,17 @@ protected:
 
 	BOOL		mReadOnly;
 
+	BOOL 		mShowImageFocused;
+
 	LLWString	mPreeditWString;
 	LLWString	mPreeditOverwrittenWString;
 	std::vector<S32> mPreeditPositions;
 	LLPreeditor::standouts_t mPreeditStandouts;
 
 	LLHandle<LLContextMenu> mContextMenuHandle;
+
+	// <FS:Ansariel> Delay context menu initialization if LLMenuGL::sMenuContainer is still NULL
+	bool		mDelayedInit;
 
 private:
 	// Instances that by default point to the statics but can be overidden in XML.

@@ -73,6 +73,19 @@ public:
 	
 	/*virtual*/ BOOL parseXml(LLXmlTreeNode* node);
 
+
+
+	void* operator new(size_t size)
+	{
+		return ll_aligned_malloc_16(size);
+	}
+
+	void operator delete(void* ptr)
+	{
+		ll_aligned_free_16(ptr);
+	}
+
+
 protected:
 	typedef std::vector<LLPolySkeletalBoneInfo> bone_info_list_t;
 	bone_info_list_t mBoneInfoList;
@@ -114,10 +127,19 @@ public:
 	/*virtual*/ const LLVector4a&	getAvgDistortion()	{ return mDefaultVec; }
 	/*virtual*/ F32					getMaxDistortion() { return 0.1f; }
 	/*virtual*/ LLVector4a			getVertexDistortion(S32 index, LLPolyMesh *poly_mesh){return LLVector4a(0.001f, 0.001f, 0.001f);}
-	/*virtual*/ const LLVector4a*	getFirstDistortion(U32 *index, LLPolyMesh **poly_mesh){index = 0; poly_mesh = NULL; return &mDefaultVec;};
-	/*virtual*/ const LLVector4a*	getNextDistortion(U32 *index, LLPolyMesh **poly_mesh){index = 0; poly_mesh = NULL; return NULL;};
+
+
+	// <FS:ND> This functions probably do not want to clear the argument, but the arguments content.
+	// /*virtual*/ const LLVector4a*	getFirstDistortion(U32 *index, LLPolyMesh **poly_mesh){index = 0; poly_mesh = NULL; return &mDefaultVec;};
+	// /*virtual*/ const LLVector4a*	getNextDistortion(U32 *index, LLPolyMesh **poly_mesh){index = 0; poly_mesh = NULL; return NULL;};
+
+	/*virtual*/ const LLVector4a*	getFirstDistortion(U32 *index, LLPolyMesh **poly_mesh) { if( index ){ *index = 0;} if( poly_mesh ){ *poly_mesh = NULL; } return &mDefaultVec; };
+	/*virtual*/ const LLVector4a*	getNextDistortion(U32 *index, LLPolyMesh **poly_mesh)	{ if( index ){ *index = 0;} if( poly_mesh ){ *poly_mesh = NULL; } return NULL; };
+	// </FS:ND>
 
 protected:
+	LLPolySkeletalDistortion(const LLPolySkeletalDistortion& pOther);
+
 	LL_ALIGN_16(LLVector4a mDefaultVec);
 	typedef std::map<LLJoint*, LLVector3> joint_vec_map_t;
 	joint_vec_map_t mJointScales;

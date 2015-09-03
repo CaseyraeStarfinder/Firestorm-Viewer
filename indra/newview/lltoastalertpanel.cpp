@@ -48,7 +48,6 @@
 
 const S32 MAX_ALLOWED_MSG_WIDTH = 400;
 const F32 DEFAULT_BUTTON_DELAY = 0.5f;
-const S32 MSG_PAD = 8;
 
 /*static*/ LLControlGroup* LLToastAlertPanel::sSettings = NULL;
 /*static*/ LLToastAlertPanel::URLLoader* LLToastAlertPanel::sURLLoader;
@@ -68,19 +67,19 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 		mLabel(notification->getName()),
 		mLineEditor(NULL)
 {
-	// EXP-1822
-	// save currently focused view, so that return focus to it
-	// on destroying this toast.
-	LLView* current_selection = dynamic_cast<LLView*>(gFocusMgr.getKeyboardFocus());
-	while(current_selection)
-	{
-		if (current_selection->isFocusRoot())
-		{
-			mPreviouslyFocusedView = current_selection->getHandle();
-			break;
-		}
-		current_selection = current_selection->getParent();
-	}
+    // EXP-1822
+    // save currently focused view, so that return focus to it
+    // on destroying this toast.
+    LLView* current_selection = dynamic_cast<LLView*>(gFocusMgr.getKeyboardFocus());
+    while(current_selection)
+    {
+        if (current_selection->isFocusRoot())
+        {
+            mPreviouslyFocusedView = current_selection->getHandle();
+            break;
+        }
+        current_selection = current_selection->getParent();
+    }
 
 	const LLFontGL* font = LLFontGL::getFontSansSerif();
 	const S32 LINE_HEIGHT = font->getLineHeight();
@@ -269,6 +268,11 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
 			mLineEditor->setMaxTextChars(edit_text_max_chars);
 			mLineEditor->setText(edit_text_contents);
 
+			if("SaveOutfitAs"  == mNotification->getName())
+			{
+				mLineEditor->setPrevalidate(&LLTextValidate::validateASCII);
+			}
+
 			// decrease limit of line editor of teleport offer dialog to avoid truncation of
 			// location URL in invitation message, see EXT-6891
 			if ("OfferTeleport" == mNotification->getName())
@@ -443,7 +447,24 @@ LLToastAlertPanel::~LLToastAlertPanel()
 	// return focus to the previously focused view if the viewer is not exiting
 	if (mPreviouslyFocusedView.get() && !LLApp::isExiting())
 	{
-		mPreviouslyFocusedView.get()->setFocus(TRUE);
+        LLView* current_selection = dynamic_cast<LLView*>(gFocusMgr.getKeyboardFocus());
+        while(current_selection)
+        {
+            if (current_selection->isFocusRoot())
+            {
+                break;
+            }
+            current_selection = current_selection->getParent();
+        }
+        if (current_selection)
+        {
+            // If the focus moved to some other view though, move the focus there
+            current_selection->setFocus(TRUE);
+        }
+        else
+        {
+            mPreviouslyFocusedView.get()->setFocus(TRUE);
+        }
 	}
 }
 

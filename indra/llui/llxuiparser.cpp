@@ -30,7 +30,7 @@
 
 #include "llxmlnode.h"
 #include "llfasttimer.h"
-#ifdef LL_STANDALONE
+#ifdef LL_USESYSTEMLIBS
 #include <expat.h>
 #else
 #include "expat/expat.h"
@@ -58,7 +58,9 @@ static 	LLInitParam::Parser::parser_inspect_func_map_t sSimpleXUIInspectFuncs;
 
 const char* NO_VALUE_MARKER = "no_value";
 
+#ifdef LL_WINDOWS
 const S32 LINE_NUMBER_HERE = 0;
+#endif
 
 struct MaxOccursValues : public LLInitParam::TypeValuesHelper<U32, MaxOccursValues>
 {

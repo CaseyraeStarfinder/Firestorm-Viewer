@@ -153,7 +153,7 @@ void LLViewerParcelMedia::update(LLParcel* parcel)
 			}
 
 			// if we have a current (link sharing) url, use it instead
-			if (mediaCurrentUrl != "" && parcel->getMediaType() == "text/html")
+			if (mediaCurrentUrl != "" && parcel->getMediaType() == HTTP_CONTENT_TEXT_HTML)
 			{
 				mediaUrl = mediaCurrentUrl;
 			}
@@ -1944,7 +1944,7 @@ void LLViewerParcelMedia::saveDomainFilterList()
 	const std::string medialist_filename = gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, "medialist.xml");
 
 	llofstream medialist;
-	medialist.open(medialist_filename);
+	medialist.open(medialist_filename.c_str());
 	LLSDSerialize::toPrettyXML(sMediaFilterList, medialist);
 	medialist.close();
 }
@@ -1955,7 +1955,7 @@ void LLViewerParcelMedia::loadDomainFilterList()
 
 	if (LLFile::isfile(medialist_filename))
 	{
-		llifstream medialistFile(medialist_filename);
+		llifstream medialistFile(medialist_filename.c_str());
 		LLSDSerialize::fromXML(sMediaFilterList, medialistFile);
 		medialistFile.close();
 	}
@@ -1963,7 +1963,7 @@ void LLViewerParcelMedia::loadDomainFilterList()
 	{
 		LLSD emptyllsd;
 		llofstream medialist;
-		medialist.open(medialist_filename);
+		medialist.open(medialist_filename.c_str());
 		LLSDSerialize::toPrettyXML(emptyllsd, medialist);
 		medialist.close();
 	}

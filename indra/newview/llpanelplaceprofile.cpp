@@ -56,6 +56,8 @@
 #include "rlvhandler.h"
 // [/RLVa:KB]
 
+const F64 COVENANT_REFRESH_TIME_SEC = 60.0f;
+
 static LLPanelInjector<LLPanelPlaceProfile> t_place_profile("panel_place_profile");
 
 // Statics for textures filenames
@@ -79,6 +81,7 @@ static std::string icon_see_avs_off;
 
 LLPanelPlaceProfile::LLPanelPlaceProfile()
 :	LLPanelPlaceInfo(),
+	mNextCovenantUpdateTime(0),
 	mForSalePanel(NULL),
 	mYouAreHerePanel(NULL),
 	mSelectedParcelID(-1),
@@ -132,6 +135,7 @@ BOOL LLPanelPlaceProfile::postBuild()
 
 	mEstateNameText = getChild<LLTextBox>("estate_name");
 	mEstateRatingText = getChild<LLTextBox>("estate_rating");
+	mEstateRatingIcon = getChild<LLIconCtrl>("estate_rating_icon");
 	mEstateOwnerText = getChild<LLTextBox>("estate_owner");
 	mCovenantText = getChild<LLTextEditor>("covenant");
 
@@ -164,6 +168,9 @@ BOOL LLPanelPlaceProfile::postBuild()
 	icon_see_avs_on = getString("icon_SeeAVs_On");
 	icon_see_avs_off = getString("icon_SeeAVs_Off");
 
+	mLastSelectedRegionID = LLUUID::null;
+	mNextCovenantUpdateTime = 0;
+
 	return TRUE;
 }
 
@@ -171,6 +178,9 @@ BOOL LLPanelPlaceProfile::postBuild()
 void LLPanelPlaceProfile::resetLocation()
 {
 	LLPanelPlaceInfo::resetLocation();
+
+	mLastSelectedRegionID = LLUUID::null;
+	mNextCovenantUpdateTime = 0;
 
 	mForSalePanel->setVisible(FALSE);
 	mYouAreHerePanel->setVisible(FALSE);
@@ -218,6 +228,7 @@ void LLPanelPlaceProfile::resetLocation()
 
 	mEstateNameText->setValue(loading);
 	mEstateRatingText->setValue(loading);
+	mEstateRatingIcon->setValue(loading);
 	mEstateOwnerText->setValue(loading);
 	mCovenantText->setValue(loading);
 
@@ -345,13 +356,20 @@ void LLPanelPlaceProfile::displaySelectedParcelInfo(LLParcel* parcel,
 	if (!region || !parcel)
 		return;
 
-	// send EstateCovenantInfo message
-	LLMessageSystem *msg = gMessageSystem;
-	msg->newMessage("EstateCovenantRequest");
-	msg->nextBlockFast(_PREHASH_AgentData);
-	msg->addUUIDFast(_PREHASH_AgentID,	gAgent.getID());
-	msg->addUUIDFast(_PREHASH_SessionID,gAgent.getSessionID());
-	msg->sendReliable(region->getHost());
+	if (mLastSelectedRegionID != region->getRegionID()
+		|| mNextCovenantUpdateTime < LLTimer::getElapsedSeconds())
+	{
+		// send EstateCovenantInfo message
+		// Note: LLPanelPlaceProfile doesn't change Covenant's content and any
+		// changes made by Estate floater should be requested by Estate floater
+		LLMessageSystem *msg = gMessageSystem;
+		msg->newMessage("EstateCovenantRequest");
+		msg->nextBlockFast(_PREHASH_AgentData);
+		msg->addUUIDFast(_PREHASH_AgentID,	gAgent.getID());
+		msg->addUUIDFast(_PREHASH_SessionID,gAgent.getSessionID());
+		msg->sendReliable(region->getHost());
+		mNextCovenantUpdateTime = LLTimer::getElapsedSeconds() + COVENANT_REFRESH_TIME_SEC;
+	}
 
 	LLParcelData parcel_data;
 
@@ -365,6 +383,7 @@ void LLPanelPlaceProfile::displaySelectedParcelInfo(LLParcel* parcel,
 
 		mParcelRatingIcon->setValue(icon_m);
 		mRegionRatingIcon->setValue(icon_m);
+		mEstateRatingIcon->setValue(icon_m);
 		break;
 
 	case SIM_ACCESS_ADULT:
@@ -372,6 +391,7 @@ void LLPanelPlaceProfile::displaySelectedParcelInfo(LLParcel* parcel,
 
 		mParcelRatingIcon->setValue(icon_r);
 		mRegionRatingIcon->setValue(icon_r);
+		mEstateRatingIcon->setValue(icon_r);
 		break;
 
 	default:
@@ -379,6 +399,7 @@ void LLPanelPlaceProfile::displaySelectedParcelInfo(LLParcel* parcel,
 
 		mParcelRatingIcon->setValue(icon_pg);
 		mRegionRatingIcon->setValue(icon_pg);
+		mEstateRatingIcon->setValue(icon_pg);
 	}
 
 	std::string rating = LLViewerRegion::accessToString(sim_access);
@@ -554,16 +575,25 @@ void LLPanelPlaceProfile::displaySelectedParcelInfo(LLParcel* parcel,
 
 		mForSalePanel->setVisible(for_sale);
 
-		const U8* sign = (U8*)getString("price_text").c_str();
-		const U8* sqm = (U8*)getString("area_text").c_str();
+		// <FS:ND> getString returns a temporary, taking the c_str will point to a location that is destroyed.
+		
+		// const U8* sign = (U8*)getString("price_text").c_str();
+		// const U8* sqm = (U8*)getString("area_text").c_str();
 
+		std::string ssign = getString("price_text");
+		std::string ssqm = getString("area_text");
+		const U8* sign = (U8*)ssign.c_str();
+		const U8* sqm = (U8*)ssqm.c_str();
+
+		// </FS:ND>
+		
 		mSalesPriceText->setText(llformat("%s%d ", sign, parcel->getSalePrice()));
 		mAreaText->setText(llformat("%d %s", area, sqm));
 		mTrafficText->setText(llformat("%.0f", dwell));
 
 		// Can't have more than region max tasks, regardless of parcel
 		// object bonus factor.
-		S32 primitives = llmin(llround(parcel->getMaxPrimCapacity() * parcel->getParcelPrimBonus()),
+		S32 primitives = llmin(ll_round(parcel->getMaxPrimCapacity() * parcel->getParcelPrimBonus()),
 							   (S32)region->getMaxTasks());
 
 		const U8* available = (U8*)getString("available").c_str();

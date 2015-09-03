@@ -75,8 +75,6 @@ template class LLTextEditor* LLView::getChild<class LLTextEditor>(
 //
 // Constants
 //
-const S32	UI_TEXTEDITOR_LINE_NUMBER_MARGIN = 32;
-const S32	UI_TEXTEDITOR_LINE_NUMBER_DIGITS = 4;
 const S32	SPACES_PER_TAB = 4;
 const F32	SPELLCHECK_DELAY = 0.5f;	// delay between the last keypress and spell checking the word the cursor is on
 
@@ -236,12 +234,12 @@ LLTextEditor::Params::Params()
 	prevalidate_callback("prevalidate_callback"),
 	embedded_items("embedded_items", false),
 	ignore_tab("ignore_tab", true),
-	show_line_numbers("show_line_numbers", false),
 	auto_indent("auto_indent", true),
 	default_color("default_color"),
     commit_on_focus_lost("commit_on_focus_lost", false),
 	show_context_menu("show_context_menu"),
-	enable_tooltip_paste("enable_tooltip_paste")
+	enable_tooltip_paste("enable_tooltip_paste"),
+	enable_tab_remove("enable_tab_remove", true)	// <FS:Ansariel> FIRE-15591: Optional tab remove
 {
 	addSynonym(prevalidate_callback, "text_type");
 }
@@ -252,8 +250,7 @@ LLTextEditor::LLTextEditor(const LLTextEditor::Params& p) :
 	mBaseDocIsPristine(TRUE),
 	mPristineCmd( NULL ),
 	mLastCmd( NULL ),
-	mDefaultColor(		p.default_color() ),
-	mShowLineNumbers ( p.show_line_numbers ),
+	mDefaultColor( p.default_color() ),
 	mAutoIndent(p.auto_indent),
 	mCommitOnFocusLost( p.commit_on_focus_lost),
 	mAllowEmbeddedItems( p.embedded_items ),
@@ -264,7 +261,9 @@ LLTextEditor::LLTextEditor(const LLTextEditor::Params& p) :
 	mContextMenu(NULL),
 	mShowContextMenu(p.show_context_menu),
 	mEnableTooltipPaste(p.enable_tooltip_paste),
-	mPassDelete(FALSE)
+	mPassDelete(FALSE),
+	mKeepSelectionOnReturn(false),
+	mEnableTabRemove(p.enable_tab_remove)	// <FS:Ansariel> FIRE-15591: Optional tab remove
 {
 	mSourceID.generate();
 
@@ -277,14 +276,7 @@ LLTextEditor::LLTextEditor(const LLTextEditor::Params& p) :
 	params.visible = p.border_visible;
 	mBorder = LLUICtrlFactory::create<LLViewBorder> (params);
 	addChild( mBorder );
-
 	setText(p.default_text());
-
-	if (mShowLineNumbers)
-	{
-		mHPad += UI_TEXTEDITOR_LINE_NUMBER_MARGIN;
-		updateRects();
-	}
 	
 	mParseOnTheFly = TRUE;
 }
@@ -876,7 +868,7 @@ BOOL LLTextEditor::handleMouseUp(S32 x, S32 y, MASK mask)
 	BOOL	handled = FALSE;
 
 	// if I'm not currently selecting text
-//	if (!(hasSelection() && hasMouseCapture()))
+	//if (!(mIsSelecting && hasMouseCapture()))
 // [SL:KB] - Patch: Control-TextEditor | Checked: 2014-02-04 (Catznip)
 	if (!(hasSelection() && mIsSelecting && hasMouseCapture()))
 // [/SL:KB]
@@ -1062,7 +1054,10 @@ void LLTextEditor::removeCharOrTab()
 		S32 chars_to_remove = 1;
 
 		LLWString text = getWText();
-		if (text[mCursorPos - 1] == ' ')
+		// <FS:Ansariel> FIRE-15591: Optional tab remove
+		//if (text[mCursorPos - 1] == ' ')
+		if (mEnableTabRemove && text[mCursorPos - 1] == ' ')
+		// </FS:Ansariel>
 		{
 			// Try to remove a "tab"
 			S32 offset = getLineOffsetFromDocIndex(mCursorPos);
@@ -1220,7 +1215,6 @@ void LLTextEditor::addChar(llwchar wc)
 		}
 	}
 }
-
 
 void LLTextEditor::addLineBreakChar(BOOL group_together)
 {
@@ -1603,7 +1597,16 @@ void LLTextEditor::pasteTextWithLinebreaks(LLWString & clean_string)
 		pos = clean_string.find('\n',start);
 	}
 
-	if (pos != start)
+	// <FS:Ansariel> FIRE-4314: Paste from clipboard shows block character if last character is a linefeed
+	if (pos != start && pos == clean_string.length() - 1)
+	{
+		std::basic_string<llwchar> str = std::basic_string<llwchar>(clean_string,start,clean_string.length()-start-1);
+		setCursorPos(mCursorPos + insert(mCursorPos, str, TRUE, LLTextSegmentPtr()));
+		addLineBreakChar(FALSE);
+	}
+	else if (pos != start)
+	//if (pos != start)
+	// </FS:Ansariel>
 	{
 		std::basic_string<llwchar> str = std::basic_string<llwchar>(clean_string,start,clean_string.length()-start);
 		setCursorPos(mCursorPos + insert(mCursorPos, str, FALSE, LLTextSegmentPtr()));
@@ -1776,7 +1779,7 @@ BOOL LLTextEditor::handleSpecialKey(const KEY key, const MASK mask)
 	case KEY_RETURN:
 		if (mask == MASK_NONE)
 		{
-			if( hasSelection() )
+			if( hasSelection() && !mKeepSelectionOnReturn )
 			{
 				deleteSelection(FALSE);
 			}
@@ -2143,6 +2146,7 @@ void LLTextEditor::showContextMenu(S32 x, S32 y)
 {
 	if (!mContextMenu)
 	{
+		llassert(LLMenuGL::sMenuContainer != NULL);
 		mContextMenu = LLUICtrlFactory::instance().createFromFile<LLContextMenu>("menu_text_editor.xml", 
 																				LLMenuGL::sMenuContainer, 
 																				LLMenuHolderGL::child_registry_t::instance());
@@ -2308,69 +2312,6 @@ void LLTextEditor::drawPreeditMarker()
 	}
 }
 
-
-void LLTextEditor::drawLineNumbers()
-{
-	LLGLSUIDefault gls_ui;
-	LLRect scrolled_view_rect = getVisibleDocumentRect();
-	LLRect content_rect = getVisibleTextRect();	
-	LLLocalClipRect clip(content_rect);
-	S32 first_line = getFirstVisibleLine();
-	S32 num_lines = getLineCount();
-	if (first_line >= num_lines)
-	{
-		return;
-	}
-	
-	S32 cursor_line = mLineInfoList[getLineNumFromDocIndex(mCursorPos)].mLineNum;
-
-	if (mShowLineNumbers)
-	{
-		S32 left = 0;
-		S32 top = getRect().getHeight();
-		S32 bottom = 0;
-
-		gl_rect_2d(left, top, UI_TEXTEDITOR_LINE_NUMBER_MARGIN, bottom, mReadOnlyBgColor.get() ); // line number area always read-only
-		gl_rect_2d(UI_TEXTEDITOR_LINE_NUMBER_MARGIN, top, UI_TEXTEDITOR_LINE_NUMBER_MARGIN-1, bottom, LLColor4::grey3); // separator
-
-		S32 last_line_num = -1;
-
-		for (S32 cur_line = first_line; cur_line < num_lines; cur_line++)
-		{
-			line_info& line = mLineInfoList[cur_line];
-
-			if ((line.mRect.mTop - scrolled_view_rect.mBottom) < mVisibleTextRect.mBottom) 
-			{
-				break;
-			}
-
-			S32 line_bottom = line.mRect.mBottom - scrolled_view_rect.mBottom + mVisibleTextRect.mBottom;
-			// draw the line numbers
-			if(line.mLineNum != last_line_num && line.mRect.mTop <= scrolled_view_rect.mTop) 
-			{
-				const LLFontGL *num_font = LLFontGL::getFontMonospace();
-				const LLWString ltext = utf8str_to_wstring(llformat("%d", line.mLineNum ));
-				BOOL is_cur_line = cursor_line == line.mLineNum;
-				const U8 style = is_cur_line ? LLFontGL::BOLD : LLFontGL::NORMAL;
-				const LLColor4 fg_color = is_cur_line ? mCursorColor : mReadOnlyFgColor;
-				num_font->render( 
-					ltext, // string to draw
-					0, // begin offset
-					UI_TEXTEDITOR_LINE_NUMBER_MARGIN - 2, // x
-					line_bottom, // y
-					fg_color, 
-					LLFontGL::RIGHT, // horizontal alignment
-					LLFontGL::BOTTOM, // vertical alignment
-					style,
-					LLFontGL::NO_SHADOW,
-					S32_MAX, // max chars
-					UI_TEXTEDITOR_LINE_NUMBER_MARGIN - 2); // max pixels
-				last_line_num = line.mLineNum;
-			}
-		}
-	}
-}
-
 void LLTextEditor::draw()
 {
 	{
@@ -2382,7 +2323,6 @@ void LLTextEditor::draw()
 	}
 
 	LLTextBase::draw();
-	drawLineNumbers();
 
     drawPreeditMarker();
 
@@ -2510,6 +2450,18 @@ void LLTextEditor::insertText(LLWString &new_text)
 	setEnabled( enabled );
 }
 
+// <FS:Ansariel> Allow inserting a linefeed
+void LLTextEditor::insertLinefeed()
+{
+	BOOL enabled = getEnabled();
+	setEnabled( TRUE );
+
+	addLineBreakChar(FALSE);
+
+	setEnabled( enabled );
+}
+// </FS:Ansariel>
+
 void LLTextEditor::appendWidget(const LLInlineViewSegment::Params& params, const std::string& text, bool allow_undo)
 {
 	// Save old state
@@ -2636,53 +2588,6 @@ BOOL LLTextEditor::tryToRevertToPristineState()
 	return isPristine(); // TRUE => success
 }
 
-
-static LLTrace::BlockTimerStatHandle FTM_SYNTAX_HIGHLIGHTING("Syntax Highlighting");
-void LLTextEditor::loadKeywords(const std::string& filename,
-								const std::vector<std::string>& funcs,
-								const std::vector<std::string>& tooltips,
-								const LLColor3& color)
-{
-	LL_RECORD_BLOCK_TIME(FTM_SYNTAX_HIGHLIGHTING);
-	if(mKeywords.loadFromFile(filename))
-	{
-		S32 count = llmin(funcs.size(), tooltips.size());
-		for(S32 i = 0; i < count; i++)
-		{
-			std::string name = utf8str_trim(funcs[i]);
-			mKeywords.addToken(LLKeywordToken::WORD, name, color, tooltips[i] );
-		}
-		segment_vec_t segment_list;
-		mKeywords.findSegments(&segment_list, getWText(), mDefaultColor.get(), *this);
-
-		mSegments.clear();
-		segment_set_t::iterator insert_it = mSegments.begin();
-		for (segment_vec_t::iterator list_it = segment_list.begin(); list_it != segment_list.end(); ++list_it)
-		{
-			insert_it = mSegments.insert(insert_it, *list_it);
-		}
-	}
-}
-
-void LLTextEditor::updateSegments()
-{
-	if (mReflowIndex < S32_MAX && mKeywords.isLoaded() && mParseOnTheFly)
-	{
-		LL_RECORD_BLOCK_TIME(FTM_SYNTAX_HIGHLIGHTING);
-		// HACK:  No non-ascii keywords for now
-		segment_vec_t segment_list;
-		mKeywords.findSegments(&segment_list, getWText(), mDefaultColor.get(), *this);
-
-		clearSegments();
-		for (segment_vec_t::iterator list_it = segment_list.begin(); list_it != segment_list.end(); ++list_it)
-		{
-			insertSegment(*list_it);
-		}
-	}
-
-	LLTextBase::updateSegments();
-}
-
 void LLTextEditor::updateLinkSegments()
 {
 	LLWString wtext = getWText();
@@ -2693,12 +2598,30 @@ void LLTextEditor::updateLinkSegments()
 		LLTextSegment *segment = *it;
 		if (segment && segment->getStyle() && segment->getStyle()->isLink())
 		{
-			// if the link's label (what the user can edit) is a valid Url,
-			// then update the link's HREF to be the same as the label text.
-			// This lets users edit Urls in-place.
 			LLStyleConstSP style = segment->getStyle();
 			LLStyleSP new_style(new LLStyle(*style));
 			LLWString url_label = wtext.substr(segment->getStart(), segment->getEnd()-segment->getStart());
+
+			segment_set_t::const_iterator next_it = mSegments.upper_bound(segment);
+			LLTextSegment *next_segment = *next_it;
+			if (next_segment)
+			{
+				LLWString next_url_label = wtext.substr(next_segment->getStart(), next_segment->getEnd()-next_segment->getStart());
+				std::string link_check = wstring_to_utf8str(url_label) + wstring_to_utf8str(next_url_label);
+				LLUrlMatch match;
+
+				if ( LLUrlRegistry::instance().findUrl(link_check, match))
+				{
+					if(match.getQuery() == wstring_to_utf8str(next_url_label))
+					{
+						continue;
+					}
+				}
+			}
+
+			// if the link's label (what the user can edit) is a valid Url,
+			// then update the link's HREF to be the same as the label text.
+			// This lets users edit Urls in-place.
 			if (LLUrlRegistry::instance().hasUrl(url_label))
 			{
 				std::string new_url = wstring_to_utf8str(url_label);
@@ -3085,7 +3008,7 @@ void LLTextEditor::markAsPreedit(S32 position, S32 length)
 
 S32 LLTextEditor::getPreeditFontSize() const
 {
-	return llround((F32)mFont->getLineHeight() * LLUI::getScaleFactor().mV[VY]);
+	return ll_round((F32)mFont->getLineHeight() * LLUI::getScaleFactor().mV[VY]);
 }
 
 BOOL LLTextEditor::isDirty() const

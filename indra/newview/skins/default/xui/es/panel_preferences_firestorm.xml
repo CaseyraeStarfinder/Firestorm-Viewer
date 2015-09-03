@@ -1,29 +1,20 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <panel label="Firestorm" name="firestorm">
 	<tab_container label="Prefs Firestorm" name="tabs">
-		<panel label="General" name="tab-general">
+		<panel label="Extras" name="tab-extras">
 			<check_box name="checkMiscRLVa" label="Permitir control remoto del visor mediante scripts (RLVa)" width="330"/>
 			<text name="textMiscRLVaRestart">
 				(requiere reiniciar)
 			</text>
-			<check_box label="Activar teleportes con doble clic en el mapa del mundo" name="FSWorldMapDoubleclickTeleport" tool_tip="Permite teleportarse mediante doble clic a una destinación en el mapa del mundo."/>
-			<check_box label="Desactivar las balizas de teleporte" name="tp_beam_toggle" tool_tip="Desactiva las balizas de destino de teleporte que se muestran tras teleportarse"/>
-			<check_box label="Desactivar pantalla de teleporte" name="tp_screen_toggle" tool_tip="Desactiva la pantalla negra durante todos los teleportes."/>
+			<check_box label="Si es posible, rezzear objetos siempre bajo el grupo del terreno" name="grouplandrez" tool_tip="Procura rezzear los objetos bajo el grupo del terreno si perteneces al mismo, aunque no tengas activa la etiqueta correspondiente"/>
+			<check_box label="Crear efectos de partículas cuando los scripts se comunican" name="EffectScriptChatParticles" tool_tip="Si lo activas, los objetos con scripts mostrarán remolinos de partículas de luz cuando los scripts se comuniquen"/>
+			<check_box label="Desactivar la baliza de seguimiento al alcanzar al avatar (&lt;= 3m)" name="FSDisableAvatarTrackerAtCloseIn" tool_tip="Si lo activas, la baliza de seguimiento se desactivará automáticamente si la distancia con el avatar es menor que 3 metros. (Por defecto)."/>
 			<check_box label="Desactivar la pantalla de progreso del inicio de sesión" name="login_screen_toggle" tool_tip="Desactiva la pantalla negra que muestra el progreso del inicio de la sesión"/>
 			<check_box label="Desactivar la pantalla de progreso del cierre de sesión" name="logout_screen_toggle" tool_tip="Desactiva la pantalla negra que muestra el progreso del cierre de la sesión."/>
-			<check_box label="Desactivar la apertura automática de la lista de bloqueados" name="FSDisableBlockListAutoOpen" tool_tip="Desactiva la apertura automática de la lista de bloqueados cuando se bloquean avatares u objetos."/>
-			<check_box label="Si es posible, rezzear objetos siempre bajo el grupo del terreno" name="grouplandrez" tool_tip="Procura rezzear los objetos bajo el grupo del terreno si perteneces al mismo, aunque no tengas activa la etiqueta correspondiente"/>
-			<check_box label="Ordenar lista de contactos por nombre de usuario aunque se muestren los Displaynames" name="sortcontactsbyun" tool_tip="Si está activado, todas las listas de contactos se ordenan siempre por nombre de usuario"/>
-			<check_box label="Representar avatares bloqueados como nubes de partículas" name="ShowMutedAvatarsAsCloud" tool_tip="Los avatares bloqueados se mostrarán como nubes de partículas de un color especial"/>
-			<check_box label="Ocultar carpetas de sistema vacías en el inventario" name="DebugHideEmptySystemFolders" tool_tip="Si lo activas, las ventanas de inventario no mostrará ninguna carpeta de sistema que esté vacía, como las de Favoritos, Hitos, etc."/>
-			<check_box label="Mostrar la carpeta Items Recibidos en el inventario" name="FSShowInboxFolder" tool_tip="Si lo activas, las ventanas de invantario también mostrarán la carpeta Items Recibidos"/>
-			<check_box label="Permitir diferentes términos de búsqueda en cada pestaña del inventario" name="FSSplitInventorySearchOverTabs" tool_tip="Si lo activas se pueden usar diferentes términos de búsqueda en cada pestaña del inventario."/>
-			<check_box label="Desactivar la baliza de seguimiento al alcanzar al avatar (&lt;= 3m)" name="FSDisableAvatarTrackerAtCloseIn" tool_tip="Si lo activas, la baliza de seguimiento se desactivará automáticamente si la distancia con el avatar es menor que 3 metros. (Por defecto)."/>
-			<check_box label="Crear efectos de partículas cuando los scripts se comunican" name="EffectScriptChatParticles" tool_tip="Si lo activas, los objetos con scripts mostrarán remolinos de partículas de luz cuando los scripts se comuniquen"/>
 			<check_box label="Activar escalado progresivo de distancia de dibujo" name="FSRenderFarClipStepping" tool_tip="Si lo activas, Firestorm aumentará progresivamente la distancia de dibujo después de un teleporte." width="300"/>
 			<slider name="progressive_draw_distance_interval" tool_tip="Intérvalo en segundos entre cada incremento de distancia de dibujo"/>
 			<check_box name="UseLSLBridge" label="Activar el LSL-Client Bridge" tool_tip="Permite al visor usar un accesorio con scripts (Bridge) para extender sus características"/>
-			<check_box name="UseLSLFlightAssist" label="Activar asistente de vuelo del Bridge" tool_tip="Activa el script que permite volar y flotar a mayor altitud"/>
+			<!-- <check_box name="UseLSLFlightAssist" label="Activar asistente de vuelo del Bridge" tool_tip="Activa el script que permite volar y flotar a mayor altitud"/> -->
 		</panel>
 		<panel label="Protección" name="ProtectionTab">
 			<check_box label="Impedir que pueda sentarme con un clic del botón izquierdo del ratón" name="FSBlockClickSit"/>
@@ -60,11 +51,7 @@
 			</text>
 			<spinner name="_NACL_AntiSpamSoundPreloadMulti" tool_tip="Multiplicador de eventos para peticiones de precarga de sonido [Por defecto: 4]"/>
 			<button name="AntiSpamUnblock" label="Desbloquear todas las fuentes de spam" width="250"/>
-			<check_box label="Quitar el botón &quot;Bloquear&quot; de los diálogos de script" name="FSRemoveScriptBlockButton"/>
 			<check_box label="Eliminar el botón &quot;Entrar&quot; de las invitaciones de grupo cuando éstas tengan coste" name="FSAllowGroupInvitationOnlyWithoutFee"/>
-			<check_box label="Notificar cuando se reciben items demasiado rápido" name="FSNotifyIncomingObjectSpam"/>
-			<check_box label="Notificar cuando se reciben items de otros residentes demasiado rápido" name="FSNotifyIncomingObjectSpamFrom"/>
-			<slider name="FSOfferThrottleMaxCount" label="Umbral para acelerar la entrada de items:" tool_tip="Establece el umbral de ofertas de items entrantes en un intérvalo de 10 segundos para que se produzca la aceleración de la entrada. Por defecto, 5." label_width="235" width="360"/>
 		</panel>
 		<panel label="Avatar" name="firestorm_avatar">
 			<text name="HeadMovement">
@@ -98,75 +85,6 @@
 			<button name="refresh_beams" label="Refrescar lista" tool_tip="Refrescar la lista de rayos" width="85"/>
 			<button left="277" name="PhoenixBeamPrev_Phoenix"/>
 			<slider name="FSBeamShapeScale" label="Escala:" tool_tip="Cambia la escala de la forma utilizada para el rayo con forma Phoenix" left_delta=""/>
-		</panel>
-		<panel label="CmdLine 1" name="tab-CmdLine1">
-			<check_box label="Activar el uso de la barra de chat como línea de comandos" name="chat_cmd_toggle"/>
-			<text name="FSCmdLineCalc_txt">
-				Calc. expresiones (uso: cmd SIN(2+2))
-			</text>
-			<text name="FSCmdLineAutocorrect_txt">
-				Añadir autocorr. (cmd lista|mala|buena)
-			</text>
-			<text name="FSCmdLineDrawDistance_txt" width="270">
-				Cambiar dist. de dibujo (uso: cmd m)
-			</text>
-			<text name="FSCmdLineBandWidth_txt">
-				Máx. ancho de banda (uso: cmd kbps)
-			</text>
-			<text name="FSCmdLineCopyCam_txt">
-				Copiar pos. de cámara a portapapeles
-			</text>
-			<text name="FSCmdLineRezPlatform_txt">
-				Crear plataforma (uso: cmd 0 - 64)
-			</text>
-			<slider name="FSCmdLinePlatformSize" label="Diámetro" label_width="60" tool_tip="Diámetro de la plataforma por defecto si no se usa ningún parámetro"/>
-			<text name="FSCmdLineKeyToName_txt" width="270">
-				Obt. nombre de av. de la clave (uso: cmd clave)
-			</text>
-			<text name="FSCmdLineAO_txt" width="270">
-				Activar/desactivar el AO (uso: cmd on/off)
-			</text>
-			<text name="FSCmdLineClearChat_txt" width="270">
-				Limpiar transcripción de chat (uso: cmd)
-			</text>
-			<line_editor tool_tip="Limpia la transcripción de chat para evitar efectos de lag procedentes de spammers." name="FSCmdLineClearChat"/>
-			<text name="FSCmdLineMedia_txt" width="270">
-				Conf. URL de medios (uso: cmd url tipo)
-			</text>
-			<line_editor tool_tip="Establece y reproduce tu flujo de medios a la URL especificada" name="FSCmdLineMedia"/>
-			<text name="FSCmdLineMusic_txt" width="270">
-				Conf. URL del flujo de música (uso: cmd url)
-			</text>
-			<line_editor tool_tip="Establece y reproduce tu flujo de audio a la URL especificada" name="FSCmdLineMusic"/>
-		</panel>
-		<panel label="CmdLine 2" name="tab-CmdLine2" >
-			<check_box label="Activar el uso de la barra de chat como línea de comandos" name="chat_cmd_toggle2"/>
-			<text name="FSCmdLinePos_txt">
-				Teleportar dentro del sim (uso: cmd x y z)
-			</text>
-			<text name="FSCmdLineGround_txt">
-				Teleportar al suelo (uso: cmd)
-			</text>
-			<text name="FSCmdLineHeight_txt">
-				Teleportar a altitud (uso: cmd z)
-			</text>
-			<text name="FSCmdLineMapTo_txt">
-				Telep. al sim X (uso: cmd nombredelsim)
-			</text>
-			<check_box label="Usar misma posición entre sims" name="toggle"/>
-			<text name="FSCmdTeleportToCam_txt" width="270">
-				Teleportar a pos. de cámara (uso: cmd)
-			</text>
-			<text name="FSCmdLineOfferTp_txt" width="270">
-				Ofrecer teleporte al avatar (uso: cmd clave)
-			</text>
-			<text name="FSCmdLineTP2_txt" width="270">
-				Teleportar donde el avatar (uso: cmd nombre)
-			</text>
-			<line_editor tool_tip="La sintaxis de este comando permite nombres parciales y no es sensible a mayúsculas. Se obtienen mejores resultados si se usa con el radar abierto." name="FSCmdLineTP2"/>		
-			<text name="FSCmdLineTeleportHome_txt">
-				Teleportar a mi base (uso: cmd)
-			</text>
 		</panel>
 		<panel label="Windlight" name="WindlightTab">
 			<check_box label="Cambiar automáticamente el entorno al configurado en la región/parcela." name="UseEnvironmentFromRegionAlways"/>
@@ -232,21 +150,6 @@
 			</fs_embedded_item_drop_target>
 			<text name="build_item_add_disp_rect_txt">
 				Actualmente establecido a: [ITEM]
-			</text>
-			<text name="text_box_permissions">
-				Permisos
-			</text>
-			<text name="text_box_permnextowner">
-				Próximo propietario:
-			</text>
-			<check_box label="Modificar" tool_tip="Permisos de modificación" name="next_owner_modify"/>
-			<check_box label="Copiar" tool_tip="Permisos de copia" name="next_owner_copy"/>
-			<check_box label="Transferir" tool_tip="Permisos de transferencia" name="next_owner_transfer"/>
-			<text name="text_box_permnote1">
-				También se aplicará
-			</text>
-			<text name="text_box_permnote2">
-				a las nuevas subidas.
 			</text>
 			<text name="text_box_pivotpoint">
 				Punto de pivotaje

@@ -55,26 +55,27 @@ const U32 DEFAULT_RETRIES_COUNT = 3;
 
 class LLVoiceCallCapResponder : public LLHTTPClient::Responder
 {
+	LOG_CLASS(LLVoiceCallCapResponder);
 public:
 	LLVoiceCallCapResponder(const LLUUID& session_id) : mSessionID(session_id) {};
 
+protected:
 	// called with bad status codes
-	virtual void errorWithContent(U32 status, const std::string& reason, const LLSD& content);
-	virtual void result(const LLSD& content);
+	virtual void httpFailure();
+	virtual void httpSuccess();
 
 private:
 	LLUUID mSessionID;
 };
 
 
-void LLVoiceCallCapResponder::errorWithContent(U32 status, const std::string& reason, const LLSD& content)
+void LLVoiceCallCapResponder::httpFailure()
 {
-	LL_WARNS("Voice") << "LLVoiceCallCapResponder error [status:"
-		<< status << "]: " << content << LL_ENDL;
+	LL_WARNS("Voice") << dumpResponse() << LL_ENDL;
 	LLVoiceChannel* channelp = LLVoiceChannel::getChannelByID(mSessionID);
 	if ( channelp )
 	{
-		if ( 403 == status )
+		if ( HTTP_FORBIDDEN == getStatus() )
 		{
 			//403 == no ability
 			LLNotificationsUtil::add(
@@ -91,12 +92,18 @@ void LLVoiceCallCapResponder::errorWithContent(U32 status, const std::string& re
 	}
 }
 
-void LLVoiceCallCapResponder::result(const LLSD& content)
+void LLVoiceCallCapResponder::httpSuccess()
 {
 	LLVoiceChannel* channelp = LLVoiceChannel::getChannelByID(mSessionID);
 	if (channelp)
 	{
 		//*TODO: DEBUG SPAM
+		const LLSD& content = getContent();
+		if (!content.isMap())
+		{
+			failureResult(HTTP_INTERNAL_ERROR, "Malformed response contents", content);
+			return;
+		}
 		LLSD::map_const_iterator iter;
 		for(iter = content.beginMap(); iter != content.endMap(); ++iter)
 		{
@@ -273,14 +280,14 @@ void LLVoiceChannel::deactivate()
 	if (callStarted())
 	{
 		setState(STATE_HUNG_UP);
-		
+
 		//Default mic is OFF when leaving voice calls
-		if (gSavedSettings.getBOOL("AutoDisengageMic") && 
+		if (gSavedSettings.getBOOL("AutoDisengageMic") &&
 			sCurrentVoiceChannel == this &&
 			LLVoiceClient::getInstance()->getUserPTTState())
 		{
 			gSavedSettings.setBOOL("PTTCurrentlyEnabled", true);
-			LLVoiceClient::getInstance()->inputUserControlState(true);
+			LLVoiceClient::getInstance()->setUserPTTState(false);
 		}
 	}
 	LLVoiceClient::getInstance()->removeObserver(this);
@@ -718,6 +725,8 @@ void LLVoiceChannelProximal::handleStatusChange(EStatusType status)
 		// do not notify user when leaving proximal channel
 		return;
 	case STATUS_VOICE_DISABLED:
+		LLVoiceClient::getInstance()->setUserPTTState(false);
+		gAgent.setVoiceConnected(false);
 		//skip showing "Voice not available at your current location" when agent voice is disabled (EXT-4749)
 		if(LLVoiceClient::getInstance()->voiceEnabled() && LLVoiceClient::getInstance()->isVoiceWorking())
 		{

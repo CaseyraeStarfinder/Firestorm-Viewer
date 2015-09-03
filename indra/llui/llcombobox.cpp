@@ -72,6 +72,7 @@ LLComboBox::Params::Params()
 :	allow_text_entry("allow_text_entry", false),
 	allow_new_values("allow_new_values", false),
 	show_text_as_tentative("show_text_as_tentative", true),
+	force_disable_fulltext_search("force_disable_fulltext_search", false), // <FS:Ansariel> Allow fulltext search in comboboxes
 	max_chars("max_chars", 20),
 	list_position("list_position", BELOW),
 	items("item"),
@@ -88,6 +89,7 @@ LLComboBox::LLComboBox(const LLComboBox::Params& p)
 :	LLUICtrl(p),
 	mTextEntry(NULL),
 	mTextEntryTentative(p.show_text_as_tentative),
+	mForceDisableFulltextSearch(p.force_disable_fulltext_search), // <FS:Ansariel> Allow fulltext search in comboboxes
 	mHasAutocompletedText(false),
 	mAllowTextEntry(p.allow_text_entry),
 	mAllowNewValues(p.allow_new_values),
@@ -444,6 +446,7 @@ void LLComboBox::onFocusLost()
 	{
 		mTextEntry->selectAll();
 	}
+	mButton->setForcePressedState(false);
 	LLUICtrl::onFocusLost();
 }
 
@@ -534,6 +537,16 @@ void LLComboBox::createLineEditor(const LLComboBox::Params& p)
 		}
 	}
 }
+
+// <FS:Ansariel> For setting the focus to the LLLineEditor
+void LLComboBox::focusEditor()
+{
+	if (mTextEntry)
+	{
+		mTextEntry->setFocus(TRUE);
+	}
+}
+// </FS:Ansariel>
 
 void LLComboBox::setLeftTextPadding(S32 pad)
 {
@@ -789,6 +802,11 @@ BOOL LLComboBox::handleKeyHere(KEY key, MASK mask)
 		// since the dropdown button eats the key
 		if (key == KEY_RETURN)
 		{
+			if (mask == MASK_NONE)
+			{
+				mOnReturnSignal(this, getValue());
+			}
+
 			// don't show list and don't eat key input when committing
 			// free-form text entry with RETURN since user already knows
             // what they are trying to select
@@ -937,7 +955,10 @@ void LLComboBox::updateSelection()
 		mTextEntry->setTentative(FALSE);
 		mLastSelectedIndex = mList->getFirstSelectedIndex();
 	}
-	else if (mList->selectItemByPrefix(left_wstring, FALSE))
+	// <FS:Ansariel> Allow fulltext search in comboboxes
+	//else if (mList->selectItemByPrefix(left_wstring, FALSE))
+	else if ((!LLUI::sSettingGroups["config"]->getBOOL("FSComboboxSubstringSearch") || mForceDisableFulltextSearch) && mList->selectItemByPrefix(left_wstring, FALSE))
+	// </FS:Ansariel>
 	{
 		LLWString selected_item = utf8str_to_wstring(getSelectedItemLabel());
 		LLWString wtext = left_wstring + selected_item.substr(left_wstring.size(), selected_item.size());
@@ -948,6 +969,18 @@ void LLComboBox::updateSelection()
 		mHasAutocompletedText = TRUE;
 		mLastSelectedIndex = mList->getFirstSelectedIndex();
 	}
+	// <FS:Ansariel> Allow fulltext search in comboboxes
+	else if (LLUI::sSettingGroups["config"]->getBOOL("FSComboboxSubstringSearch") && !mForceDisableFulltextSearch && mList->selectItemBySubstring(left_wstring, FALSE))
+	{
+		LLWString selected_item = utf8str_to_wstring(getSelectedItemLabel());
+		mTextEntry->setText(wstring_to_utf8str(left_wstring) + " (" + getSelectedItemLabel() + ")");
+		mTextEntry->setSelection(left_wstring.size(), mTextEntry->getWText().size());
+		mTextEntry->endSelection();
+		mTextEntry->setTentative(FALSE);
+		mHasAutocompletedText = TRUE;
+		mLastSelectedIndex = mList->getFirstSelectedIndex();
+	}
+	// </FS:Ansariel>
 	else // no matching items found
 	{
 		mList->deselectAllItems();

@@ -361,7 +361,9 @@
      left="143"
      name="checkbox uniform"
      top="48"
-     width="20" />
+     label_text.wrap="true"
+     label_text.width="120"
+     width="134" />
     <check_box
      control_name="ScaleStretchTextures"
      height="19"
@@ -649,6 +651,17 @@
      name="checkbox copy rotates"
      top_delta="16"
      width="134" />
+    <combo_box
+     height="20"
+     layout="topleft"
+     left="155"
+     follows="left|top"
+     name="tree_grass_combo"
+     top_pad="4"
+     width="130">
+      <combo_box.commit_callback
+       function="BuildTool.TreeGrass"/>
+    </combo_box>
     <radio_group
      height="105"
      layout="topleft"
@@ -792,7 +805,6 @@
 	     function="BuildTool.applyToSelection"/>
     </button>
     <text
-    text_color="LtGray_50"
      type="string"
      length="1"
      height="10"
@@ -806,7 +818,6 @@
         [DESC] [NUM]
     </text>
 	<text
-	 text_color="LtGray_50"
 	  type="string"
 	  length="1"
 	  height="16"
@@ -820,7 +831,6 @@
 		Nothing selected.
 	</text>
 	<text
-	 text_color="LtGray_50"
 	  type="string"
 	  length="1"
 	  height="16"
@@ -834,7 +844,6 @@
 	  width="280">
 	</text>
 	<text
-	 text_color="LtGray_50"
 	  type="string"
 	  length="1"
 	  height="16"
@@ -863,7 +872,6 @@
      halign="center"
      left="0"
      name="Object Info Tabs"
-     tab_drag_commit="true"
      tab_max_width="100"
      tab_min_width="40"
      tab_position="top"

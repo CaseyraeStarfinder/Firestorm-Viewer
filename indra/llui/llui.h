@@ -93,6 +93,7 @@ enum EAcceptance
 {
 	ACCEPT_POSTPONED,	// we are asynchronously determining acceptance
 	ACCEPT_NO,			// Uninformative, general purpose denial.
+	ACCEPT_NO_CUSTOM,	// Denial with custom message.
 	ACCEPT_NO_LOCKED,	// Operation would be valid, but permissions are set to disallow it.
 	ACCEPT_YES_COPY_SINGLE,	// We'll take a copy of a single item
 	ACCEPT_YES_SINGLE,		// Accepted. OK to drag and drop single item here.
@@ -261,7 +262,10 @@ public:
 
 	// Return the ISO639 language name ("en", "ko", etc.) for the viewer UI.
 	// http://www.loc.gov/standards/iso639-2/php/code_list.php
-	static std::string getLanguage();
+	// <FS:Ansariel> FIRE-16709: Bypass FSEnabledLanguages for llGetAgentLanguage
+	//static std::string getLanguage();
+	static std::string getLanguage(bool ignore_enabled_languages = false);
+	// </FS:Ansariel>
 
 	//helper functions (should probably move free standing rendering helper functions here)
 	static LLView* getRootView() { return sRootView; }

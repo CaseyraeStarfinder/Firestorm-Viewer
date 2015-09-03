@@ -356,6 +356,16 @@ LLViewerShaderMgr * LLViewerShaderMgr::instance()
 	return static_cast<LLViewerShaderMgr*>(sInstance);
 }
 
+// static
+void LLViewerShaderMgr::releaseInstance()
+{
+	if (sInstance != NULL)
+	{
+		delete sInstance;
+		sInstance = NULL;
+	}
+}
+
 void LLViewerShaderMgr::initAttribsAndUniforms(void)
 {
 	if (mReservedAttribs.empty())
@@ -1754,21 +1764,10 @@ BOOL LLViewerShaderMgr::loadShadersDeferred()
 
 	if (success)
 	{
-		// <FS:Ansariel> Tofu's SSR
-		std::string frag = "deferred/softenLightF.glsl";
-		if (mVertexShaderLevel[SHADER_DEFERRED] == 2 && gSavedSettings.getBOOL("FSRenderSSR"))
-		{
-			frag = "deferred/softenLightSSRF.glsl";
-		}
-		// </FS:Ansariel>
-
 		gDeferredSoftenProgram.mName = "Deferred Soften Shader";
 		gDeferredSoftenProgram.mShaderFiles.clear();
 		gDeferredSoftenProgram.mShaderFiles.push_back(make_pair("deferred/softenLightV.glsl", GL_VERTEX_SHADER_ARB));
-		// <FS:Ansariel> Tofu's SSR
-		//gDeferredSoftenProgram.mShaderFiles.push_back(make_pair("deferred/softenLightF.glsl", GL_FRAGMENT_SHADER_ARB));
-		gDeferredSoftenProgram.mShaderFiles.push_back(make_pair(frag, GL_FRAGMENT_SHADER_ARB));
-		// </FS:Ansariel>
+		gDeferredSoftenProgram.mShaderFiles.push_back(make_pair("deferred/softenLightF.glsl", GL_FRAGMENT_SHADER_ARB));
 
 		gDeferredSoftenProgram.mShaderLevel = mVertexShaderLevel[SHADER_DEFERRED];
 
